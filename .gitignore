@@ -14,4 +14,3 @@ deckeditor/undo/__pycache__/
 /.gitignore
 deckeditor/cardadd/__pycache__/
 deckeditor/dbload/__pycache__/
-deckeditor/notifications/__pycache__/
