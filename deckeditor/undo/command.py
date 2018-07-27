@@ -58,7 +58,7 @@ class CommandPackage(UndoCommand):
 
 class UndoStack(object):
 
-	def __init__(self, max_length: int = 0):
+	def __init__(self, max_length: int = 32):
 		self._commands = [] #type: t.List[UndoCommand]
 
 		self._max_length = max_length #type: int
@@ -67,10 +67,9 @@ class UndoStack(object):
 
 		self._waiting_for = () #type: t.Tuple[t.Type[UndoCommand], ...]
 
-	def push(self, command: UndoCommand) -> None:
+	def _push(self, command: UndoCommand) -> None:
 
 		if command.ignore():
-			# print('ignore', command)
 			return
 
 		if self._waiting_for:
@@ -84,7 +83,6 @@ class UndoStack(object):
 				self._commands[-1].add_command(command)
 
 			else:
-				# print(f'waiting for {self._waiting_for}, not matched by {command}')
 				return
 
 		else:
@@ -132,7 +130,9 @@ class UndoStack(object):
 
 		command.do()
 
-		# print(self._commands)
+	def push(self, *commands: UndoCommand) -> None:
+		for command in commands:
+			self._push(command)
 
 	def can_undo(self) -> bool:
 		return self._head >= 0 and not self._waiting_for

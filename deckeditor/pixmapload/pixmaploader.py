@@ -10,10 +10,6 @@ from PyQt5.QtGui import QPixmap
 from mtgimg.load import Loader as ImageLoader, TaskAwaiter
 from mtgimg.interface import ImageRequest, picturable
 
-from deckeditor import paths
-
-IMAGE_PATH = os.path.join(paths.RESOURCE_PATH, '599.png')
-
 
 class SingleAccessDict(dict):
 
@@ -50,11 +46,15 @@ class _PixmapConverter(object):
 
 			return self._pixmaps[image_request]
 
-		self._pixmaps[image_request] = pixmap = QPixmap.fromImage(
-			ImageQt.ImageQt(
-				image
+		if image_request and os.path.exists(image_request.path):
+			pixmap = QPixmap(image_request.path)
+
+		else:
+			self._pixmaps[image_request] = pixmap = QPixmap.fromImage(
+				ImageQt.ImageQt(
+					image
+				)
 			)
-		)
 
 		self._pixmaps[image_request] = pixmap
 
@@ -73,7 +73,6 @@ class PixmapLoader(ImageLoader):
 		pixmap_executor: t.Union[Executor, int] = None,
 	):
 		super().__init__(printing_executor, imageable_executor)
-		# self._pixmaps = SingleAccessDict() #type: t.Dict[ImageRequest, QPixmap]
 
 		self._pixmap_executor = (
 			pixmap_executor
@@ -84,20 +83,6 @@ class PixmapLoader(ImageLoader):
 		)
 
 		self._pixmap_converter = _PixmapConverter()
-
-	# def _image_to_pixmap(self, image_request: t.Optional[ImageRequest], image: Image.Image) -> QPixmap:
-	# 	print('_image to pixmap')
-	# 	try:
-	# 		pixmap = self._pixmaps[image_request]
-	# 		print('cached')
-	# 		return pixmap
-	# 	except KeyError:
-	#
-	# 		self._pixmaps[image_request] = pixmap = QPixmap.fromImage(
-	# 			ImageQt.ImageQt(image)
-	# 		)
-	# 		print('converted, saved')
-	# 		return pixmap
 
 	def get_pixmap(
 		self,
@@ -122,7 +107,6 @@ class PixmapLoader(ImageLoader):
 					_image_request,
 					image,
 				)
-			# lambda image: QPixmap.fromImage(ImageQt.ImageQt(image))
 		)
 
 	def get_default_pixmap(self) -> Promise:

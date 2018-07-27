@@ -9,7 +9,6 @@ from deckeditor.cardcontainers.alignment.aligner import Aligner, AlignRemove, Al
 from deckeditor.cardcontainers.physicalcard import PhysicalCard
 
 
-
 class GridDetach(AlignDetach):
 
 	def __init__(self, grid: 'GridAligner', cards: t.Iterable[PhysicalCard]):
@@ -43,7 +42,6 @@ class GridDetach(AlignDetach):
 
 		if self._indexes:
 			self._grid.re_position(self._indexes[0][0])
-
 
 
 class GridRemove(AlignRemove):

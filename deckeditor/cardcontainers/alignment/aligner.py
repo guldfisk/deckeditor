@@ -1,12 +1,16 @@
 import typing as t
+from abc import abstractmethod
+from enum import Enum
 
-from abc import ABCMeta, abstractmethod
+from PyQt5 import QtCore
 
-from PyQt5.QtWidgets import QGraphicsScene
-from PyQt5.QtCore import QPointF
+from mtgimg.load import IMAGE_WIDTH, IMAGE_HEIGHT
 
+from deckeditor.cardcontainers.alignment.curser import Cursor
 from deckeditor.cardcontainers.physicalcard import PhysicalCard
-from deckeditor.undo.command import UndoCommand
+from deckeditor.cardcontainers.selection import SelectionScene
+from deckeditor.undo.command import UndoCommand, UndoStack
+from deckeditor.values import SortProperty
 
 
 class AttachmentChange(UndoCommand):
@@ -29,17 +33,93 @@ class AlignRemove(AttachmentChange):
 	pass
 
 
-class Aligner(object, metaclass=ABCMeta):
+class AlignSort(AttachmentChange):
+	pass
 
-	def __init__(self, scene: QGraphicsScene):
-		self._scene = scene
+
+class Direction(Enum):
+	UP = (0, -1)
+	RIGHT = (1, 0)
+	DOWN = (0, 1)
+	LEFT = (-1, 0)
+
+
+class CardScene(SelectionScene):
+	cards_changed = QtCore.pyqtSignal(SelectionScene)
+
+	def __init__(self, aligner_type: t.Type['Aligner'], undo_stack: UndoStack):
+		super().__init__()
+		self._undo_stack = undo_stack
+
+		self.setSceneRect(0, 0, IMAGE_WIDTH * 12, IMAGE_HEIGHT * 8)
+
+		self._cursor = Cursor()
+
+		self.addItem(self._cursor)
+
+		self._cursor.setZValue(3)
+
+		self._aligner = aligner_type(self, undo_stack)
+
+		self.cards_changed.connect(lambda scene: print(f'cards changed in {scene}'))
 
 	@property
-	def scene(self) -> QGraphicsScene:
+	def aligner(self) -> 'Aligner':
+		return self._aligner
+
+	@aligner.setter
+	def aligner(self, aligner: 'Aligner') -> None:
+		self._aligner = aligner
+
+	@property
+	def cursor(self) -> Cursor:
+		return self._cursor
+
+	@property
+	def undo_stack(self) -> UndoStack:
+		return self._undo_stack
+
+	@property
+	def cards(self) -> t.Iterable[PhysicalCard]:
+		return (item for item in self.items() if isinstance(item, PhysicalCard))
+
+	def add_cards(self, *cards: PhysicalCard) -> None:
+		for card in cards:
+			self.addItem(card)
+
+		self.cards_changed.emit(self)
+
+	def remove_cards(self, *cards: PhysicalCard):
+		for card in cards:
+			self.removeItem(card)
+
+		self.cards_changed.emit(self)
+
+	def add_select_if(self, criteria: t.Callable[[PhysicalCard], bool]):
+		self.add_selection(
+			item for item in self.items() if isinstance(item, PhysicalCard) and criteria(item)
+		)
+
+
+class Aligner(QtCore.QObject):
+
+	cursor_moved = QtCore.pyqtSignal(QtCore.QPointF)
+
+	def __init__(self, scene: CardScene, undo_stack: UndoStack):
+		super().__init__()
+		self._scene = scene
+		self._undo_stack = undo_stack
+
+	@property
+	def scene(self) -> CardScene:
 		return self._scene
 
 	@abstractmethod
-	def attach_cards(self, cards: t.Iterable[PhysicalCard], position: QPointF) -> AlignAttach:
+	def attach_cards(
+		self,
+		cards: t.Iterable[PhysicalCard],
+		position: t.Optional[QtCore.QPointF] = None
+	) -> AlignAttach:
 		pass
 
 	@abstractmethod
@@ -48,4 +128,12 @@ class Aligner(object, metaclass=ABCMeta):
 
 	@abstractmethod
 	def remove_cards(self, cards: t.Iterable[PhysicalCard]) -> AlignRemove:
+		pass
+
+	@abstractmethod
+	def move_cursor(self, direction: Direction, modifiers: int = 0):
+		pass
+
+	@abstractmethod
+	def sort(self, sort_property: SortProperty, orientation: int) -> AlignSort:
 		pass

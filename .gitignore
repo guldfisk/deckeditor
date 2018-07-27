@@ -14,3 +14,14 @@ deckeditor/undo/__pycache__/
 /.gitignore
 deckeditor/cardadd/__pycache__/
 deckeditor/dbload/__pycache__/
+deckeditor/notifications/__pycache__/
+/deckeditor/resources/font/icomoon.zip
+deckeditor/cardview/__pycache__/
+
+deckeditor/resources/U.svg
+deckeditor/resources/icomoon/
+deckeditor/context/__pycache__/
+deckeditor/generate/__pycache__/
+deckeditor/resources/U.png
+deckeditor/resources/icomoon.ttf
+decks/

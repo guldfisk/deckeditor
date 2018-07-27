@@ -20,7 +20,7 @@ class Notification(QtWidgets.QFrame):
 		self._icon = QtSvg.QSvgWidget(
 			os.path.join(
 				paths.RESOURCE_PATH,
-				'excamationmark.svg',
+				'exclamation_mark.svg',
 			)
 		)
 
