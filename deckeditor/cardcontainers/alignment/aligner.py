@@ -6,11 +6,11 @@ from PyQt5 import QtCore
 
 from mtgimg.load import IMAGE_WIDTH, IMAGE_HEIGHT
 
-from deckeditor.cardcontainers.alignment.curser import Cursor
+from deckeditor.cardcontainers.alignment.cursor import Cursor
 from deckeditor.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.cardcontainers.selection import SelectionScene
 from deckeditor.undo.command import UndoCommand, UndoStack
-from deckeditor.values import SortProperty
+from deckeditor.values import SortProperty, Direction
 
 
 class AttachmentChange(UndoCommand):
@@ -37,17 +37,15 @@ class AlignSort(AttachmentChange):
 	pass
 
 
-class Direction(Enum):
-	UP = (0, -1)
-	RIGHT = (1, 0)
-	DOWN = (0, 1)
-	LEFT = (-1, 0)
-
-
 class CardScene(SelectionScene):
 	cards_changed = QtCore.pyqtSignal(SelectionScene)
+	cursor_moved = QtCore.pyqtSignal(QtCore.QPointF)
 
-	def __init__(self, aligner_type: t.Type['Aligner'], undo_stack: UndoStack):
+	def __init__(
+		self,
+		aligner_type: t.Type['Aligner'],
+		undo_stack: UndoStack,
+	):
 		super().__init__()
 		self._undo_stack = undo_stack
 
@@ -59,9 +57,8 @@ class CardScene(SelectionScene):
 
 		self._cursor.setZValue(3)
 
-		self._aligner = aligner_type(self, undo_stack)
-
-		self.cards_changed.connect(lambda scene: print(f'cards changed in {scene}'))
+		self._aligner = None
+		self.aligner = aligner_type(self, undo_stack)
 
 	@property
 	def aligner(self) -> 'Aligner':
@@ -70,6 +67,7 @@ class CardScene(SelectionScene):
 	@aligner.setter
 	def aligner(self, aligner: 'Aligner') -> None:
 		self._aligner = aligner
+		self._aligner.cursor_moved.connect(lambda pos: self.cursor_moved.emit(pos))
 
 	@property
 	def cursor(self) -> Cursor:
@@ -102,7 +100,6 @@ class CardScene(SelectionScene):
 
 
 class Aligner(QtCore.QObject):
-
 	cursor_moved = QtCore.pyqtSignal(QtCore.QPointF)
 
 	def __init__(self, scene: CardScene, undo_stack: UndoStack):

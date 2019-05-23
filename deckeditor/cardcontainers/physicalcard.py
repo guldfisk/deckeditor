@@ -6,7 +6,8 @@ from mtgorp.models.persistent.printing import Printing
 
 from mtgimg.interface import ImageRequest
 
-from deckeditor.pixmapload.pixmaploader import PixmapLoader
+from mtgqt.pixmapload.pixmaploader import PixmapLoader
+
 from deckeditor.cardcontainers.graphicpixmapobject import GraphicPixmapObject
 from deckeditor.context.context import Context
 
@@ -18,13 +19,8 @@ class PhysicalCard(GraphicPixmapObject):
 
 	DEFAULT_PIXMAP = None #type: QtGui.QPixmap
 
-	@classmethod
-	def init(cls, pixmap_loader: PixmapLoader):
-		cls.pixmap_loader = pixmap_loader
-		cls.DEFAULT_PIXMAP = cls.pixmap_loader.get_default_pixmap().get()
-
 	def __init__(self, printing: Printing):
-		super().__init__(self.DEFAULT_PIXMAP)
+		super().__init__(Context.pixmap_loader.get_default_pixmap())
 
 		self._selection_highlight_pen = QtGui.QPen(
 			QtGui.QColor(255, 0, 0),
@@ -49,7 +45,7 @@ class PhysicalCard(GraphicPixmapObject):
 
 	def _update_image(self):
 		image_request = self.image_request()
-		self.pixmap_loader.get_pixmap(image_request = image_request).then(
+		Context.pixmap_loader.get_pixmap(image_request = image_request).then(
 			lambda pixmap: self._set_updated_pixmap(pixmap, image_request)
 		)
 
@@ -65,6 +61,21 @@ class PhysicalCard(GraphicPixmapObject):
 		self._back = not self._back
 		self._update_image()
 
+	def _change_printing(self, printing: Printing) -> None:
+		self._printing = printing
+		self._set_pixmap(self.DEFAULT_PIXMAP)
+		self._update_image()
+
+	class _PrintingChanger(object):
+
+		def __init__(self, card: 'PhysicalCard', printing: Printing):
+			self._card = card
+			self._printing = printing
+
+		def __call__(self):
+			self._card._change_printing(self._printing)
+
+
 	def context_menu(self, menu: QtWidgets.QMenu) -> None:
 		other_printings = self.printing.cardboard.printings - {self.printing}
 
@@ -73,7 +84,7 @@ class PhysicalCard(GraphicPixmapObject):
 
 			for printing in sorted(other_printings, key = lambda _printing: _printing.expansion.name):
 				action = QtWidgets.QAction(printing.expansion.name, change_printing_menu)
-				action.triggered.connect(lambda : print('change action to', printing))
+				action.triggered.connect(self._PrintingChanger(self, printing))
 				change_printing_menu.addAction(action)
 
 		if self._printing.cardboard.back_cards:

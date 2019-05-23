@@ -11,7 +11,7 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
 		self._bounding_rect = QtCore.QRectF()
 
 		self._selection_highlight_pen = QtGui.QPen(
-			QtGui.QColor(0, 0, 0),
+			QtGui.QColor(255, 0, 0),
 			1,
 		)
 

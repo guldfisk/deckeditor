@@ -54,7 +54,8 @@ class CardViewWidget(QtWidgets.QWidget, CardView):
 		super().__init__(parent)
 
 		self._image_request = None #type: ImageRequest
-		self._pixmap = Context.pixmap_loader.get_default_pixmap().get() #type: QtGui.QPixmap
+		self._pixmap = Context.pixmap_loader.get_default_pixmap()
+		#type: QtGui.QPixmap
 
 		self._info_label = ScaledLabel(self)
 		self._info_label.setPixmap(self._pixmap)
@@ -73,9 +74,17 @@ class CardViewWidget(QtWidgets.QWidget, CardView):
 			self._info_label.setPixmap(pixmap)
 		
 	def _set_image(self, image_request: ImageRequest) -> None:
+		if image_request == self._image_request:
+			return
+
 		self._image_request = image_request
-		Context.pixmap_loader.get_pixmap(image_request=image_request).then(
-			lambda pixmap: self._image_ready.emit(image_request, pixmap)
+		Context.pixmap_loader.get_pixmap(
+			image_request = image_request
+		).then(
+			lambda pixmap:
+				self._image_ready.emit(
+					image_request, pixmap
+				)
 		)
 
 	def fit_image(self) -> None:

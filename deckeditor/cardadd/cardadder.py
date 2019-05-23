@@ -14,12 +14,12 @@ from mtgimg.interface import ImageRequest
 from deckeditor.context.context import Context
 from deckeditor.notifications.notifyable import Notifyable
 from deckeditor.cardview.widget import CardViewWidget
-from deckeditor.values import DeckZone
+from deckeditor.values import DeckZoneType
 
 
 class CardAddable(object):
 
-	def add_printings(self, target: DeckZone, printings: t.Iterable[Printing]):
+	def add_printings(self, target: DeckZoneType, printings: t.Iterable[Printing]):
 		pass
 
 
@@ -28,7 +28,7 @@ class TargetSelector(QtWidgets.QComboBox):
 	def __init__(self, parent: QtWidgets.QWidget = None):
 		super().__init__(parent)
 
-		for target in DeckZone:
+		for target in DeckZoneType:
 			self.addItem(target.name)
 
 
@@ -78,7 +78,7 @@ class PrintingList(QtWidgets.QListView):
 
 	def _add_printings(self) -> None:
 		self._addable.add_printings(
-			DeckZone[self._target_selector.currentText()],
+			DeckZoneType[self._target_selector.currentText()],
 			[self.model().item(self.currentIndex().row()).printing] * int(self._amounter.text()),
 		)
 
@@ -151,7 +151,7 @@ class PrintingItem(QtGui.QStandardItem):
 	def __init__(self, printing: Printing):
 		super().__init__()
 		self._printing = printing
-		self.setText(printing.expansion.name + ' - ' + printing.expansion.code)
+		self.setText(f'{printing.expansion.name} - {printing.expansion.code}')
 
 	@property
 	def printing(self) -> Printing:

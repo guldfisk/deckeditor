@@ -18,132 +18,120 @@ from deckeditor.cardcontainers.alignment.aligner import (
 	AlignDetach,
 	AlignRemove,
 	AlignSort,
-	Direction,
 	CardScene,
 )
 from deckeditor.context.context import Context
-from deckeditor.values import SortProperty
-
-
-def _spiral(direction: Direction):
-	if direction == Direction.UP:
-		_x = 0
-		_y = -1
-		dx = 1
-		dy = 0
-
-	elif direction == Direction.RIGHT:
-		_x = 1
-		_y = 0
-		dx = 0
-		dy = -1
-
-	elif direction == Direction.DOWN:
-		_x = 0
-		_y = -1
-		dx = -1
-		dy = 0
-
-	else:
-		_x = -1
-		_y = 0
-		dx = 0
-		dy = -1
-
-	swaps = 0
-
-	while True:
-
-		yield _x, _y
-
-		if _x == _y or _x == -_y:
-			if swaps == 3:
-				_x, _y = _x + dx, _y + dy
-				yield _x, _y
-				swaps = 0
-
-			dx, dy = -dy, dx
-			swaps += 1
-
-		_x, _y = _x + dx, _y + dy
+from deckeditor.values import SortProperty, Direction
 
 
 class CardStacker(ABC):
 
 	def __init__(
 		self,
-		grid: 'StackingGrid',
-		index: t.Tuple[int, int],
-		geometry: t.Tuple[float, float, float, float],
+		aligner: 'StackingGrid',
+		index: t.Sequence[int],
+		# geometry: t.Tuple[float, float, float, float],
 	):
-		self._aligner = grid
-		self._index = index
-		self._geometry = list(geometry) # type: t.List[float]
+		self._aligner = aligner #type: StackingGrid
+		self._index = list(index) #type: t.List[int]
+
+		# self._geometry = list(geometry) # type: t.List[float]
+
 		self._cards = []  # type: t.List[PhysicalCard]
+
+		self._requested_size = (0., 0.) #type: t.Tuple[float, float]
 
 	@property
 	def grid(self) -> 'StackingGrid':
 		return self._aligner
 
 	@property
-	def index(self) -> t.Tuple[int, int]:
+	def index(self) -> t.List[int]:
 		return self._index
 
 	@property
 	def x_index(self) -> int:
 		return self._index[0]
 
+	# @x_index.setter
+	# def x_index(self, value: int) -> None:
+	# 	self._index[0] = value
+
 	@property
-	def y_index(self) -> int	:
+	def y_index(self) -> int:
 		return self._index[1]
+
+	# @y_index.setter
+	# def y_index(self, value: int) -> None:
+	# 	self._index[1] = value
 
 	@property
 	def x(self) -> float:
-		return self._geometry[0]
+		return self._aligner.stacker_map.width_at(self.x_index)
 
-	@x.setter
-	def x(self, value: float) -> None:
-		self._geometry[0] = value
+	# @x.setter
+	# def x(self, value: float) -> None:
+	# 	self._geometry[0] = value
 
 	@property
 	def y(self) -> float:
-		return self._geometry[1]
+		return self._aligner.stacker_map.height_at(self.y_index)
 
-	@y.setter
-	def y(self, value: float) -> None:
-		self._geometry[1] = value
+	# @y.setter
+	# def y(self, value: float) -> None:
+	# 	self._geometry[1] = value
 
 	@property
 	def position(self) -> t.Tuple[float, float]:
-		return self._geometry[0:2]
+		return self.x, self.y
 
-	@position.setter
-	def position(self, value: t.Tuple[float, float]) -> None:
-		self._geometry[0:2] = value
+	# @position.setter
+	# def position(self, value: t.Tuple[float, float]) -> None:
+	# 	self._geometry[0:2] = value
 
 	@property
 	def width(self) -> float:
-		return self._geometry[2]
+		return self._aligner.stacker_map.column_width_at(self.x_index)
 
-	@width.setter
-	def width(self, value: float) -> None:
-		self._geometry[2] = value
+	# @width.setter
+	# def width(self, value: float) -> None:
+	# 	self._geometry[2] = value
 
 	@property
 	def height(self) -> float:
-		return self._geometry[3]
+		return self._aligner.stacker_map.row_height_at(self.y_index)
 
-	@height.setter
-	def height(self, value: float) -> None:
-		self._geometry[3] = value
+	# @height.setter
+	# def height(self, value: float) -> None:
+	# 	self._geometry[3] = value
 
 	@property
-	def dimensions(self) -> t.Tuple[float, float]:
-		return self._geometry[2:4]
+	def size(self) -> t.Tuple[float, float]:
+		return self.width, self.height
 
-	@dimensions.setter
-	def dimensions(self, value: t.Tuple[float, float]) -> None:
-		self._geometry[2:4] = value
+	# @size.setter
+	# def size(self, values: t.Sequence[float]) -> None:
+	# 	self._geometry[2:4] = values
+
+	# @property
+	# def dimensions(self) -> t.List[float]:
+	# 	return self._geometry[2:4]
+	#
+	# @dimensions.setter
+	# def dimensions(self, value: t.Tuple[float, float]) -> None:
+	# 	self._geometry[2:4] = value
+
+	@property
+	def requested_size(self) -> t.List[float]:
+		return self._requested_size
+
+	@property
+	def requested_width(self) -> float:
+		return self._requested_size[0]
+
+	@property
+	def requested_height(self) -> float:
+		return self._requested_size[1]
 
 	@property
 	def cards(self) -> t.List[PhysicalCard]:
@@ -154,21 +142,21 @@ class CardStacker(ABC):
 		pass
 
 	@abstractmethod
-	def _requested_space(self) -> t.Tuple[float, float]:
+	def calculate_requested_size(self) -> t.Tuple[float, float]:
 		pass
 
 	def update(self):
-		self._aligner.request_space(self, *self._requested_space())
+		self._aligner.request_space(self, *self.requested_size())
 		self._stack()
 
-		for i in range(len(self._cards)):
-			if self._cards[i] == self._aligner.cursor_position:
+		for index, card in enumerate(self._cards):
+			if card == self._aligner.cursor_position:
 				self._aligner.scene.cursor.setPos(
-					self._cards[i].pos()
+					card.pos()
 				)
 
-			self._cards[i].setZValue(i - len(self._cards) - 1)
-			self._aligner.get_card_info(self._cards[i]).position = i
+			card.setZValue(index - len(self._cards) - 1)
+			self._aligner.get_card_info(card).position = index
 
 	@abstractmethod
 	def _stack(self):
@@ -178,37 +166,26 @@ class CardStacker(ABC):
 		info = self._aligner.get_card_info(card)
 
 		if info.card_stacker is not None:
-			info.card_stacker.remove_card(card)
+			info.card_stacker.remove_cards((card,))
 
 		info.card_stacker = self
 		self._cards.append(card)
 
 	def _remove_card_no_restack(self, card: PhysicalCard):
-		try:
-			self._cards.remove(card)
-			self._aligner.remove_card(card)
-		except KeyError:
-			pass
+		self._cards.remove(card)
+		self._aligner.remove_card(card)
 
-	def _insert_card(self, index: int, card: PhysicalCard):
+	def _insert_card_no_restack(self, index: int, card: PhysicalCard):
 		info = self._aligner.get_card_info(card)
 
 		if info.card_stacker is not None:
-			info.card_stacker.remove_card(card)
+			info.card_stacker.remove_cards((card,))
 
 		info.card_stacker = self
 		self._cards.insert(index, card)
 
-	def remove_card(self, card: PhysicalCard):
-		self._remove_card_no_restack(card)
-		self.update()
-
-	def add_card(self, card: PhysicalCard):
-		self.add_card_no_restack(card)
-		self.update()
-
 	def insert_card(self, index: int, card: PhysicalCard):
-		self._insert_card(index, card)
+		self._insert_card_no_restack(index, card)
 		self.update()
 
 	def remove_cards(self, cards: t.Iterable[PhysicalCard]):
@@ -234,19 +211,19 @@ class CardStacker(ABC):
 			else:
 				stacker = self._aligner.find_stacker(
 					*cursor_info.card_stacker.index,
-					direction=Direction.UP
+					direction = Direction.UP
 				)
 				if stacker:
 					self._aligner.link_cursor(stacker.cards[-1])
+				# else:
+				# 	stacker = self._aligner.find_stacker_spiraled(
+				# 		*cursor_info.card_stacker.index,
+				# 		direction = Direction.UP,
+				# 	)
+				# 	if stacker:
+				# 		self._aligner.link_cursor(stacker.cards[-1])
 				else:
-					stacker = self._aligner.find_stacker_spiraled(
-						*cursor_info.card_stacker.index,
-						direction=Direction.UP,
-					)
-					if stacker:
-						self._aligner.link_cursor(stacker.cards[-1])
-					else:
-						self._aligner.link_cursor(None)
+					self._aligner.link_cursor(None)
 
 	def add_cards(self, cards: t.Iterable[PhysicalCard]):
 		for card in cards:
@@ -255,7 +232,7 @@ class CardStacker(ABC):
 
 	def insert_cards(self, indexes: t.Iterable[int], cards: t.Iterable[PhysicalCard]):
 		for index, card in zip(indexes, cards):
-			self._insert_card(index, card)
+			self._insert_card_no_restack(index, card)
 		self.update()
 
 	def clear_no_restack(self):
@@ -405,7 +382,7 @@ class _StackingMove(UndoCommand):
 	def redo(self) -> None:
 		for stacker, infos in self._stackers.items():
 			if stacker is not None:
-				stacker.remove_cards(card for index, card in infos)
+				stacker.remove_cards(card for _, card in infos)
 
 		self._stacker.add_cards(self._cards)
 
@@ -635,23 +612,47 @@ class StackerMap(object):
 	def __init__(
 		self,
 		aligner: 'StackingGrid',
+		row_amount: int,
+		column_amount: int,
+		default_row_height: float = 1.,
+		default_column_width: float= 1.,
 	):
 		self._aligner = aligner
-		self._grid = [] #type: t.List[t.List[CardStacker]]
 
-		self._row_heights = [] #type: t.List[int]
-		self._column_widths = [] #type: t.List[int]
+		self._row_amount = row_amount
+		self._column_amount = column_amount
 
-		self._row_length = 0
-		self._column_height = 0
+		self._grid = [
+			[
+				self._aligner.create_stacker(
+					row,
+					column,
+				)
+				for column in
+				range(column_amount)
+			]
+			for row in
+			range(row_amount)
+		]
+
+		self._row_heights = [
+			default_row_height
+			for _ in
+			range(self._row_amount)
+		]
+		self._column_widths = [
+			default_column_width
+			for _ in
+			range(self._column_amount)
+		]
 
 	@property
 	def row_length(self) -> int:
-		return self._row_length
+		return self._column_amount
 
 	@property
 	def column_height(self) -> int:
-		return self._column_height
+		return self._row_amount
 
 	@property
 	def width(self) -> int:
@@ -661,77 +662,42 @@ class StackerMap(object):
 	def height(self) -> int:
 		return sum(self._row_heights)
 
+	@property
+	def columns(self) -> t.List[t.List[CardStacker]]:
+		return self._grid
+
+	@property
+	def rows(self) -> t.Iterator[t.Tuple[CardStacker, ...]]:
+		return zip(*self._grid)
+
 	def width_at(self, index: int) -> int:
 		return sum(self._column_widths[:index])
 
 	def height_at(self, index: int) -> int:
 		return sum(self._row_heights[:index])
 
-	def set_row_height(self, index: int, value: int) -> None:
-		self._row_heights[index] = value
-
-	def set_column_width(self, index: int, value: int) -> None:
-		self._column_widths[index] = value
-
-	def row_height_at(self, index: int) -> int:
+	def row_height_at(self, index: int) -> float:
 		return self._row_heights[index]
 
-	def column_width_at(self, index: int) -> int:
+	def column_width_at(self, index: int) -> float:
 		return self._column_widths[index]
 
 	def map_position_to_index(self, x: float, y: float) -> t.Tuple[int, int]:
-		xi = self._row_length - 1
-		for i in range(self._row_length):
-			if x <= self._column_widths[i]:
+		xi = self.row_length
+		for i in range(self.row_length):
+			if x <= self.column_width_at(i):
 				xi = i
 				break
-			x -= self._column_widths[i]
+			x -= self.column_width_at(i)
 
-		yi = self._column_height - 1
-		for i in range(self._column_height):
-			if y <= self._row_heights[i]:
+		yi = self.column_height
+		for i in range(self.column_height):
+			if y <= self.row_height_at(i):
 				yi = i
 				break
-			y -= self._row_heights[i]
+			y -= self.row_height_at(i)
 
 		return xi, yi
-
-	def add_row(self, height: int = 0) -> None:
-
-		for x in range(self._row_length):
-			self._grid[x].append(
-				self._aligner.create_stacker(
-					x,
-					self._column_height
-				)
-			)
-
-		self._column_height += 1
-		self._row_heights.append(height)
-
-	def add_column(self, width: int = 0) -> None:
-		self._grid.append(
-			[
-				self._aligner.create_stacker(self._row_length, y)
-				for y in
-				range(self._column_height)
-			]
-		)
-
-		self._row_length += 1
-		self._column_widths.append(width)
-
-	def remove_row(self) -> None:
-		for column in self._grid:
-			del column[-1]
-
-		self._column_height -= 1
-		del self._row_heights[-1]
-
-	def remove_column(self) -> None:
-		del self._grid[-1]
-		self._row_length -= 1
-		del self._column_widths[-1]
 
 	def get_stacker(self, x: int, y: int) -> CardStacker:
 		return self._grid[x][y]
@@ -742,8 +708,19 @@ class StackerMap(object):
 			for stacker in column:
 				yield stacker
 
-	def __iter__(self) -> t.Iterator[t.List[CardStacker]]:
-		return self._grid.__iter__()
+	def __iter__(self) -> t.Iterator[CardStacker]:
+		return self.stackers
+
+	def __str__(self):
+		return '[\n' + '\n'.join(
+			'\t[' + ', '.join(
+				str(cell.position)
+				for cell in
+				row
+			) + ']'
+			for row in
+			zip(*self._grid)
+		) + '\n]'
 
 
 class StackingGrid(Aligner):
@@ -760,10 +737,14 @@ class StackingGrid(Aligner):
 
 		self._margin_pixel_size = margin * IMAGE_WIDTH / 2.5
 
-		self._stacker_map = StackerMap(self)
+		self._stacker_map = self.create_stacker_map()
 
 		self._cursor_position = None  # type: t.Optional[PhysicalCard]
 		self._cursor_index = 0
+
+	@abstractmethod
+	def create_stacker_map(self) -> StackerMap:
+		pass
 
 	@abstractmethod
 	def request_space(self, card_stacker: CardStacker, x: int, y: int) -> None:
@@ -952,29 +933,29 @@ class StackingGrid(Aligner):
 					if stacker.cards:
 						return stacker
 
-	def find_stacker_spiraled(self, x: int, y: int, direction: Direction) -> t.Optional[CardStacker]:
-		if not self._stacked_cards:
-			return None
-
-		x, y = int(x), int(y)
-
-		_iter = _spiral(direction)
-
-		for dx, dy in (
-			next(_iter)
-			for _ in
-			range(
-				self.stacker_map.row_length
-				* self.stacker_map.column_height
-				* 4
-			)
-		):
-			stacker = self.get_card_stacker_at_index(x + dx, y + dy)
-
-			if stacker.cards:
-				return stacker
-
-		return None
+	# def find_stacker_spiraled(self, x: int, y: int, direction: Direction) -> t.Optional[CardStacker]:
+	# 	if not self._stacked_cards:
+	# 		return None
+	#
+	# 	x, y = int(x), int(y)
+	#
+	# 	_iter = spiral(direction)
+	#
+	# 	for dx, dy in (
+	# 		next(_iter)
+	# 		for _ in
+	# 		range(
+	# 			self.stacker_map.row_length
+	# 			* self.stacker_map.column_height
+	# 			* 4
+	# 		)
+	# 	):
+	# 		stacker = self.get_card_stacker_at_index(x + dx, y + dy)
+	#
+	# 		if stacker.cards:
+	# 			return stacker
+	#
+	# 	return None
 
 	def _move_cards(self, cards: t.List[PhysicalCard], stacker: CardStacker):
 		if not cards:
@@ -1074,42 +1055,42 @@ class StackingGrid(Aligner):
 
 		Context.card_view.set_image.emit(self._cursor_position.image_request())
 
-	@abstractmethod
-	def _can_create_rows(self, amount: int) -> bool:
-		pass
-
-	@abstractmethod
-	def _can_create_columns(self, amount: int) -> bool:
-		pass
-
-	@abstractmethod
-	def _create_rows(self, amount: int) -> None:
-		pass
-
-	@abstractmethod
-	def _create_columns(self, amount: int) -> None:
-		pass
+	# @abstractmethod
+	# def _can_create_rows(self, amount: int) -> bool:
+	# 	pass
+	#
+	# @abstractmethod
+	# def _can_create_columns(self, amount: int) -> bool:
+	# 	pass
+	#
+	# @abstractmethod
+	# def _create_rows(self, amount: int) -> None:
+	# 	pass
+	#
+	# @abstractmethod
+	# def _create_columns(self, amount: int) -> None:
+	# 	pass
 
 	def get_card_stacker_at_index(self, x: int, y: int) -> CardStacker:
-		x = max(x, 0)
-		y = max(y, 0)
+		x = min(max(x, 0), self.stacker_map.row_length - 1)
+		y = min(max(y, 0), self.stacker_map.column_height - 1)
 
-		required_rows = self._stacker_map.row_length - 1 - x
-		required_columns = self._stacker_map.column_height - 1 - y
-
-		if (
-			( required_rows > 0 or required_columns > 0)
-			and self._can_create_rows(required_rows)
-			and self._can_create_columns(required_columns)
-		):
-			if required_rows > 0:
-				self._create_rows(required_rows)
-			if required_columns > 0:
-				self._create_columns(required_columns)
-
-		else:
-			x = min(x, self.stacker_map.row_length - 1)
-			y = min(y, self.stacker_map.column_height - 1)
+		# required_columns = x - self._stacker_map.row_length + 1
+		# required_rows = y - self._stacker_map.column_height + 1
+		#
+		# if (
+		# 	( required_rows > 0 or required_columns > 0 )
+		# 	and self._can_create_rows(required_rows)
+		# 	and self._can_create_columns(required_columns)
+		# ):
+		# 	if required_rows > 0:
+		# 		self._create_rows(required_rows)
+		# 	if required_columns > 0:
+		# 		self._create_columns(required_columns)
+		#
+		# else:
+		# 	x = min(x, self.stacker_map.row_length - 1)
+		# 	y = min(y, self.stacker_map.column_height - 1)
 
 		return self.stacker_map.get_stacker(x, y)
 

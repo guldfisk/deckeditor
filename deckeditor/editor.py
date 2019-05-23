@@ -4,7 +4,6 @@ import sys
 import time
 import random
 import os
-import re
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction
@@ -12,14 +11,14 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QAction
 from mtgorp.db.database import CardDatabase
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.collections.deck import Deck
-from mtgorp.models.collections.serilization.strategy import SerializationException
+from mtgorp.models.serilization.serializeable import SerializationException
 from mtgorp.tools.search.pattern import Criteria, Pattern
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.parsing.search.parse import SearchPatternParseException
 from mtgorp.utilities.containers import Multiset
 from mtgorp.models.persistent.expansion import Expansion
 
-from deckeditor.cardcontainers.deckzonewidget import DeckZoneWidget
+from deckeditor.cardcontainers.deckzone import DeckZone
 from deckeditor.cardadd.cardadder import CardAdder
 from deckeditor.undo.command import UndoStack
 from deckeditor.cardcontainers.cardcontainer import AddPrintings
@@ -28,16 +27,17 @@ from deckeditor import paths
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
 from deckeditor.cardadd.cardadder import CardAddable
-from deckeditor.values import DeckZone
+from deckeditor.values import DeckZoneType
 from deckeditor.cardcontainers.cardcontainer import CardContainer
 from deckeditor.cardview.widget import CardViewWidget
 from deckeditor.context.context import Context
 from deckeditor.generate.dialog import GeneratePoolDialog, PoolGenerateable
-
-random.seed()
+from deckeditor.cardcontainers.alignment.aligner import CardScene
+from deckeditor.decklistview.decklistwidget import DeckListWidget
 
 
 class DeckWidget(QWidget):
+	printings_changed = QtCore.pyqtSignal(DeckZoneType, CardScene)
 
 	def __init__(self, name: str, parent = None):
 		super().__init__(parent = parent)
@@ -47,9 +47,9 @@ class DeckWidget(QWidget):
 		self._undo_stack = UndoStack()
 
 		self._card_widgets = {
-			DeckZone.MAINDECK: DeckZoneWidget(DeckZone.MAINDECK, self._undo_stack, self),
-			DeckZone.SIDEBOARD: DeckZoneWidget(DeckZone.SIDEBOARD, self._undo_stack, self),
-			DeckZone.POOL: DeckZoneWidget(DeckZone.POOL, self._undo_stack, self)
+			DeckZoneType.MAINDECK: DeckZone(DeckZoneType.MAINDECK, self._undo_stack, self),
+			DeckZoneType.SIDEBOARD: DeckZone(DeckZoneType.SIDEBOARD, self._undo_stack, self),
+			DeckZoneType.POOL: DeckZone(DeckZoneType.POOL, self._undo_stack, self)
 		}
 
 		self._zones = {
@@ -57,6 +57,15 @@ class DeckWidget(QWidget):
 			for key, window in
 			self._card_widgets.items()
 		}
+
+		self._scenes_to_deck_zone = {
+			widget.card_scene: zone
+			for zone, widget in
+			self._zones.items()
+		} #type: t.Dict[CardScene, DeckZoneType]
+
+		for card_scene in self._scenes_to_deck_zone:
+			card_scene.cards_changed.connect(self._card_widget_changed)
 
 		for window in self._card_widgets.values():
 			window.card_container.set_zones(self._zones)
@@ -83,6 +92,17 @@ class DeckWidget(QWidget):
 			self._layout
 		)
 
+		self.printings_changed.connect(self._printings_changed)
+
+	def _printings_changed(self, deck_zone: DeckZoneType, card_scene: CardScene) -> None:
+		if deck_zone == DeckZoneType.POOL:
+			return
+
+		Context.deck_list_view.set_deck.emit(self.maindeck.printings, self.sideboard.printings)
+
+	def _card_widget_changed(self, card_scene: CardScene) -> None:
+		self.printings_changed.emit(self._scenes_to_deck_zone[card_scene], card_scene)
+
 	@property
 	def name(self) -> str:
 		return self._name
@@ -95,19 +115,19 @@ class DeckWidget(QWidget):
 		)
 
 	@property
-	def pool(self) -> DeckZoneWidget:
-		return self._card_widgets[DeckZone.POOL]
+	def pool(self) -> DeckZone:
+		return self._card_widgets[DeckZoneType.POOL]
 
 	@property
-	def maindeck(self) -> DeckZoneWidget:
-		return self._card_widgets[DeckZone.MAINDECK]
+	def maindeck(self) -> DeckZone:
+		return self._card_widgets[DeckZoneType.MAINDECK]
 
 	@property
-	def sideboard(self) -> DeckZoneWidget:
-		return self._card_widgets[DeckZone.SIDEBOARD]
+	def sideboard(self) -> DeckZone:
+		return self._card_widgets[DeckZoneType.SIDEBOARD]
 
 	@property
-	def zones(self) -> t.Dict[DeckZone, DeckZoneWidget]:
+	def zones(self) -> t.Dict[DeckZoneType, DeckZone]:
 		return self._card_widgets
 
 	@property
@@ -142,6 +162,7 @@ class DeckTabs(QtWidgets.QTabWidget):
 		self.setTabsClosable(True)
 
 		self.tabCloseRequested.connect(self._tab_close_requested)
+		self.currentChanged.connect(self._current_changed)
 
 	def add_deck(self, deck: DeckWidget) -> None:
 		self.addTab(deck, deck.name)
@@ -162,6 +183,12 @@ class DeckTabs(QtWidgets.QTabWidget):
 			self.new_deck()
 
 		self.removeTab(index)
+
+	def _current_changed(self, index: int) -> None:
+		Context.deck_list_view.set_deck.emit(
+			self.currentWidget().maindeck.printings,
+			self.currentWidget().sideboard.printings,
+		)
 
 
 class MainView(QWidget):
@@ -233,7 +260,7 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 	pool_generated = QtCore.pyqtSignal(Multiset)
 
 	def __init__(self, parent=None):
-		super(MainWindow,self).__init__(parent)
+		super().__init__(parent)
 
 		self._notification_frame = NotificationFrame(self)
 
@@ -244,20 +271,33 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 		Context.card_view = self._card_view
 
 		self._card_view_dock = QtWidgets.QDockWidget('Card View', self)
+		self._card_view_dock.setObjectName('card_view_dock')
 		self._card_view_dock.setWidget(self._card_view)
 		self._card_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
-
-		self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
 
 		self._card_adder = CardAdder(self, self, self._card_view, self)
 
 		self._card_adder_dock = QtWidgets.QDockWidget('Card Adder', self)
+		self._card_adder_dock.setObjectName('card adder dock')
 		self._card_adder_dock.setWidget(self._card_adder)
 		self._card_adder_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
-		self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_adder_dock)
+		self._deck_list_widget = DeckListWidget(self)
+		self._deck_list_widget.set_deck.emit((), ())
+
+		Context.deck_list_view = self._deck_list_widget
+
+		self._deck_list_docker = QtWidgets.QDockWidget('Deck List', self)
+		self._deck_list_docker.setObjectName('deck_list_dock')
+		self._deck_list_docker.setWidget(self._deck_list_widget)
+		self._deck_list_docker.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+
+		self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._card_adder_dock)
+		self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._deck_list_docker)
+		self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
 
 		self._card_adder_dock.hide()
+		self._deck_list_docker.hide()
 
 		self._main_view = MainView(self)
 
@@ -266,10 +306,6 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 		menu_bar = self.menuBar()
 
 		all_menus = {
-			menu_bar.addMenu('Edit'): (
-				('Undo', 'Ctrl+Z', self._undo),
-				('Redo', 'Ctrl+Shift+Z', self._redo),
-			),
 			menu_bar.addMenu('File'): (
 				('Exit', 'Ctrl+Q', QtWidgets.qApp.quit),
 				('New Deck', 'Ctrl+N', self._new_deck),
@@ -277,13 +313,17 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 				# ('Load Pool', 'Ctrl+P', self.load_pool),
 				('Save Deck', 'Ctrl+S', self._save_as),
 				# ('Save pool', 'Ctrl+l', self.save_pool),
-				('Close Deck', '', self._close_deck),
+				('Close Deck', 'Ctrl+W', self._close_deck),
 
 			),
+			menu_bar.addMenu('Edit'): (
+				('Undo', 'Ctrl+Z', self._undo),
+				('Redo', 'Ctrl+Shift+Z', self._redo),
+			),
 			menu_bar.addMenu('Deck'): (
-				('Maindeck', 'Ctrl+1', lambda : self._focus_deck_zone(DeckZone.MAINDECK)),
-				('Sideboard', 'Ctrl+2', lambda : self._focus_deck_zone(DeckZone.SIDEBOARD)),
-				('Pool', 'Ctrl+3', lambda : self._focus_deck_zone(DeckZone.POOL)),
+				('Maindeck', 'Ctrl+1', lambda : self._focus_deck_zone(DeckZoneType.MAINDECK)),
+				('Sideboard', 'Ctrl+2', lambda : self._focus_deck_zone(DeckZoneType.SIDEBOARD)),
+				('Pool', 'Ctrl+3', lambda : self._focus_deck_zone(DeckZoneType.POOL)),
 				('Exclusive Maindeck', 'Alt+Ctrl+1', self._exclusive_maindeck),
 				('Exclusive Sideboard', 'Alt+Ctrl+2', self._exclusive_sideboard),
 				('Exclusive Pool', 'Alt+Ctrl+3', self._exclusive_pool),
@@ -293,7 +333,7 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 				# ('Cube Pools', 'Ctrl+C', self.generate_cube_pools),
 			),
 			menu_bar.addMenu('Add'): (
-				('Test Add', 'Ctrl+W', self._test_add),
+				# ('Test Add', 'Ctrl+W', self._test_add),
 				('Add cards', 'Ctrl+F', self._add_cards),
 			),
 			menu_bar.addMenu('Select'): (
@@ -304,9 +344,10 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 			menu_bar.addMenu('View'): (
 				('Card View', 'Meta+1', lambda : self._toggle_dock_view(self._card_view_dock)),
 				('Card Adder', 'Meta+2', lambda : self._toggle_dock_view(self._card_adder_dock)),
+				('Deck List View', 'Meta+3', lambda : self._toggle_dock_view(self._deck_list_docker)),
 			),
 			menu_bar.addMenu('Test'): (
-				('Test', 'Ctrl+T', self._test),
+				('Test', 'Ctrl+T', self._test_add),
 			),
 		}
 
@@ -327,6 +368,8 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 
 		self.search_select.connect(self._search_selected)
 		self.pool_generated.connect(self._pool_generated)
+
+		self._load_state()
 
 	@staticmethod
 	def _toggle_dock_view(dock: QtWidgets.QDockWidget):
@@ -353,7 +396,7 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 	def notify(self, message: str) -> None:
 		self._notification_frame.notify(message)
 
-	def _focus_deck_zone(self, zone: DeckZone):
+	def _focus_deck_zone(self, zone: DeckZoneType):
 		self._main_view.active_deck.zones[zone].card_container.setFocus()
 
 	def _exclusive_maindeck(self):
@@ -458,7 +501,7 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 	def _test_add(self):
 		self._add_card(Context.db)
 
-	def add_printings(self, target: DeckZone, printings: t.Iterable[Printing]):
+	def add_printings(self, target: DeckZoneType, printings: t.Iterable[Printing]):
 		self._main_view.active_deck.undo_stack.push(
 			AddPrintings(
 				self._main_view.active_deck.zones[target].card_container.scene(),
@@ -548,7 +591,7 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 
 		deck_widget.undo_stack.push(
 			AddPrintings(
-				deck_widget.zones[DeckZone.POOL].card_container.card_scene,
+				deck_widget.zones[DeckZoneType.POOL].card_container.card_scene,
 				(printing for expansion in key for printing in expansion.generate_booster()),
 			)
 		)
@@ -557,12 +600,39 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 		dialog = GeneratePoolDialog(self, self)
 		dialog.exec()
 
+	def _save_state(self):
+		Context.settings.beginGroup('main_window')
+		Context.settings.setValue('size', self.size())
+		Context.settings.setValue('position', self.pos())
+		Context.settings.setValue('state', self.saveState(0))
+		Context.settings.endGroup()
+
+	def _load_state(self):
+		Context.settings.beginGroup('main_window')
+
+		saved_size = Context.settings.value('size', None)
+		if saved_size is not None:
+			self.resize(saved_size)
+
+		saved_position = Context.settings.value('position', None)
+		if saved_position is not None:
+			self.move(saved_position)
+
+		saved_state = Context.settings.value('state', None)
+		if saved_state is not None:
+			self.restoreState(saved_state, 0)
+
+		Context.settings.endGroup()
+
+	def closeEvent(self, close_event):
+		super().closeEvent(close_event)
+		self._save_state()
+
 
 def run():
+	random.seed()
 
 	app = QtWidgets.QApplication(sys.argv)
-
-	app.aboutToQuit.connect(lambda : print('done'))
 
 	splash_image = QtGui.QPixmap(os.path.join(paths.RESOURCE_PATH, 'splash.png'))
 
@@ -573,13 +643,7 @@ def run():
 	time.sleep(0.2)
 	app.processEvents()
 
-	# id = QtGui.QFontDatabase.addApplicationFont(os.path.join(paths.RESOURCE_PATH, 'icomoon.ttf'))
-	# family = QtGui.QFontDatabase.applicationFontFamilies(id)[0]
-	# font = QtGui.QFont(family)
-
 	Context.init()
-
-	PhysicalCard.init(Context.pixmap_loader)
 
 	with open(os.path.join(paths.RESOURCE_PATH, 'style.qss'), 'r') as f:
 
@@ -595,14 +659,16 @@ def run():
 			)
 		)
 
-	QtWidgets.QApplication.setOrganizationName('EmbargoSoft')
-	QtWidgets.QApplication.setOrganizationDomain('ce.lost-world.dk')
-	QtWidgets.QApplication.setApplicationName('Embargo Edit')
+	app.setOrganizationName('EmbargoSoft')
+	app.setOrganizationDomain('ce.lost-world.dk')
+	app.setApplicationName('Embargo Edit')
 
 
 	w = MainWindow()
 
 	app.focusChanged.connect(w.focus_changed)
+
+	# app.aboutToQuit.connect(Context.settings.)
 
 	w.showMaximized()
 

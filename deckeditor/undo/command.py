@@ -79,7 +79,6 @@ class UndoStack(object):
 				for command_type in
 				self._waiting_for
 			):
-
 				self._commands[-1].add_command(command)
 
 			else:
@@ -97,8 +96,7 @@ class UndoStack(object):
 					self._commands[-1]
 				)
 			):
-
-				if isinstance(self._commands[-1][-1], CommandPackage):
+				if isinstance(self._commands[-1], CommandPackage):
 					self._commands[-1].add_command(command)
 
 				else:

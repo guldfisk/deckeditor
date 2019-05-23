@@ -3,16 +3,15 @@ import typing as t
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 from mtgorp.models.persistent.printing import Printing
-from mtgorp.models.collections.serilization.strategy import JsonId
+from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.db.static import MtgDb
 
-from deckeditor.cardcontainers.alignment.curser import Cursor
+from deckeditor.cardcontainers.alignment.cursor import Cursor
 from deckeditor.cardcontainers.alignment.aligner import Aligner, Direction, CardScene
 from deckeditor.cardcontainers.alignment.stackinggrids.staticstackinggrid import StaticStackingGrid
 from deckeditor.cardcontainers.physicalcard import PhysicalCard
-from deckeditor.containers.magic import CardPackage
 from deckeditor.undo.command import UndoStack, UndoCommand
-from deckeditor.values import DeckZone
+from deckeditor.values import DeckZoneType
 from deckeditor.values import SortProperty
 from deckeditor.context.context import Context
 
@@ -42,39 +41,6 @@ class AddPrintings(UndoCommand):
 		return not self._printings
 
 
-class ChangeAligner(UndoCommand):
-
-	def __init__(self, scene: 'CardScene', aligner: Aligner):
-		self._scene = scene
-		self._aligner = aligner
-		self._previous_aligner = None #type: t.Optional[Aligner]
-		self._cards = [] #type: t.List[PhysicalCard]
-		self._positions = [] #type: t.List[QtCore.QPointF]
-		self._detach = None #type: UndoCommand
-		self._attach = None #type: UndoCommand
-
-	def setup(self):
-		self._previous_aligner = self._scene.aligner
-		self._cards = list(self._scene.items())
-		self._positions = list(
-			item.pos() for item in self._cards
-		)
-		self._detach = self._scene.aligner.detach_cards(self._cards)
-		self._detach.setup()
-		self._attach = self._aligner.attach_cards(self._cards, QtCore.QPointF(0, 0))
-		self._attach.setup()
-
-	def redo(self) -> None:
-		self._detach.redo()
-		self._scene.aligner = self._aligner
-		self._attach.redo()
-
-	def undo(self) -> None:
-		self._attach.undo()
-		self._scene.aligner = self._previous_aligner
-		self._detach.undo()
-
-
 class CardContainer(QtWidgets.QGraphicsView):
 	serialization_strategy = JsonId(MtgDb.db)
 
@@ -87,7 +53,9 @@ class CardContainer(QtWidgets.QGraphicsView):
 
 		super().__init__(self._card_scene)
 
-		self._zones = None #type: t.Dict[DeckZone, CardContainer]
+		self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+		self._zones = None #type: t.Dict[DeckZoneType, CardContainer]
 
 		self._undo_stack = undo_stack
 
@@ -104,7 +72,7 @@ class CardContainer(QtWidgets.QGraphicsView):
 		self._floating = [] #type: t.List[PhysicalCard]
 		self._dragging = [] #type: t.List[PhysicalCard]
 
-		self._card_scene.aligner.cursor_moved.connect(lambda pos: self.centerOn(pos))
+		self._card_scene.cursor_moved.connect(lambda pos: self.centerOn(pos))
 
 		self._sort_actions = [] #type: t.List[QtWidgets.QAction]
 
@@ -122,7 +90,7 @@ class CardContainer(QtWidgets.QGraphicsView):
 			'Move Selected to Maindeck',
 			lambda : self._move_cards_to_scene(
 				self.card_scene.selectedItems(),
-				self._zones[DeckZone.MAINDECK],
+				self._zones[DeckZoneType.MAINDECK],
 			),
 			'Alt+1',
 		)
@@ -130,7 +98,7 @@ class CardContainer(QtWidgets.QGraphicsView):
 			'Move Selected to Sideboard',
 			lambda : self._move_cards_to_scene(
 				self.card_scene.selectedItems(),
-				self._zones[DeckZone.SIDEBOARD],
+				self._zones[DeckZoneType.SIDEBOARD],
 			),
 			'Alt+2',
 		)
@@ -138,7 +106,7 @@ class CardContainer(QtWidgets.QGraphicsView):
 			'Move Selected to Pool',
 			lambda : self._move_cards_to_scene(
 				self.card_scene.selectedItems(),
-				self._zones[DeckZone.POOL],
+				self._zones[DeckZoneType.POOL],
 			),
 			'Alt+3',
 		)
@@ -204,7 +172,7 @@ class CardContainer(QtWidgets.QGraphicsView):
 	def card_scene(self) -> CardScene:
 		return self._card_scene
 
-	def set_zones(self, zones: t.Dict[DeckZone, 'CardContainer']):
+	def set_zones(self, zones: t.Dict[DeckZoneType, 'CardContainer']):
 		self._zones = zones
 
 	def _move_cards_to_scene(
@@ -227,16 +195,16 @@ class CardContainer(QtWidgets.QGraphicsView):
 		modifiers = key_event.modifiers()
 
 		if pressed_key == QtCore.Qt.Key_Up:
-			self._card_scene.aligner.move_cursor(Direction.UP, key_event.modifiers())
+			self._card_scene.aligner.move_cursor(Direction.UP, modifiers)
 
 		elif pressed_key == QtCore.Qt.Key_Right:
-			self._card_scene.aligner.move_cursor(Direction.RIGHT, key_event.modifiers())
+			self._card_scene.aligner.move_cursor(Direction.RIGHT, modifiers)
 
 		elif pressed_key == QtCore.Qt.Key_Down:
-			self._card_scene.aligner.move_cursor(Direction.DOWN, key_event.modifiers())
+			self._card_scene.aligner.move_cursor(Direction.DOWN, modifiers)
 
 		elif pressed_key == QtCore.Qt.Key_Left:
-			self._card_scene.aligner.move_cursor(Direction.LEFT, key_event.modifiers())
+			self._card_scene.aligner.move_cursor(Direction.LEFT, modifiers)
 
 		elif pressed_key == QtCore.Qt.Key_Plus:
 			self.scale(1.1, 1.1)
@@ -286,7 +254,7 @@ class CardContainer(QtWidgets.QGraphicsView):
 		menu.exec_(self.mapToGlobal(position))
 
 	def dragEnterEvent(self, drag_event: QtGui.QDragEnterEvent):
-		if drag_event.source() is not None and isinstance(drag_event.source(), CardContainer):
+		if isinstance(drag_event.source(), CardContainer):
 			drag_event.accept()
 
 	def dragMoveEvent(self, drag_event: QtGui.QDragMoveEvent):
@@ -321,15 +289,6 @@ class CardContainer(QtWidgets.QGraphicsView):
 
 		self._card_scene.clear_selection()
 
-	def mouseDoubleClickEvent(self, click_event: QtGui.QMouseEvent):
-		pass
-		# item = self.itemAt(click_event.pos()) #type: PhysicalCard
-		#
-		# if item is None:
-		# 	return
-		#
-		# item.mouseDoubleClickEvent(click_event)
-
 	def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
 		if self._rubber_band.isHidden():
 
@@ -342,21 +301,11 @@ class CardContainer(QtWidgets.QGraphicsView):
 				mouse_event.pos()
 			):
 				drag = QtGui.QDrag(self)
-				mime = QtCore.QMimeData()
-				stream = QtCore.QByteArray()
-
-				stream.append(
-					self.serialization_strategy.serialize(
-						CardPackage(
-							card.printing
-							for card in
-							self._floating
-						)
-					)
-				)
-
-				mime.setData('cards', stream)
-				drag.setMimeData(mime)
+				# mime = QtCore.QMimeData()
+				# stream = QtCore.QByteArray()
+				#
+				# mime.setData('cards', stream)
+				# drag.setMimeData(mime)
 				drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
 
 				self._undo_stack.push(
@@ -378,7 +327,7 @@ class CardContainer(QtWidgets.QGraphicsView):
 			else:
 				item = self.itemAt(mouse_event.pos())
 
-				if item is not None and isinstance(item, PhysicalCard):
+				if isinstance(item, PhysicalCard):
 					Context.card_view.set_image.emit(item.image_request())
 
 				if mouse_event.buttons():

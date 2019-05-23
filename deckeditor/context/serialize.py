@@ -1,7 +1,7 @@
 import typing as t
 
-from mtgorp.models.collections.serilization.strategy import Strategy, SerializationException, S
-from mtgorp.models.collections.serilization.serializeable import Serializeable
+from mtgorp.models.serilization.serializeable import SerializationException, Serializeable, M
+from mtgorp.models.serilization.strategies.strategy import Strategy
 
 
 class SoftSerialization(object):
@@ -32,7 +32,7 @@ class SoftSerialization(object):
 
 		raise SerializationException('No matching strategy')
 
-	def deserialize(self, cls: t.Type[S], s: str, file_extension: str) -> S:
+	def deserialize(self, cls: t.Type[M], s: str, file_extension: str) -> M:
 		file_extension = file_extension.lower()
 		if file_extension in self._file_associations:
 			return self._file_associations[file_extension].deserialize(cls, s)

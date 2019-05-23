@@ -5,12 +5,14 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader, DBLoadException
 from mtgorp.managejson.update import update
-from mtgorp.models.collections.serilization.strategy import JsonId
+from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools.parsing.search.parse import SearchParser
 
-from deckeditor.pixmapload.pixmaploader import PixmapLoader
+from mtgqt.pixmapload.pixmaploader import PixmapLoader
+
 from deckeditor.context.serialize import SoftSerialization
 from deckeditor.cardview.cardview import CardView
+from deckeditor.decklistview.decklistwidget import DeckListWidget
 
 
 class Context(object):
@@ -21,12 +23,17 @@ class Context(object):
 	soft_serialization = None #type: SoftSerialization
 	card_view = None #type: CardView
 	search_pattern_parser = None #type: SearchParser
+	deck_list_view = None #type: DeckListWidget
 
 	@classmethod
 	def init(cls) -> None:
 		cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
 
-		cls.pixmap_loader = PixmapLoader(30, 30, 30)
+		cls.pixmap_loader = PixmapLoader(
+			pixmap_executor = 30,
+			printing_executor = 30,
+			imageable_executor = 30,
+		)
 
 		try:
 			cls.db = Loader.load()
