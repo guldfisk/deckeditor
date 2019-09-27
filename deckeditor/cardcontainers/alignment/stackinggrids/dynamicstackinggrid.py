@@ -4,9 +4,12 @@ from deckeditor.cardcontainers.alignment.aligner import CardScene
 from deckeditor.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.undo.command import UndoStack
 
-from mtgimg.load import IMAGE_WIDTH, IMAGE_HEIGHT
+from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 from deckeditor.cardcontainers.alignment.stackinggrids.stackinggrid import StackingGrid, CardStacker
+
+
+IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]
 
 
 class DynamicCardStacker(CardStacker):

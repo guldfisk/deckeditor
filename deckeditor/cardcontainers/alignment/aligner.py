@@ -4,13 +4,16 @@ from enum import Enum
 
 from PyQt5 import QtCore
 
-from mtgimg.load import IMAGE_WIDTH, IMAGE_HEIGHT
+from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 from deckeditor.cardcontainers.alignment.cursor import Cursor
 from deckeditor.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.cardcontainers.selection import SelectionScene
 from deckeditor.undo.command import UndoCommand, UndoStack
 from deckeditor.values import SortProperty, Direction
+
+
+IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]
 
 
 class AttachmentChange(UndoCommand):

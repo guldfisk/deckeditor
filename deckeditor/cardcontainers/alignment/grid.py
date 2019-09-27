@@ -7,7 +7,7 @@ from PyQt5 import QtCore
 from mtgorp.models.persistent.attributes import typeline
 from mtgorp.models.persistent.attributes import colors
 
-from mtgimg.load import IMAGE_HEIGHT, IMAGE_WIDTH
+from mtgimg.interface import SizeSlug, IMAGE_SIZE_MAP
 
 from deckeditor.undo.command import UndoStack, UndoCommand
 from deckeditor.values import SortProperty
@@ -22,6 +22,9 @@ from deckeditor.cardcontainers.alignment.aligner import (
 )
 from deckeditor.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.context.context import Context
+
+
+IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]
 
 
 class GridDetach(AlignDetach):

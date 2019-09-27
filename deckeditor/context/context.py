@@ -17,37 +17,37 @@ from deckeditor.decklistview.decklistwidget import DeckListWidget
 
 class Context(object):
 
-	settings = None #type: QtCore.QSettings
-	pixmap_loader = None #type: PixmapLoader
-	db = None  # type: t.Optional[CardDatabase]
-	soft_serialization = None #type: SoftSerialization
-	card_view = None #type: CardView
-	search_pattern_parser = None #type: SearchParser
-	deck_list_view = None #type: DeckListWidget
+    settings = None #type: QtCore.QSettings
+    pixmap_loader = None #type: PixmapLoader
+    db = None  # type: t.Optional[CardDatabase]
+    soft_serialization = None #type: SoftSerialization
+    card_view = None #type: CardView
+    search_pattern_parser = None #type: SearchParser
+    deck_list_view = None #type: DeckListWidget
 
-	@classmethod
-	def init(cls) -> None:
-		cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
+    @classmethod
+    def init(cls) -> None:
+        cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
 
-		cls.pixmap_loader = PixmapLoader(
-			pixmap_executor = 30,
-			printing_executor = 30,
-			imageable_executor = 30,
-		)
+        cls.pixmap_loader = PixmapLoader(
+            pixmap_executor = 30,
+            printing_executor = 30,
+            imageable_executor = 30,
+        )
 
-		try:
-			cls.db = Loader.load()
-		except DBLoadException:
-			update()
-			cls.db = Loader.load()
+        try:
+            cls.db = Loader.load()
+        except DBLoadException:
+            update()
+            cls.db = Loader.load()
 
-		json_id = JsonId(cls.db)
+        json_id = JsonId(cls.db)
 
-		cls.soft_serialization = SoftSerialization(
-			[json_id],
-			{
-				'emb': json_id,
-			},
-		)
+        cls.soft_serialization = SoftSerialization(
+            [json_id],
+            {
+                'emb': json_id,
+            },
+        )
 
-		cls.search_pattern_parser = SearchParser(cls.db)
+        cls.search_pattern_parser = SearchParser(cls.db)
