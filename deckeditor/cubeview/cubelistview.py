@@ -9,7 +9,7 @@ from deckeditor.models.deck import CubeModel
 class CubeListView(QTableWidget):
 
     def __init__(self, cube_model: CubeModel, parent: t.Optional[QObject] = None):
-        super().__init__(0, 2, parent)
+        super().__init__(0, 3, parent)
         self.itemChanged.connect(self._handle_item_edit)
 
         self._cube_model = cube_model
@@ -31,7 +31,13 @@ class CubeListView(QTableWidget):
             item = QTableWidgetItem()
             item.setData(0, str(multiplicity))
             self.setItem(index, 0, item)
+
             item = QTableWidgetItem(printing.cardboard.name)
             item.setFlags(item.flags() & ~item.flags())
             self.setItem(index, 1, item)
+
+            item = QTableWidgetItem(printing.expansion.code)
+            item.setFlags(item.flags() & ~item.flags())
+            self.setItem(index, 2, item)
+
         self.blockSignals(False)
