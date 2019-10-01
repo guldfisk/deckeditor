@@ -1,10 +1,19 @@
+import typing
 import typing as t
 
-from PyQt5.QtCore import QObject
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+from PyQt5.QtCore import QObject, Qt
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QTableView
 
 from deckeditor.models.deck import CubeModel
 
+
+class CubeListWidgetItem(QTableWidgetItem):
+
+    def setData(self, role: int, value: typing.Any) -> None:
+        try:
+            super().setData(role, int(value))
+        except ValueError:
+            pass
 
 class CubeListView(QTableWidget):
 
@@ -28,16 +37,20 @@ class CubeListView(QTableWidget):
         )
         self.setRowCount(len(printings))
         for index, (printing, multiplicity) in enumerate(printings):
-            item = QTableWidgetItem()
+            item = CubeListWidgetItem()
             item.setData(0, str(multiplicity))
             self.setItem(index, 0, item)
 
             item = QTableWidgetItem(printing.cardboard.name)
-            item.setFlags(item.flags() & ~item.flags())
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
             self.setItem(index, 1, item)
 
             item = QTableWidgetItem(printing.expansion.code)
-            item.setFlags(item.flags() & ~item.flags())
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
             self.setItem(index, 2, item)
 
         self.blockSignals(False)
+
+
+# class CubeListView(QTableView):
+#     pass

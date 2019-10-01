@@ -228,6 +228,7 @@ class MainView(QWidget):
         cube = CubeLoader(Context.db).load()
         self._cube_model = CubeModel(cube)
         self._cube_list_view = CubeListView(self._cube_model, self)
+        # self._cube_list_view.setModel(self._cube_model)
 
         self._shitty_button = QPushButton('ok', self)
         self._shitty_button.clicked.connect(self._button_clicked)
