@@ -1,19 +1,16 @@
 import typing as t
 
-from enum import Enum
-from abc import abstractmethod
-
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
-from mtgorp.tools.parsing.search.parse import SearchParser, SearchPatternParseException
+from mtgorp.tools.parsing.search.parse import SearchPatternParseException
 
 from mtgimg.interface import ImageRequest
 
 from deckeditor.context.context import Context
 from deckeditor.notifications.notifyable import Notifyable
-from deckeditor.cardview.widget import CardViewWidget
+from deckeditor.components.cardview.widget import CardViewWidget
 from deckeditor.values import DeckZoneType
 
 

@@ -6,11 +6,11 @@ from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.db.static import MtgDb
 
-from deckeditor.cardcontainers.alignment.cursor import Cursor
-from deckeditor.cardcontainers.alignment.aligner import Aligner, Direction, CardScene
-from deckeditor.cardcontainers.alignment.stackinggrids.staticstackinggrid import StaticStackingGrid
-from deckeditor.cardcontainers.physicalcard import PhysicalCard
-from deckeditor.undo.command import UndoStack, UndoCommand
+from deckeditor.garbage.cardcontainers.alignment import Cursor
+from deckeditor.garbage.cardcontainers.alignment import Aligner, Direction, CardScene
+from deckeditor.garbage.cardcontainers.alignment import StaticStackingGrid
+from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
+from deckeditor.garbage.undo import UndoStack, UndoCommand
 from deckeditor.values import DeckZoneType
 from deckeditor.values import SortProperty
 from deckeditor.context.context import Context

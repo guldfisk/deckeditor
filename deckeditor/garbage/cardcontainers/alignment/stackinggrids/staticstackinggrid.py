@@ -2,12 +2,12 @@ import typing as t
 
 from PyQt5 import QtCore
 
-from deckeditor.cardcontainers.alignment.aligner import CardScene
-from deckeditor.undo.command import UndoStack
+from deckeditor.garbage.cardcontainers.alignment import CardScene
+from deckeditor.garbage.undo import UndoStack
 
 from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
-from deckeditor.cardcontainers.alignment.stackinggrids.stackinggrid import StackingGrid, CardStacker, StackerMap
+from deckeditor.garbage.cardcontainers.alignment import StackingGrid, CardStacker, StackerMap
 
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]

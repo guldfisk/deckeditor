@@ -1,12 +1,12 @@
 import typing as t
 
-from deckeditor.cardcontainers.alignment.aligner import CardScene
-from deckeditor.cardcontainers.physicalcard import PhysicalCard
-from deckeditor.undo.command import UndoStack
+from deckeditor.garbage.cardcontainers.alignment import CardScene
+from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
+from deckeditor.garbage.undo import UndoStack
 
 from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
-from deckeditor.cardcontainers.alignment.stackinggrids.stackinggrid import StackingGrid, CardStacker
+from deckeditor.garbage.cardcontainers.alignment import StackingGrid, CardStacker
 
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]

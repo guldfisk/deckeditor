@@ -1,5 +1,3 @@
-import typing as t
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from mtgorp.models.persistent.printing import Printing
@@ -8,7 +6,7 @@ from mtgimg.interface import ImageRequest
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
-from deckeditor.cardcontainers.graphicpixmapobject import GraphicPixmapObject
+from deckeditor.garbage.cardcontainers.graphicpixmapobject import GraphicPixmapObject
 from deckeditor.context.context import Context
 
 

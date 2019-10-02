@@ -2,17 +2,19 @@ import typing
 import typing as t
 
 import sys
-import time
 import random
 import os
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QPushButton
+from PyQt5.QtWidgets import QWidget, QMainWindow, QAction
 
-from deckeditor.cubeview.cubelistview import CubeListView
-from deckeditor.models.deck import CubeModel
+from deckeditor.application.embargo import EmbargoApp
+from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
+from deckeditor.components.editables.decktabs import DeckTabs
+from deckeditor.components.generate.dialog import PoolGenerateable
+from deckeditor.models.deck import DeckModel, CubeModel
+from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
-from misccube.cubeload.load import CubeLoader
 from yeetlong.multiset import Multiset
 
 from mtgorp.db.database import CardDatabase
@@ -24,221 +26,233 @@ from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.parsing.search.parse import SearchPatternParseException
 from mtgorp.models.persistent.expansion import Expansion
 
-from deckeditor.cardcontainers.deckzone import DeckZone
-from deckeditor.cardadd.cardadder import CardAdder
-from deckeditor.undo.command import UndoStack
-from deckeditor.cardcontainers.cardcontainer import AddPrintings
-from deckeditor.cardcontainers.physicalcard import PhysicalCard
-from deckeditor import paths
+from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
-from deckeditor.cardadd.cardadder import CardAddable
 from deckeditor.values import DeckZoneType
-from deckeditor.cardcontainers.cardcontainer import CardContainer
-from deckeditor.cardview.widget import CardViewWidget
+from deckeditor.components.cardview.widget import CardViewWidget
 from deckeditor.context.context import Context
-from deckeditor.generate.dialog import GeneratePoolDialog, PoolGenerateable
-from deckeditor.cardcontainers.alignment.aligner import CardScene
-from deckeditor.decklistview.decklistwidget import DeckListWidget
+from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
 
 
-class DeckWidget(QWidget):
-    printings_changed = QtCore.pyqtSignal(DeckZoneType, CardScene)
-
-    def __init__(self, name: str, parent = None):
-        super().__init__(parent = parent)
-
-        self._name = name
-
-        self._undo_stack = UndoStack()
-
-        self._card_widgets = {
-            DeckZoneType.MAINDECK: DeckZone(DeckZoneType.MAINDECK, self._undo_stack, self),
-            DeckZoneType.SIDEBOARD: DeckZone(DeckZoneType.SIDEBOARD, self._undo_stack, self),
-            DeckZoneType.POOL: DeckZone(DeckZoneType.POOL, self._undo_stack, self)
-        }
-
-        self._zones = {
-            key: window.card_container
-            for key, window in
-            self._card_widgets.items()
-        }
-
-        self._scenes_to_deck_zone = {
-            widget.card_scene: zone
-            for zone, widget in
-            self._zones.items()
-        }  # type: t.Dict[CardScene, DeckZoneType]
-
-        for card_scene in self._scenes_to_deck_zone:
-            card_scene.cards_changed.connect(self._card_widget_changed)
-
-        for window in self._card_widgets.values():
-            window.card_container.set_zones(self._zones)
-
-        self._layout = QtWidgets.QHBoxLayout(self)
-
-        self._vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
-
-        self._horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
-
-        self._horizontal_splitter.addWidget(self.maindeck)
-        self._horizontal_splitter.addWidget(self.sideboard)
-
-        self._vertical_splitter.addWidget(self.pool)
-        self._vertical_splitter.addWidget(self._horizontal_splitter)
-
-        self._vertical_splitter.setSizes((0, 1,))
-
-        self._layout.addWidget(
-            self._vertical_splitter
-        )
-
-        self.setLayout(
-            self._layout
-        )
-
-        self.printings_changed.connect(self._printings_changed)
-
-    def _printings_changed(self, deck_zone: DeckZoneType, card_scene: CardScene) -> None:
-        if deck_zone == DeckZoneType.POOL:
-            return
-
-        Context.deck_list_view.set_deck.emit(self.maindeck.printings, self.sideboard.printings)
-
-    def _card_widget_changed(self, card_scene: CardScene) -> None:
-        self.printings_changed.emit(self._scenes_to_deck_zone[card_scene], card_scene)
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def deck(self) -> Deck:
-        return Deck(
-            maindeck = self.maindeck.printings,
-            sideboard = self.sideboard.printings,
-        )
-
-    @property
-    def pool(self) -> DeckZone:
-        return self._card_widgets[DeckZoneType.POOL]
-
-    @property
-    def maindeck(self) -> DeckZone:
-        return self._card_widgets[DeckZoneType.MAINDECK]
-
-    @property
-    def sideboard(self) -> DeckZone:
-        return self._card_widgets[DeckZoneType.SIDEBOARD]
-
-    @property
-    def zones(self) -> t.Dict[DeckZoneType, DeckZone]:
-        return self._card_widgets
-
-    @property
-    def card_containers(self) -> t.Iterable[CardContainer]:
-        return (card_widget.card_container for card_widget in self._card_widgets.values())
-
-    @property
-    def undo_stack(self) -> UndoStack:
-        return self._undo_stack
-
-    def exclusive_maindeck(self):
-        self._vertical_splitter.setSizes((0, 1))
-        self._horizontal_splitter.setSizes((1, 0))
-        self.maindeck.card_container.setFocus()
-
-    def exclusive_sideboard(self):
-        self._vertical_splitter.setSizes((0, 1))
-        self._horizontal_splitter.setSizes((0, 1))
-        self.sideboard.card_container.setFocus()
-
-    def exclusive_pool(self):
-        self._vertical_splitter.setSizes((1, 0))
-        self.pool.card_container.setFocus()
-
-
-class DeckTabs(QtWidgets.QTabWidget):
-    DEFAULT_TEMPLATE = 'New Deck {}'
-
-    def __init__(self, parent: QtWidgets.QWidget = None):
-        super().__init__(parent)
-        self._new_decks = 0
-        self.setTabsClosable(True)
-
-        self.tabCloseRequested.connect(self._tab_close_requested)
-        self.currentChanged.connect(self._current_changed)
-
-    def add_deck(self, deck: DeckWidget) -> None:
-        self.addTab(deck, deck.name)
-
-    def new_deck(self) -> DeckWidget:
-        deck_widget = DeckWidget(
-            name = self.DEFAULT_TEMPLATE.format(self._new_decks),
-        )
-        self.add_deck(
-            deck_widget
-        )
-        self._new_decks += 1
-
-        return deck_widget
-
-    def _tab_close_requested(self, index: int) -> None:
-        if index == 0:
-            self.new_deck()
-
-        self.removeTab(index)
-
-    def _current_changed(self, index: int) -> None:
-        Context.deck_list_view.set_deck.emit(
-            self.currentWidget().maindeck.printings,
-            self.currentWidget().sideboard.printings,
-        )
+# class DeckWidget(QWidget):
+#     printings_changed = QtCore.pyqtSignal(DeckZoneType, CardScene)
+#
+#     def __init__(self, name: str, parent = None):
+#         super().__init__(parent = parent)
+#
+#         self._name = name
+#
+#         self._undo_stack = UndoStack()
+#
+#         self._card_widgets = {
+#             DeckZoneType.MAINDECK: DeckZone(DeckZoneType.MAINDECK, self._undo_stack, self),
+#             DeckZoneType.SIDEBOARD: DeckZone(DeckZoneType.SIDEBOARD, self._undo_stack, self),
+#             DeckZoneType.POOL: DeckZone(DeckZoneType.POOL, self._undo_stack, self)
+#         }
+#
+#         self._zones = {
+#             key: window.card_container
+#             for key, window in
+#             self._card_widgets.items()
+#         }
+#
+#         self._scenes_to_deck_zone = {
+#             widget.card_scene: zone
+#             for zone, widget in
+#             self._zones.items()
+#         }  # type: t.Dict[CardScene, DeckZoneType]
+#
+#         for card_scene in self._scenes_to_deck_zone:
+#             card_scene.cards_changed.connect(self._card_widget_changed)
+#
+#         for window in self._card_widgets.values():
+#             window.card_container.set_zones(self._zones)
+#
+#         self._layout = QtWidgets.QHBoxLayout(self)
+#
+#         self._vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
+#
+#         self._horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
+#
+#         self._horizontal_splitter.addWidget(self.maindeck)
+#         self._horizontal_splitter.addWidget(self.sideboard)
+#
+#         self._vertical_splitter.addWidget(self.pool)
+#         self._vertical_splitter.addWidget(self._horizontal_splitter)
+#
+#         self._vertical_splitter.setSizes((0, 1,))
+#
+#         self._layout.addWidget(
+#             self._vertical_splitter
+#         )
+#
+#         self.setLayout(
+#             self._layout
+#         )
+#
+#         self.printings_changed.connect(self._printings_changed)
+#
+#     def _printings_changed(self, deck_zone: DeckZoneType, card_scene: CardScene) -> None:
+#         if deck_zone == DeckZoneType.POOL:
+#             return
+#
+#         Context.deck_list_view.set_deck.emit(self.maindeck.printings, self.sideboard.printings)
+#
+#     def _card_widget_changed(self, card_scene: CardScene) -> None:
+#         self.printings_changed.emit(self._scenes_to_deck_zone[card_scene], card_scene)
+#
+#     @property
+#     def name(self) -> str:
+#         return self._name
+#
+#     @property
+#     def deck(self) -> Deck:
+#         return Deck(
+#             maindeck = self.maindeck.printings,
+#             sideboard = self.sideboard.printings,
+#         )
+#
+#     @property
+#     def pool(self) -> DeckZone:
+#         return self._card_widgets[DeckZoneType.POOL]
+#
+#     @property
+#     def maindeck(self) -> DeckZone:
+#         return self._card_widgets[DeckZoneType.MAINDECK]
+#
+#     @property
+#     def sideboard(self) -> DeckZone:
+#         return self._card_widgets[DeckZoneType.SIDEBOARD]
+#
+#     @property
+#     def zones(self) -> t.Dict[DeckZoneType, DeckZone]:
+#         return self._card_widgets
+#
+#     @property
+#     def card_containers(self) -> t.Iterable[CardContainer]:
+#         return (card_widget.card_container for card_widget in self._card_widgets.values())
+#
+#     @property
+#     def undo_stack(self) -> UndoStack:
+#         return self._undo_stack
+#
+#     def exclusive_maindeck(self):
+#         self._vertical_splitter.setSizes((0, 1))
+#         self._horizontal_splitter.setSizes((1, 0))
+#         self.maindeck.card_container.setFocus()
+#
+#     def exclusive_sideboard(self):
+#         self._vertical_splitter.setSizes((0, 1))
+#         self._horizontal_splitter.setSizes((0, 1))
+#         self.sideboard.card_container.setFocus()
+#
+#     def exclusive_pool(self):
+#         self._vertical_splitter.setSizes((1, 0))
+#         self.pool.card_container.setFocus()
 
 
-class _MainView(QWidget):
+# class DeckTabs(QtWidgets.QTabWidget):
+#     DEFAULT_TEMPLATE = 'New Deck {}'
+#
+#     def __init__(self, parent: QtWidgets.QWidget = None):
+#         super().__init__(parent)
+#         self._new_decks = 0
+#         self.setTabsClosable(True)
+#
+#         self.tabCloseRequested.connect(self._tab_close_requested)
+#         self.currentChanged.connect(self._current_changed)
+#
+#     def add_deck(self, deck: DeckWidget) -> None:
+#         self.addTab(deck, deck.name)
+#
+#     def new_deck(self) -> DeckWidget:
+#         deck_widget = DeckWidget(
+#             name = self.DEFAULT_TEMPLATE.format(self._new_decks),
+#         )
+#         self.add_deck(
+#             deck_widget
+#         )
+#         self._new_decks += 1
+#
+#         return deck_widget
+#
+#     def _tab_close_requested(self, index: int) -> None:
+#         if index == 0:
+#             self.new_deck()
+#
+#         self.removeTab(index)
+#
+#     def _current_changed(self, index: int) -> None:
+#         Context.deck_list_view.set_deck.emit(
+#             self.currentWidget().maindeck.printings,
+#             self.currentWidget().sideboard.printings,
+#         )
 
-    def __init__(self, parent: 'MainWindow'):
-        super().__init__(parent)
 
-        self._deck_tabs = DeckTabs(self)
-
-        self._deck_tabs.new_deck()
-
-        self._layout = QtWidgets.QVBoxLayout()
-
-        self._layout.addWidget(self._deck_tabs)
-
-        self.setLayout(self._layout)
-
-    @property
-    def deck_tabs(self) -> DeckTabs:
-        return self._deck_tabs
-
-    @property
-    def active_deck(self) -> DeckWidget:
-        return self._deck_tabs.currentWidget()
+# class _MainView(QWidget):
+#
+#     def __init__(self, parent: 'MainWindow'):
+#         super().__init__(parent)
+#
+#         self._deck_tabs = DeckTabs(self)
+#
+#         self._deck_tabs.new_deck()
+#
+#         self._layout = QtWidgets.QVBoxLayout()
+#
+#         self._layout.addWidget(self._deck_tabs)
+#
+#         self.setLayout(self._layout)
+#
+#     @property
+#     def deck_tabs(self) -> DeckTabs:
+#         return self._deck_tabs
+#
+#     @property
+#     def active_deck(self) -> DeckWidget:
+#         return self._deck_tabs.currentWidget()
 
 
 class MainView(QWidget):
 
     def __init__(self, parent: typing.Optional['QWidget'] = None) -> None:
         super().__init__(parent)
-        cube = CubeLoader(Context.db).load()
-        self._cube_model = CubeModel(cube)
-        self._cube_list_view = CubeListView(self._cube_model, self)
-        # self._cube_list_view.setModel(self._cube_model)
+        # cube = CubeLoader(Context.db).load()
+        import random
+        printings = list(Context.db.printings.values())
+        cube = Cube(random.sample(printings, 10**3))
 
-        self._shitty_button = QPushButton('ok', self)
-        self._shitty_button.clicked.connect(self._button_clicked)
+        deck_tabs = DeckTabs()
+        deck_tabs.new_deck(DeckModel(CubeModel(cube)))
 
-        self._layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
 
-        self._layout.addWidget(self._cube_list_view)
-        self._layout.addWidget(self._shitty_button)
+        layout.addWidget(deck_tabs)
 
-        self.setLayout(self._layout)
+        self.setLayout(layout)
+
+        # self._cube_model = CubeModel(cube)
+        # self._cube_list_view = CubeListView(self._cube_model, self)
+        # self._second_cube_list_view = CubeListView(self._cube_model, self)
+        # # self._cube_list_view = CubeListView(self._cube_model)
+        # # self._second_cube_list_view = CubeListView(self._cube_model)
+        # # self._cube_list_view.setModel(self._cube_model)
+        # # self._second_cube_list_view.setModel(self._cube_model)
+        #
+        # self._shitty_button = QPushButton('ok', self)
+        # self._shitty_button.clicked.connect(self._button_clicked)
+        #
+        # self._layout = QtWidgets.QVBoxLayout()
+        #
+        # _layout = QtWidgets.QHBoxLayout()
+        #
+        # _layout.addWidget(self._cube_list_view)
+        # _layout.addWidget(self._second_cube_list_view)
+        # self._layout.addLayout(_layout)
+        # self._layout.addWidget(self._shitty_button)
+        #
+        # self.setLayout(self._layout)
 
     def _button_clicked(self) -> None:
         self._cube_model.modify(CubeDeltaOperation({Context.db.cardboards['Abrade'].from_expansion('HOU'): 10}))
@@ -296,7 +310,7 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 
         self._card_view = CardViewWidget(self)
 
-        Context.card_view = self._card_view
+        Context.focus_card_changed.connect(self._card_view.set_image)
 
         self._card_view_dock = QtWidgets.QDockWidget('Card View', self)
         self._card_view_dock.setObjectName('card_view_dock')
@@ -659,9 +673,7 @@ class MainWindow(QMainWindow, Notifyable, CardAddable, PoolGenerateable):
 
 
 def run():
-    random.seed()
-
-    app = QtWidgets.QApplication(sys.argv)
+    app = EmbargoApp(sys.argv)
 
     # splash_image = QtGui.QPixmap(os.path.join(paths.RESOURCE_PATH, 'splash.png'))
     #
@@ -670,30 +682,13 @@ def run():
     # splash.show()
     #
     # time.sleep(0.2)
-    app.processEvents()
+    # app.processEvents()
 
     Context.init()
 
-    with open(os.path.join(paths.RESOURCE_PATH, 'style.qss'), 'r') as f:
-        app.setStyleSheet(
-            f.read().replace(
-                'url(',
-                'url(' + os.path.join(
-                    paths.RESOURCE_PATH,
-                    'qss_icons',
-                    'rc',
-                    '',
-                ),
-            )
-        )
-
-    app.setOrganizationName('EmbargoSoft')
-    app.setOrganizationDomain('ce.lost-world.dk')
-    app.setApplicationName('Embargo Edit')
-
     w = MainWindow()
 
-    app.focusChanged.connect(w.focus_changed)
+    # app.focusChanged.connect(w.focus_changed)
 
     # app.aboutToQuit.connect(Context.settings.)
 

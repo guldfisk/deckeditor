@@ -1,6 +1,7 @@
 import typing as t
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore
+from PyQt5.QtCore import QObject, pyqtSignal
 
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader, DBLoadException
@@ -11,19 +12,19 @@ from mtgorp.tools.parsing.search.parse import SearchParser
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
 from deckeditor.context.serialize import SoftSerialization
-from deckeditor.cardview.cardview import CardView
-from deckeditor.decklistview.decklistwidget import DeckListWidget
+from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
 
 
-class Context(object):
+class _Context(QObject):
 
     settings = None #type: QtCore.QSettings
     pixmap_loader = None #type: PixmapLoader
     db = None  # type: t.Optional[CardDatabase]
     soft_serialization = None #type: SoftSerialization
-    card_view = None #type: CardView
     search_pattern_parser = None #type: SearchParser
     deck_list_view = None #type: DeckListWidget
+
+    focus_card_changed = pyqtSignal(object)
 
     @classmethod
     def init(cls) -> None:
@@ -51,3 +52,6 @@ class Context(object):
         )
 
         cls.search_pattern_parser = SearchParser(cls.db)
+
+
+Context = _Context()

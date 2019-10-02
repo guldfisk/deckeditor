@@ -4,13 +4,13 @@ from PyQt5 import QtWidgets, QtCore
 
 from mtgorp.models.persistent.printing import Printing
 
-from deckeditor.cardcontainers.cardcontainer import CardContainer
-from deckeditor.undo.command import UndoStack, UndoCommand
-from deckeditor.cardcontainers.alignment.aligner import Aligner
-from deckeditor.cardcontainers.alignment.stackinggrids.staticstackinggrid import StaticStackingGrid
-from deckeditor.cardcontainers.alignment.stackinggrids.dynamicstackinggrid import DynamicStackingGrid
-from deckeditor.cardcontainers.alignment.grid import GridAligner
-from deckeditor.cardcontainers.physicalcard import PhysicalCard
+from deckeditor.garbage.cardcontainers.cardcontainer import CardContainer
+from deckeditor.garbage.undo import UndoStack, UndoCommand
+from deckeditor.garbage.cardcontainers.alignment import Aligner
+from deckeditor.garbage.cardcontainers.alignment import StaticStackingGrid
+from deckeditor.garbage.cardcontainers.alignment import DynamicStackingGrid
+from deckeditor.garbage.cardcontainers.alignment import GridAligner
+from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.context.context import Context
 from deckeditor.values import DeckZoneType
 

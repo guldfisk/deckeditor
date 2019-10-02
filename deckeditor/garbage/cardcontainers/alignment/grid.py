@@ -9,9 +9,9 @@ from mtgorp.models.persistent.attributes import colors
 
 from mtgimg.interface import SizeSlug, IMAGE_SIZE_MAP
 
-from deckeditor.undo.command import UndoStack, UndoCommand
+from deckeditor.garbage.undo import UndoStack
 from deckeditor.values import SortProperty
-from deckeditor.cardcontainers.alignment.aligner import (
+from deckeditor.garbage.cardcontainers.alignment import (
 	Aligner,
 	AlignRemove,
 	AlignAttach,
@@ -20,7 +20,7 @@ from deckeditor.cardcontainers.alignment.aligner import (
 	AlignSort,
 	Direction,
 )
-from deckeditor.cardcontainers.physicalcard import PhysicalCard
+from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.context.context import Context
 
 
