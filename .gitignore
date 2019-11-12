@@ -1,16 +1,3 @@
 .idea/
-deckeditor/__pycache__/
-deckeditor/garbage/cardcontainers/__pycache__/
-deckeditor/garbage/cardcontainers/alignment/__pycache__/
-deckeditor/garbage/undo/__pycache__/
 /.gitignore
-deckeditor/components/cardadd/__pycache__/
-deckeditor/notifications/__pycache__/
-deckeditor/components/cardview/__pycache__/
-
-deckeditor/context/__pycache__/
-deckeditor/components/generate/__pycache__/
-deckeditor/garbage/cardcontainers/alignment/stackinggrids/__pycache__/
-deckeditor/garbage/decklistview/__pycache__/
-deckeditor/models/__pycache__/
-deckeditor/utils/__pycache__/
+__pycache__

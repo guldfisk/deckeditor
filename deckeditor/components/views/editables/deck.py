@@ -4,6 +4,9 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QWidget, QLayout, QVBoxLayout
 
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
+from deckeditor.components.views.cubeedit.graphical.alignment.grid import GridAligner
+from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
+from deckeditor.components.views.cubeedit.graphical.cubescene import CubeScene
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.models.deck import DeckModel
 
@@ -29,8 +32,15 @@ class DeckView(Editable):
             )
         )
         horizontal_splitter.addWidget(
-            CubeListView(
-                self._deck_model.sideboard
+            # CubeListView(
+            #     # TODO should be sideboard
+            #     self._deck_model.maindeck
+            # )
+            CubeImageView(
+                CubeScene(
+                    self._deck_model.maindeck,
+                    GridAligner(),
+                )
             )
         )
 

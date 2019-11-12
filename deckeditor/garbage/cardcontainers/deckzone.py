@@ -164,5 +164,5 @@ class DeckZone(QtWidgets.QWidget):
 
 	@property
 	def printings(self) -> t.Iterable[Printing]:
-		return (card.printing for card in self._card_container.card_scene.cards)
+		return (card.cubeable for card in self._card_container.card_scene.cards)
 

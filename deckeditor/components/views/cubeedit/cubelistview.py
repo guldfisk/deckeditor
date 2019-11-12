@@ -55,16 +55,15 @@ class CubeListView(QTableWidget):
     def _handle_item_edit(self, item: CubeableTableItem):
         if item.column() == 0:
             cubeable = self.item(item.row(), 1).cubeable
-            previous_multiplicity = self._cube_model.cube.cubeables[cubeable]
             self._cube_model.modify(
                 CubeDeltaOperation(
                     {
-                        cubeable: item.data(0) - previous_multiplicity
+                        cubeable: item.data(0) - self._cube_model.cube.cubeables[cubeable]
                     }
                 )
             )
 
-    def _update_content(self) -> None:
+    def _update_content(self, delta_operation: t.Optional[CubeDeltaOperation] = None) -> None:
         self.blockSignals(True)
         self.setSortingEnabled(False)
         self.setRowCount(len(self._cube_model.cube.cubeables.distinct_elements()))

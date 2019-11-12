@@ -1,6 +1,8 @@
 import typing as t
 
 from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QCompleter
 
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
@@ -33,6 +35,13 @@ class QueryEditor(QtWidgets.QLineEdit):
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
+        completer = QCompleter(
+            Context.db.cardboards.keys()
+        )
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        completer.setCompletionMode(QCompleter.InlineCompletion)
+        self.setCompleter(completer)
 
     def focusInEvent(self, focus_event: QtGui.QFocusEvent):
         super().focusInEvent(focus_event)
@@ -68,15 +77,15 @@ class PrintingList(QtWidgets.QListView):
         current = self.model().item(self.currentIndex().row())
 
         if current is not None:
-            Context.card_view.set_image.emit(
-                ImageRequest(current.printing)
+            Context.focus_card_changed.emit(
+                current.printing
             )
             self.scrollTo(self.currentIndex())
 
     def _add_printings(self) -> None:
         self._addable.add_printings(
             DeckZoneType[self._target_selector.currentText()],
-            [self.model().item(self.currentIndex().row()).printing] * int(self._amounter.text()),
+            [self.model().item(self.currentIndex().row()).cubeable] * int(self._amounter.text()),
             )
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):

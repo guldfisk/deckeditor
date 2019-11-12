@@ -83,7 +83,7 @@ from mtgorp.models.collections.deck import Deck
 
 class CubeModel(QObject):
 
-    changed = pyqtSignal()
+    changed = pyqtSignal(CubeDeltaOperation)
 
     def __init__(self, cube: t.Optional[Cube] = None) -> None:
         super().__init__()
@@ -96,7 +96,7 @@ class CubeModel(QObject):
     def modify(self, cube_delta_operation: CubeDeltaOperation) -> None:
         print('mod', cube_delta_operation)
         self._cube += cube_delta_operation
-        self.changed.emit()
+        self.changed.emit(cube_delta_operation)
 
 
 class DeckModel(QObject):

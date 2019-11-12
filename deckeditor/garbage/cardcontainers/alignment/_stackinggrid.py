@@ -409,7 +409,7 @@ class StackingSort(AlignSort):
 	def _sorted_cards(self) -> t.List[PhysicalCard]:
 		return sorted(
 			self._card_infos.keys(),
-			key=lambda card: card.printing.cardboard.name,
+			key=lambda card: card.cubeable.cardboard.name,
 		)
 
 	def _cards_separated(self) -> t.Iterable[t.Tuple[PhysicalCard, int]]:
@@ -584,7 +584,7 @@ class ExpansionSort(ValueToPositionSort):
 class CollectorsNumberSort(StackingSort):
 
 	def _sorted_cards(self) -> t.List[PhysicalCard]:
-		return sorted(self._card_infos.keys(), key = lambda card: card.printing.collector_number)
+		return sorted(self._card_infos.keys(), key = lambda card: card.cubeable.collector_number)
 
 
 class _CardInfo(object):

@@ -7,12 +7,12 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
 
     def __init__(self, pixmap: t.Optional[QtGui.QPixmap] = None):
         super().__init__()
-        self._pixmap = None  #type: QtGui.QPixmap
+        self._pixmap: t.Optional[QtGui.QPixmap] = None
         self._bounding_rect = QtCore.QRectF()
 
         self._selection_highlight_pen = QtGui.QPen(
-            QtGui.QColor(255, 0, 0),
-            1,
+            QtGui.QColor(255, 0, 0, 120),
+            # 1,
         )
 
         self._zero_point = QtCore.QPointF(0, 0)
@@ -38,6 +38,6 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
     def paint(self, painter: QtGui.QPainter, options, widget=None):
         painter.drawPixmap(self._zero_point, self._pixmap)
 
-        # if self.isSelected():
-        #     painter.setPen(self._selection_highlight_pen)
-        #     painter.drawRect(self.boundingRect())
+        if self.isSelected():
+            painter.setPen(self._selection_highlight_pen)
+            painter.drawRect(self.boundingRect())
