@@ -3,7 +3,6 @@ from __future__ import annotations
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
-from mtgorp.models.persistent.printing import Printing
 
 from mtgimg.interface import ImageRequest
 
@@ -17,9 +16,9 @@ from deckeditor.context.context import Context
 class PhysicalCard(GraphicPixmapObject):
 
     signal = QtCore.pyqtSignal(QtGui.QPixmap)
-    pixmap_loader = None #type: PixmapLoader
+    pixmap_loader: PixmapLoader = None
 
-    DEFAULT_PIXMAP = None #type: QtGui.QPixmap
+    DEFAULT_PIXMAP: QtGui.QPixmap = None
 
     def __init__(self, cubeable: Cubeable):
         super().__init__(Context.pixmap_loader.get_default_pixmap())

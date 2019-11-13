@@ -10,10 +10,7 @@ from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 
 class Aligner(ABC):
 
-    def __init__(self):
-        self._scene: t.Optional[SelectionScene] = None
-
-    def set_scene(self, scene: SelectionScene) -> None:
+    def __init__(self, scene: SelectionScene):
         self._scene = scene
 
     @abstractmethod

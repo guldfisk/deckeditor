@@ -94,7 +94,6 @@ class CubeModel(QObject):
         return self._cube
 
     def modify(self, cube_delta_operation: CubeDeltaOperation) -> None:
-        print('mod', cube_delta_operation)
         self._cube += cube_delta_operation
         self.changed.emit(cube_delta_operation)
 

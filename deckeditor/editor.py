@@ -6,7 +6,7 @@ import random
 import os
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QWidget, QMainWindow, QAction
+from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
 
 from yeetlong.multiset import Multiset
 
@@ -324,6 +324,13 @@ class MainWindow(QMainWindow, CardAddable):
         self._card_adder_dock.setObjectName('card adder dock')
         self._card_adder_dock.setWidget(self._card_adder)
         self._card_adder_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        
+        self._undo_view = QUndoView(Context.undo_group)
+        
+        self._undo_view_dock = QtWidgets.QDockWidget('Undo View', self)
+        self._undo_view_dock.setObjectName('undo view dock')
+        self._undo_view_dock.setWidget(self._undo_view)
+        self._undo_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
         self._deck_list_widget = DeckListWidget(self)
         self._deck_list_widget.set_deck.emit((), ())
@@ -338,6 +345,7 @@ class MainWindow(QMainWindow, CardAddable):
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._card_adder_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._deck_list_docker)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
 
         self._card_adder_dock.hide()
         self._deck_list_docker.hide()

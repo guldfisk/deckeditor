@@ -2,6 +2,7 @@ import typing as t
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtWidgets import QUndoGroup
 
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader, DBLoadException
@@ -17,12 +18,13 @@ from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
 
 class _Context(QObject):
 
-    settings = None #type: QtCore.QSettings
-    pixmap_loader = None #type: PixmapLoader
-    db = None  # type: t.Optional[CardDatabase]
-    soft_serialization = None #type: SoftSerialization
-    search_pattern_parser = None #type: SearchParser
-    deck_list_view = None #type: DeckListWidget
+    settings: QtCore.QSettings
+    pixmap_loader: PixmapLoader
+    db: CardDatabase
+    soft_serialization: SoftSerialization
+    search_pattern_parser: SearchParser
+    deck_list_view: DeckListWidget
+    undo_group: QUndoGroup
 
     focus_card_changed = pyqtSignal(object)
 
@@ -52,6 +54,7 @@ class _Context(QObject):
         )
 
         cls.search_pattern_parser = SearchParser(cls.db)
+        cls.undo_group = QUndoGroup()
 
 
 Context = _Context()

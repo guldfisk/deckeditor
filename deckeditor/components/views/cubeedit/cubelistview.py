@@ -2,11 +2,12 @@ import typing as t
 
 from PyQt5.QtCore import QObject, Qt, QVariant, QSortFilterProxyModel
 from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QTableView
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QTableView, QUndoStack
 from PyQt5.uic.properties import QtGui
 
 from deckeditor.context.context import Context
 from deckeditor.models.deck import CubeModel
+from deckeditor.undo.command.commands import ModifyCubeModel
 from magiccube.collections.cubeable import Cubeable
 from magiccube.collections.delta import CubeDeltaOperation
 from magiccube.laps.lap import Lap
@@ -31,9 +32,10 @@ class CubeableTableItem(QTableWidgetItem):
 
 class CubeListView(QTableWidget):
 
-    def __init__(self, cube_model: CubeModel, parent: t.Optional[QObject] = None):
+    def __init__(self, cube_model: CubeModel, undo_stack: QUndoStack, parent: t.Optional[QObject] = None):
         super().__init__(0, 2, parent)
         self._cube_model = cube_model
+        self._undo_stack = undo_stack
 
         self.itemChanged.connect(self._handle_item_edit)
         self._update_content()
@@ -55,11 +57,14 @@ class CubeListView(QTableWidget):
     def _handle_item_edit(self, item: CubeableTableItem):
         if item.column() == 0:
             cubeable = self.item(item.row(), 1).cubeable
-            self._cube_model.modify(
-                CubeDeltaOperation(
-                    {
-                        cubeable: item.data(0) - self._cube_model.cube.cubeables[cubeable]
-                    }
+            self._undo_stack.push(
+                ModifyCubeModel(
+                    self._cube_model,
+                    CubeDeltaOperation(
+                        {
+                            cubeable: item.data(0) - self._cube_model.cube.cubeables[cubeable]
+                        }
+                    ),
                 )
             )
 
