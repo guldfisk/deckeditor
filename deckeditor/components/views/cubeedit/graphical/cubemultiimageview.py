@@ -114,7 +114,7 @@ class CubeMultiImageView(QtWidgets.QWidget):
         # self._card_container.scene().selectionChanged.connect(self.selection_change)
 
         default_scale = Context.settings.value('default_card_view_scale', .2, float)
-        self._cube_scene.scale(default_scale, default_scale)
+        # self._cube_scene.setScale(default_scale, default_scale)
 
         box = QtWidgets.QVBoxLayout(self)
 
@@ -127,7 +127,7 @@ class CubeMultiImageView(QtWidgets.QWidget):
         # self._selected_info.set_amount_selected()
 
         box.addLayout(self._tool_bar)
-        box.addWidget(self._card_container)
+        box.addWidget(self._cube_image_view)
 
         self.setLayout(box)
 

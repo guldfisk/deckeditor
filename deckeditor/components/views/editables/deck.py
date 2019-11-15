@@ -50,7 +50,9 @@ class DeckView(Editable):
             #     )
             # )
             CubeMultiImageView(
-                CubeScene()
+                CubeScene(
+                    self._deck_model.maindeck,
+                )
             )
         )
 

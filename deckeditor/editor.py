@@ -439,10 +439,10 @@ class MainWindow(QMainWindow, CardAddable):
         )
 
     def _undo(self):
-        self._main_view.active_deck.undo_stack.undo()
+        Context.undo_group.undo()
 
     def _redo(self):
-        self._main_view.active_deck.undo_stack.redo()
+        Context.undo_group.redo()
 
     def notify(self, message: str) -> None:
         self._notification_frame.notify(message)
