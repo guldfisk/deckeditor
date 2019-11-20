@@ -82,8 +82,8 @@ class StaticStackingGrid(StackingGrid):
 
         return StackerMap(
             self,
-            int(r.height() // self._card_stacker_width),
             int(r.height() // self._card_stacker_height),
+            int(r.width() // self._card_stacker_width),
             self._card_stacker_width,
             self._card_stacker_height,
         )

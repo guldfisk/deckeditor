@@ -578,10 +578,10 @@ class StackerMap(object):
                     column,
                 )
                 for column in
-                range(column_amount)
+                range(row_amount)
             ]
             for row in
-            range(row_amount)
+            range(column_amount)
         ]
 
         self._row_heights = [
