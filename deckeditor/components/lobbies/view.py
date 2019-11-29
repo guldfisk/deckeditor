@@ -1,4 +1,5 @@
 
 
 class LobbyView(object):
+
     pass

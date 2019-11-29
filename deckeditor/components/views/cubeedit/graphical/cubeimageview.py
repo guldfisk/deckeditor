@@ -34,6 +34,9 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._floating: t.List[PhysicalCard] = []
         self._dragging: t.List[PhysicalCard] = []
 
+        self._dragging_move: bool = False
+        self._last_move_event_pos = None
+
         self.scale(.3, .3)
 
         # self._card_scene.cursor_moved.connect(lambda pos: self.centerOn(pos))
@@ -48,7 +51,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
         # self._create_sort_action_pair(SortProperty.EXPANSION)
         # self._create_sort_action_pair(SortProperty.COLLECTOR_NUMBER)
         #
-        # self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+i')
+        self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+i')
         #
         # self._move_selected_to_maindeck_action = self._create_action(
         #     'Move Selected to Maindeck',
@@ -75,8 +78,9 @@ class CubeImageView(QtWidgets.QGraphicsView):
         #     'Alt+3',
         # )
         #
-        # self.customContextMenuRequested.connect(self._context_menu_event)
-        # self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._context_menu_event)
+        self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.setTransformationAnchor(QtWidgets.QGraphicsView.NoAnchor)
 
     # def _create_sort_action_pair(
     #     self,
@@ -108,17 +112,17 @@ class CubeImageView(QtWidgets.QGraphicsView):
     #         )
     #     )
 
-    # def _create_action(self, name: str, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QAction:
-    #     action = QtWidgets.QAction(name, self)
-    #     action.triggered.connect(result)
-    #
-    #     if shortcut:
-    #         action.setShortcut(shortcut)
-    #         action.setShortcutContext(QtCore.Qt.WidgetWithChildrenShortcut)
-    #
-    #     self.addAction(action)
-    #
-    #     return action
+    def _create_action(self, name: str, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QAction:
+        action = QtWidgets.QAction(name, self)
+        action.triggered.connect(result)
+
+        if shortcut:
+            action.setShortcut(shortcut)
+            action.setShortcutContext(QtCore.Qt.WidgetWithChildrenShortcut)
+
+        self.addAction(action)
+
+        return action
 
     @property
     def dragging(self) -> t.List[PhysicalCard]:
@@ -196,26 +200,26 @@ class CubeImageView(QtWidgets.QGraphicsView):
     #         super().keyPressEvent(key_event)
 
     def _fit_all_cards(self) -> None:
-        self.fitInView(self._card_scene.itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
+        self.fitInView(self._scene.itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
 
-    # def _context_menu_event(self, position: QtCore.QPoint):
-    #     menu = QtWidgets.QMenu(self)
-    #
-    #     menu.addAction(self._fit_action)
-    #
-    #     sort_menu = menu.addMenu('Sort')
-    #
-    #     for action in self._sort_actions:
-    #         sort_menu.addAction(action)
-    #
-    #     menu.addSeparator()
-    #
-    #     item = self.itemAt(position)
-    #
-    #     if item and isinstance(item, PhysicalCard):
-    #         item.context_menu(menu)
-    #
-    #     menu.exec_(self.mapToGlobal(position))
+    def _context_menu_event(self, position: QtCore.QPoint):
+        menu = QtWidgets.QMenu(self)
+
+        menu.addAction(self._fit_action)
+
+        # sort_menu = menu.addMenu('Sort')
+        #
+        # for action in self._sort_actions:
+        #     sort_menu.addAction(action)
+
+        menu.addSeparator()
+
+        # item = self.itemAt(position)
+        #
+        # if item and isinstance(item, PhysicalCard):
+        #     item.context_menu(menu)
+
+        menu.exec_(self.mapToGlobal(position))
     #
     # def dragEnterEvent(self, drag_event: QtGui.QDragEnterEvent):
     #     if isinstance(drag_event.source(), CardContainer):
@@ -234,14 +238,47 @@ class CubeImageView(QtWidgets.QGraphicsView):
     #         )
     #     )
 
+    def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
+        modifiers = event.modifiers()
+        if modifiers & QtCore.Qt.ControlModifier:
+            transform = self.transform()
+            x_scale, y_scale = transform.m11(), transform.m22()
+            delta = event.angleDelta().y() / 2000
+            x_scale, y_scale = [
+                max(.1, min(4, scale + delta))
+                for scale in
+                (x_scale, y_scale)
+            ]
+            old_position = self.mapToScene(event.pos())
+            self.resetTransform()
+            # self.setResizeAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
+            self.scale(x_scale, y_scale)
+            new_position = self.mapToScene(event.pos())
+            position_delta = new_position - old_position
+            self.translate(position_delta.x(), position_delta.y())
+            # self.horizontalScrollBar().setValue(
+            #     self.horizontalScrollBar().value() + position_delta.x()
+            # )
+            # # transform = self.transform()
+            # self.verticalScrollBar().setValue(
+            #     self.verticalScrollBar().value() + position_delta.y()
+            # )
+        else:
+            super().wheelEvent(event)
+
     def mousePressEvent(self, mouse_event: QtGui.QMouseEvent):
         if not mouse_event.button() == QtCore.Qt.LeftButton:
             return
 
         item = self.itemAt(mouse_event.pos())
 
-        if item is not None:
+        if item is None:
+            self._scene.clear_selection()
 
+            if mouse_event.modifiers() & QtCore.Qt.ControlModifier:
+                self._dragging_move = True
+
+        else:
             if not item.isSelected():
                 self._scene.set_selection((item,))
 
@@ -250,12 +287,21 @@ class CubeImageView(QtWidgets.QGraphicsView):
             # self._undo_stack.push(
             #     self._card_scene.aligner.detach_cards(self._floating)
             # )
-            return
-
-        self._scene.clear_selection()
 
     def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
-        if self._rubber_band.isHidden():
+        if self._last_move_event_pos:
+            delta = mouse_event.globalPos() - self._last_move_event_pos
+        else:
+            delta = None
+        self._last_move_event_pos = mouse_event.globalPos()
+
+        if self._dragging_move:
+            if delta:
+                transform = self.transform()
+                x_scale, y_scale = transform.m11(), transform.m22()
+                self.translate(delta.x() / x_scale, delta.y() / y_scale)
+
+        elif self._rubber_band.isHidden():
 
             # if not QtCore.QRectF(
             #     0,
@@ -314,6 +360,8 @@ class CubeImageView(QtWidgets.QGraphicsView):
             )
 
     def mouseReleaseEvent(self, mouse_event: QtGui.QMouseEvent):
+        self._dragging_move = False
+
         if not mouse_event.button() == QtCore.Qt.LeftButton:
             return
 
