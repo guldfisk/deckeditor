@@ -5,6 +5,9 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from deckeditor.components.views.cubeedit.graphical.physicalcard import PhysicalCard
 from deckeditor.components.views.cubeedit.graphical.cubescene import CubeScene
 from deckeditor.context.context import Context
+from deckeditor.undo.command.commands import ModifyCubeModel
+from magiccube.collections.delta import CubeDeltaOperation
+from yeetlong.multiset import Multiset
 
 
 class CubeImageView(QtWidgets.QGraphicsView):
@@ -158,46 +161,58 @@ class CubeImageView(QtWidgets.QGraphicsView):
     #         target._card_scene.aligner.attach_cards(cards)
     #     )
     #
-    # def keyPressEvent(self, key_event: QtGui.QKeyEvent):
-    #     pressed_key = key_event.key()
-    #     modifiers = key_event.modifiers()
-    #
-    #     if pressed_key == QtCore.Qt.Key_Up:
-    #         self._card_scene.aligner.move_cursor(Direction.UP, modifiers)
-    #
-    #     elif pressed_key == QtCore.Qt.Key_Right:
-    #         self._card_scene.aligner.move_cursor(Direction.RIGHT, modifiers)
-    #
-    #     elif pressed_key == QtCore.Qt.Key_Down:
-    #         self._card_scene.aligner.move_cursor(Direction.DOWN, modifiers)
-    #
-    #     elif pressed_key == QtCore.Qt.Key_Left:
-    #         self._card_scene.aligner.move_cursor(Direction.LEFT, modifiers)
-    #
-    #     elif pressed_key == QtCore.Qt.Key_Plus:
-    #         self.scale(1.1, 1.1)
-    #
-    #     elif pressed_key == QtCore.Qt.Key_Minus:
-    #         self.scale(.9, .9)
-    #
-    #     elif pressed_key == QtCore.Qt.Key_Delete:
-    #         cards = self._card_scene.selectedItems()
-    #         self._undo_stack.push(
-    #             self._card_scene.aligner.detach_cards(cards),
-    #             self._card_scene.aligner.remove_cards(cards),
-    #         )
-    #
-    #     elif pressed_key == QtCore.Qt.Key_Period:
-    #         pos = self.mapFromScene(self.card_scene.cursor.pos())
-    #         self.customContextMenuRequested.emit(
-    #             QtCore.QPoint(
-    #                 int(pos.x()),
-    #                 int(pos.y()),
-    #             )
-    #         )
-    #
-    #     else:
-    #         super().keyPressEvent(key_event)
+    def keyPressEvent(self, key_event: QtGui.QKeyEvent):
+        pressed_key = key_event.key()
+        modifiers = key_event.modifiers()
+
+        # if pressed_key == QtCore.Qt.Key_Up:
+        #     self._card_scene.aligner.move_cursor(Direction.UP, modifiers)
+        #
+        # elif pressed_key == QtCore.Qt.Key_Right:
+        #     self._card_scene.aligner.move_cursor(Direction.RIGHT, modifiers)
+        #
+        # elif pressed_key == QtCore.Qt.Key_Down:
+        #     self._card_scene.aligner.move_cursor(Direction.DOWN, modifiers)
+        #
+        # elif pressed_key == QtCore.Qt.Key_Left:
+        #     self._card_scene.aligner.move_cursor(Direction.LEFT, modifiers)
+        #
+        # elif pressed_key == QtCore.Qt.Key_Plus:
+        #     self.scale(1.1, 1.1)
+        #
+        # elif pressed_key == QtCore.Qt.Key_Minus:
+        #     self.scale(.9, .9)
+
+        if pressed_key == QtCore.Qt.Key_Delete:
+            cards = self._scene.selectedItems()
+            Context.undo_group.activeStack().push(
+                ModifyCubeModel(
+                    self._scene.cube_model,
+                    ~CubeDeltaOperation(
+                        Multiset(
+                            card.cubeable
+                            for card in
+                            cards
+                        ).elements()
+                    ),
+                )
+            )
+            # self._undo_stack.push(
+            #     self._card_scene.aligner.detach_cards(cards),
+            #     self._card_scene.aligner.remove_cards(cards),
+            # )
+
+        # elif pressed_key == QtCore.Qt.Key_Period:
+        #     pos = self.mapFromScene(self.card_scene.cursor.pos())
+        #     self.customContextMenuRequested.emit(
+        #         QtCore.QPoint(
+        #             int(pos.x()),
+        #             int(pos.y()),
+        #         )
+        #     )
+
+        else:
+            super().keyPressEvent(key_event)
 
     def _fit_all_cards(self) -> None:
         self.fitInView(self._scene.itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
@@ -270,23 +285,24 @@ class CubeImageView(QtWidgets.QGraphicsView):
         if not mouse_event.button() == QtCore.Qt.LeftButton:
             return
 
-        item = self.itemAt(mouse_event.pos())
-
-        if item is None:
-            self._scene.clear_selection()
-
-            if mouse_event.modifiers() & QtCore.Qt.ControlModifier:
-                self._dragging_move = True
+        if mouse_event.modifiers() & QtCore.Qt.ControlModifier:
+            self._dragging_move = True
 
         else:
-            if not item.isSelected():
-                self._scene.set_selection((item,))
+            item = self.itemAt(mouse_event.pos())
 
-            self._floating = self.scene().selectedItems()
-            self._scene.pick_up(self._floating)
-            # self._undo_stack.push(
-            #     self._card_scene.aligner.detach_cards(self._floating)
-            # )
+            if item is None:
+                self._scene.clear_selection()
+
+            else:
+                if not item.isSelected():
+                    self._scene.set_selection((item,))
+
+                self._floating = self.scene().selectedItems()
+                self._scene.pick_up(self._floating)
+                # self._undo_stack.push(
+                #     self._card_scene.aligner.detach_cards(self._floating)
+                # )
 
     def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
         if self._last_move_event_pos:

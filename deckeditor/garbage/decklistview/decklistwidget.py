@@ -53,7 +53,7 @@ class DeckListWidget(QtWidgets.QWidget):
         (
             groupification.CREATURE_CATEGORY,
             groupification.INSTANT_SORCERY_CATEGORY,
-            groupification.NON_CREATURE_PERMANENTS_CATEGORY,
+            groupification.NON_CREATURE_NON_LAND_PERMANENT_CATEGORY,
             groupification.LANDS_CATEGORY,
         ),
     )
@@ -63,7 +63,7 @@ class DeckListWidget(QtWidgets.QWidget):
         (
             groupification.CREATURE_CATEGORY,
             groupification.INSTANT_SORCERY_CATEGORY,
-            groupification.NON_CREATURE_PERMANENTS_CATEGORY,
+            groupification.NON_CREATURE_NON_LAND_PERMANENT_CATEGORY,
             groupification.LANDS_CATEGORY,
         ),
     )
@@ -73,7 +73,7 @@ class DeckListWidget(QtWidgets.QWidget):
         (
             groupification.CREATURE_CATEGORY,
             groupification.INSTANT_SORCERY_CATEGORY,
-            groupification.NON_CREATURE_PERMANENTS_CATEGORY,
+            groupification.NON_CREATURE_NON_LAND_PERMANENT_CATEGORY,
             groupification.LANDS_CATEGORY,
         ),
     )
@@ -83,7 +83,7 @@ class DeckListWidget(QtWidgets.QWidget):
         (
             groupification.CREATURE_CATEGORY,
             groupification.INSTANT_SORCERY_CATEGORY,
-            groupification.NON_CREATURE_PERMANENTS_CATEGORY,
+            groupification.NON_CREATURE_NON_LAND_PERMANENT_CATEGORY,
             groupification.LANDS_CATEGORY,
         ),
     )

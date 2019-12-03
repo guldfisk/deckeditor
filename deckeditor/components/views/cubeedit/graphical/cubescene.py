@@ -38,6 +38,10 @@ class CubeScene(SelectionScene):
         )
         self._cube_model.changed.connect(self._update)
 
+    @property
+    def cube_model(self) -> CubeModel:
+        return self._cube_model
+
     def set_aligner(self, aligner_type: t.Type[Aligner]) -> None:
         cards = list(
             itertools.chain(

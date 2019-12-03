@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing
 import typing as t
 
@@ -8,6 +10,9 @@ import os
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
 
+from deckeditor.notifications.frame import NotificationFrame
+from deckeditor.notifications.notifyable import Notifyable
+from mtgorp.tools.parsing.exceptions import ParseException
 from yeetlong.multiset import Multiset
 
 from mtgorp.db.database import CardDatabase
@@ -271,7 +276,7 @@ class QueryEdit(QtWidgets.QLineEdit):
 
 class SearchSelectionDialog(QtWidgets.QDialog):
 
-    def __init__(self, parent: 'MainWindow'):
+    def __init__(self, parent: MainWindow):
         super().__init__(parent)
 
         self._query_edit = QueryEdit(self)
@@ -282,7 +287,7 @@ class SearchSelectionDialog(QtWidgets.QDialog):
 
         self.setLayout(self._box)
 
-    def parent(self) -> 'MainWindow':
+    def parent(self) -> MainWindow:
         return super().parent()
 
     def _compile(self):
@@ -293,19 +298,19 @@ class SearchSelectionDialog(QtWidgets.QDialog):
                 )
             )
             self.accept()
-        except SearchPatternParseException as e:
+        except ParseException as e:
             self.parent().notify(f'Invalid search query: {e}')
             return
 
 
-class MainWindow(QMainWindow, CardAddable):
+class MainWindow(QMainWindow, CardAddable, Notifyable):
     search_select = QtCore.pyqtSignal(Criteria)
     pool_generated = QtCore.pyqtSignal(Multiset)
 
     def __init__(self, parent = None):
         super().__init__(parent)
 
-        # self._notification_frame = NotificationFrame(self)
+        self._notification_frame = NotificationFrame(self)
 
         self.setWindowTitle('Embargo Edit')
 

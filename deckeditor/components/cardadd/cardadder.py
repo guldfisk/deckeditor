@@ -4,8 +4,11 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCompleter
 
+from deckeditor.undo.command.commands import ModifyCubeModel
+from magiccube.collections.delta import CubeDeltaOperation
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
+from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.parsing.search.parse import SearchPatternParseException
 
 from mtgimg.interface import ImageRequest
@@ -83,10 +86,20 @@ class PrintingList(QtWidgets.QListView):
             self.scrollTo(self.currentIndex())
 
     def _add_printings(self) -> None:
-        self._addable.add_printings(
-            DeckZoneType[self._target_selector.currentText()],
-            [self.model().item(self.currentIndex().row()).cubeable] * int(self._amounter.text()),
+        Context.undo_group.activeStack().push(
+            ModifyCubeModel(
+                #TODO get current cube model.
+                CubeDeltaOperation(
+                    {
+                        self.model().item(self.currentIndex().row().printing): int(self._amounter.text())
+                    }
+                )
             )
+        )
+        # self._addable.add_printings(
+        #     DeckZoneType[self._target_selector.currentText()],
+        #     [self.model().item(self.currentIndex().row()).cubeable] * int(self._amounter.text()),
+        # )
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         if key_event.key() == QtCore.Qt.Key_Enter or key_event.key() == QtCore.Qt.Key_Return:
@@ -133,7 +146,7 @@ class CardboardList(QtWidgets.QListView):
             super().keyPressEvent(key_event)
 
     def set_cardboards(self, cardboards: t.Iterable[Cardboard]):
-        _cardboards = sorted(cardboards, key=lambda _cardboard: _cardboard.name)
+        _cardboards = sorted(cardboards, key = lambda _cardboard: _cardboard.name)
         self.model().clear()
         for cardboard in _cardboards:
             item = CardboardItem(cardboard)
@@ -244,7 +257,7 @@ class CardAdder(QtWidgets.QWidget):
     def _search(self, s: str) -> None:
         try:
             pattern = Context.search_pattern_parser.parse(s)
-        except SearchPatternParseException as e:
+        except ParseException as e:
             self._notifyable.notify(f'Invalid search query {e}')
             return
 

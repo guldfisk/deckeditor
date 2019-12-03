@@ -47,7 +47,7 @@ class NotificationFrame(object):
         self._window = window
         self._spacing = spacing
 
-        self._notifications = SingleAccessList() #type: t.List[Notification]
+        self._notifications: t.List[Notification] = SingleAccessList()
 
     def stack_notifications(self):
         position = self._window.height()
