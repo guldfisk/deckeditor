@@ -10,6 +10,8 @@ import os
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
 
+from deckeditor.components.authentication.login import LoginDialog
+from deckeditor.components.lobbies.view import LobbyView, LobbyModel, CreateLobbyDialog
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
 from mtgorp.tools.parsing.exceptions import ParseException
@@ -222,7 +224,7 @@ from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
 
 class MainView(QWidget):
 
-    def __init__(self, parent: typing.Optional['QWidget'] = None) -> None:
+    def __init__(self, parent: typing.Optional[QWidget] = None) -> None:
         super().__init__(parent)
         # cube = CubeLoader(Context.db).load()
         import random
@@ -234,7 +236,13 @@ class MainView(QWidget):
 
         layout = QtWidgets.QVBoxLayout()
 
-        layout.addWidget(deck_tabs)
+        # layout.addWidget(deck_tabs)
+
+        lobby_view = LobbyView(
+            LobbyModel()
+        )
+
+        layout.addWidget(lobby_view)
 
         self.setLayout(layout)
 
@@ -336,6 +344,11 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._undo_view_dock.setObjectName('undo view dock')
         self._undo_view_dock.setWidget(self._undo_view)
         self._undo_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        
+        self._lobby_view_dock = QtWidgets.QDockWidget('Lobby View', self)
+        self._lobby_view_dock.setObjectName('lobbies')
+        self._lobby_view_dock.setWidget(self._undo_view)
+        self._lobby_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
         self._deck_list_widget = DeckListWidget(self)
         self._deck_list_widget.set_deck.emit((), ())
@@ -405,6 +418,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             menu_bar.addMenu('Test'): (
                 ('Test', 'Ctrl+T', self._test_add),
             ),
+            menu_bar.addMenu('Connect'): (
+                ('Login', 'Ctrl+L', self._login),
+            ),
         }
 
         for menu in all_menus:
@@ -426,6 +442,10 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         # self.pool_generated.connect(self._pool_generated)
 
         self._load_state()
+
+    def _login(self):
+        dialog = LoginDialog(self)
+        dialog.exec()
 
     @staticmethod
     def _toggle_dock_view(dock: QtWidgets.QDockWidget):

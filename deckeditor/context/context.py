@@ -26,11 +26,19 @@ class _Context(QObject):
     deck_list_view: DeckListWidget
     undo_group: QUndoGroup
 
+    host: str
+    token: str
+    username: str
+    # password: str
+
     focus_card_changed = pyqtSignal(object)
 
     @classmethod
     def init(cls) -> None:
         cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
+
+        cls.host = Context.settings.value('host_name', 'localhost:7000')
+        cls.host = Context.settings.value('username', 'root')
 
         cls.pixmap_loader = PixmapLoader(
             pixmap_executor = 30,
