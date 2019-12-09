@@ -11,7 +11,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
 
 from deckeditor.components.authentication.login import LoginDialog
-from deckeditor.components.lobbies.view import LobbyView, LobbyModel, CreateLobbyDialog
+from deckeditor.components.lobbies.view import LobbyView, LobbyModel, CreateLobbyDialog, LobbyModelClientConnection
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
 from mtgorp.tools.parsing.exceptions import ParseException
@@ -239,7 +239,7 @@ class MainView(QWidget):
         # layout.addWidget(deck_tabs)
 
         lobby_view = LobbyView(
-            LobbyModel()
+            LobbyModelClientConnection()
         )
 
         layout.addWidget(lobby_view)
@@ -345,10 +345,10 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._undo_view_dock.setWidget(self._undo_view)
         self._undo_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
         
-        self._lobby_view_dock = QtWidgets.QDockWidget('Lobby View', self)
-        self._lobby_view_dock.setObjectName('lobbies')
-        self._lobby_view_dock.setWidget(self._undo_view)
-        self._lobby_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        # self._lobby_view_dock = QtWidgets.QDockWidget('Lobby View', self)
+        # self._lobby_view_dock.setObjectName('lobbies')
+        # self._lobby_view_dock.setWidget(self._undo_view)
+        # self._lobby_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
         self._deck_list_widget = DeckListWidget(self)
         self._deck_list_widget.set_deck.emit((), ())

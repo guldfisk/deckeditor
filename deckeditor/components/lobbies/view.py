@@ -9,6 +9,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem
 from frozendict import frozendict
 
+from deckeditor.context.context import Context
 from lobbyclient.client import LobbyClient, Lobby
 
 
@@ -46,22 +47,42 @@ class LobbyModel(QObject):
 
 class LobbyModelClientConnection(LobbyModel):
     changed = pyqtSignal()
+    connected = pyqtSignal(bool)
 
     def __init__(self, parent: typing.Optional[QObject] = None) -> None:
         super().__init__(parent)
+        self._lobby_client = None
+        if Context.token:
+            self._logged_in(None)
+        Context.token_changed.connect(self._logged_in)
+
+    @property
+    def is_connected(self) -> bool:
+        return self._lobby_client is not None
+
+    def _logged_in(self, _):
+        if self._lobby_client is not None:
+            self._lobby_client.close()
         self._lobby_client = _LobbyClient(
             self,
-            url = 'ws://localhost:7000/ws/lobbies/',
-            token = 'b43bc17f5119d7b1f7180ec073df462a4c7c0e5d06a42b34f0237d3921ff4e78',
+            url = 'ws://' + Context.host + '/ws/lobbies/',
+            token = Context.token,
         )
+        self.connected.emit(True)
 
     def get_lobbies(self) -> t.Mapping[str, Lobby]:
+        if self._lobby_client is None:
+            return {}
         return self._lobby_client.get_lobbies()
 
     def get_lobby(self, name: str) -> t.Optional[Lobby]:
+        if self._lobby_client is None:
+            return None
         return self._lobby_client.get_lobby(name)
 
     def create_lobby(self, name: str) -> None:
+        if self._lobby_client is None:
+            return
         self._lobby_client.create_lobby(name)
 
 
@@ -79,22 +100,24 @@ class DummyLobbyModel(LobbyModel):
 
 class LobbiesListView(QTableWidget):
 
-    def __init__(self, parent: LobbyModel):
+    def __init__(self, parent: LobbyView):
         super().__init__(0, 4, parent)
         self.setHorizontalHeaderLabels(
             ('name', 'owner', 'users', 'size')
         )
 
-        self._lobby_model = lobby_model
+        self._lobby_view = parent
 
         self._update_content()
-        self._lobby_model.changed.connect(self._update_content)
+        self._lobby_view.lobby_model.changed.connect(self._update_content)
 
         self.resizeColumnsToContents()
         # self.setSortingEnabled(True)
 
     def _update_content(self ) -> None:
-        lobbies = self._lobby_model.get_lobbies()
+        print('update content')
+        lobbies = self._lobby_view.lobby_model.get_lobbies()
+        print(lobbies)
 
         self.setRowCount(len(lobbies.values()))
 
@@ -219,29 +242,38 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 
 
 class LobbyView(QWidget):
+    lobbies_changed = pyqtSignal()
 
-    def __init__(self, lobby_model: LobbyModel, parent: typing.Optional[QWidget] = None) -> None:
+    def __init__(self, lobby_model: LobbyModelClientConnection, parent: typing.Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._lobby_model = lobby_model
 
-        lobbies_list_view = LobbiesListView(self._lobby_model)
+        lobbies_list_view = LobbiesListView(self)
         layout = QtWidgets.QVBoxLayout()
 
-        create_lobby_button = QtWidgets.QPushButton('Create lobby')
-        create_lobby_button.clicked.connect(self._create_lobby)
+        self._create_lobby_button = QtWidgets.QPushButton('Create lobby')
+        self._create_lobby_button.clicked.connect(self._create_lobby)
+        print('lobbies connected?', self._lobby_model.is_connected)
+        if not self._lobby_model.is_connected:
+            self._create_lobby_button.setEnabled(False)
 
         layout.addWidget(lobbies_list_view)
-        layout.addWidget(create_lobby_button)
+        layout.addWidget(self._create_lobby_button)
 
         self.setLayout(layout)
+
+    def _connection_status_change(self, connected: bool) -> None:
+        print('connected status change', connected)
+        self._create_lobby_button.setEnabled(connected)
 
     @property
     def lobby_model(self) -> LobbyModel:
         return self._lobby_model
 
     def set_model(self, lobby_model: LobbyModel) -> None:
-
+        self._lobby_model = lobby_model
+        self.lobbies_changed.connect(lobby_model.changed)
 
     def _create_lobby(self) -> None:
-        dialog = CreateLobbyDialog(self._lobby_model, self)
+        dialog = CreateLobbyDialog(self)
         dialog.exec()
