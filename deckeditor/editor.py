@@ -11,7 +11,8 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
 
 from deckeditor.components.authentication.login import LoginDialog
-from deckeditor.components.lobbies.view import LobbyView, LobbyModel, CreateLobbyDialog, LobbyModelClientConnection
+from deckeditor.components.draft.view import DraftTabs
+from deckeditor.components.lobbies.view import LobbiesView, CreateLobbyDialog, LobbyModelClientConnection
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
 from mtgorp.tools.parsing.exceptions import ParseException
@@ -236,13 +237,10 @@ class MainView(QWidget):
 
         layout = QtWidgets.QVBoxLayout()
 
+        draft_tabs = DraftTabs()
+        layout.addWidget(draft_tabs)
+
         # layout.addWidget(deck_tabs)
-
-        lobby_view = LobbyView(
-            LobbyModelClientConnection()
-        )
-
-        layout.addWidget(lobby_view)
 
         self.setLayout(layout)
 
@@ -317,13 +315,11 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
     def __init__(self, parent = None):
         super().__init__(parent)
-
         self._notification_frame = NotificationFrame(self)
 
         self.setWindowTitle('Embargo Edit')
 
         self._card_view = CardViewWidget(self)
-
         Context.focus_card_changed.connect(self._card_view.set_image)
 
         self._card_view_dock = QtWidgets.QDockWidget('Card View', self)
@@ -344,15 +340,21 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._undo_view_dock.setObjectName('undo view dock')
         self._undo_view_dock.setWidget(self._undo_view)
         self._undo_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
-        
-        # self._lobby_view_dock = QtWidgets.QDockWidget('Lobby View', self)
-        # self._lobby_view_dock.setObjectName('lobbies')
-        # self._lobby_view_dock.setWidget(self._undo_view)
-        # self._lobby_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+
+        self._lobby_view = LobbiesView(
+            LobbyModelClientConnection()
+        )
+        self._lobby_view_dock = QtWidgets.QDockWidget('Lobby View', self)
+        self._lobby_view_dock.setObjectName('lobbies')
+        self._lobby_view_dock.setWidget(self._lobby_view)
+        self._lobby_view_dock.setAllowedAreas(
+            QtCore.Qt.RightDockWidgetArea
+            | QtCore.Qt.LeftDockWidgetArea
+            | QtCore.Qt.BottomDockWidgetArea
+        )
 
         self._deck_list_widget = DeckListWidget(self)
         self._deck_list_widget.set_deck.emit((), ())
-
         Context.deck_list_view = self._deck_list_widget
 
         self._deck_list_docker = QtWidgets.QDockWidget('Deck List', self)
@@ -364,9 +366,12 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._deck_list_docker)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
 
         self._card_adder_dock.hide()
         self._deck_list_docker.hide()
+        # self._card_view_dock.hide()
+        self._undo_view_dock.hide()
 
         self._main_view = MainView(self)
 
@@ -414,6 +419,8 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
                 ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
                 ('Deck List View', 'Meta+3', lambda: self._toggle_dock_view(self._deck_list_docker)),
+                ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
+                ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
             ),
             menu_bar.addMenu('Test'): (
                 ('Test', 'Ctrl+T', self._test_add),

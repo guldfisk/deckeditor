@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import typing
 import typing as t
 from abc import abstractmethod
 
@@ -11,6 +10,7 @@ from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem
 from frozendict import frozendict
 from bidict import bidict
 
+from deckeditor.components.draft.view import DraftModel
 from deckeditor.context.context import Context
 
 from lobbyclient.client import LobbyClient, Lobby
@@ -18,7 +18,7 @@ from lobbyclient.client import LobbyClient, Lobby
 
 class _LobbyClient(LobbyClient):
 
-    def __init__(self, model: LobbyModel, url: str, token: str):
+    def __init__(self, model: LobbyModelClientConnection, url: str, token: str):
         super().__init__(url, token)
         self._model = model
 
@@ -31,28 +31,22 @@ class _LobbyClient(LobbyClient):
         print('lobbies changed', created, modified, closed)
         self._model.changed.emit()
 
+    def _game_started(self, lobby: Lobby, key: str) -> None:
+        # self._model.game_started.emit(lobby, key)
+        Context.draft_started.emit(
+            DraftModel(
+                key,
+                lobby.name,
+            )
+        )
 
-class LobbyModel(QObject):
+
+class LobbyModelClientConnection(QObject):
     changed = pyqtSignal()
-
-    @abstractmethod
-    def get_lobbies(self) -> t.Mapping[str, Lobby]:
-        pass
-
-    @abstractmethod
-    def get_lobby(self, name: str) -> t.Optional[Lobby]:
-        pass
-
-    @abstractmethod
-    def create_lobby(self, name: str) -> None:
-        pass
-
-
-class LobbyModelClientConnection(LobbyModel):
-    changed = pyqtSignal()
+    # game_started = pyqtSignal(Lobby, str)
     connected = pyqtSignal(bool)
 
-    def __init__(self, parent: typing.Optional[QObject] = None) -> None:
+    def __init__(self, parent: t.Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._lobby_client: t.Optional[LobbyClient] = None
         if Context.token:
@@ -98,25 +92,35 @@ class LobbyModelClientConnection(LobbyModel):
             return
         self._lobby_client.join_lobby(name)
 
+    def set_ready(self, name: str, ready: bool) -> None:
+        if self._lobby_client is None:
+            return
+        self._lobby_client.set_ready(name, ready)
 
-class DummyLobbyModel(LobbyModel):
+    def start_game(self, name: str) -> None:
+        if self._lobby_client is None:
+            return
+        self._lobby_client.start_game(name)
 
-    def get_lobbies(self) -> t.Mapping[str, Lobby]:
-        return {}
 
-    def get_lobby(self, name: str) -> t.Optional[Lobby]:
-        return None
-
-    def create_lobby(self, name: str) -> None:
-        pass
+# class DummyLobbyModel(LobbyModel):
+#
+#     def get_lobbies(self) -> t.Mapping[str, Lobby]:
+#         return {}
+#
+#     def get_lobby(self, name: str) -> t.Optional[Lobby]:
+#         return None
+#
+#     def create_lobby(self, name: str) -> None:
+#         pass
 
 
 class LobbiesListView(QTableWidget):
 
-    def __init__(self, parent: LobbyView):
-        super().__init__(0, 4, parent)
+    def __init__(self, parent: LobbiesView):
+        super().__init__(0, 5, parent)
         self.setHorizontalHeaderLabels(
-            ('name', 'owner', 'users', 'size')
+            ('name', 'state', 'owner', 'users', 'size')
         )
 
         self._lobby_view = parent
@@ -126,7 +130,6 @@ class LobbiesListView(QTableWidget):
         self._update_content()
         self._lobby_view.lobby_model.changed.connect(self._update_content)
 
-        self.resizeColumnsToContents()
         self.setEditTriggers(self.NoEditTriggers)
 
         self.cellDoubleClicked.connect(self._cell_double_clicked)
@@ -151,24 +154,31 @@ class LobbiesListView(QTableWidget):
             self.setItem(index, 0, item)
 
             item = QTableWidgetItem()
-            item.setData(0, lobby.owner)
+            item.setData(0, lobby.state)
             self.setItem(index, 1, item)
 
             item = QTableWidgetItem()
-            item.setData(0, str(len(lobby.users)))
+            item.setData(0, lobby.owner)
             self.setItem(index, 2, item)
 
             item = QTableWidgetItem()
-            item.setData(0, str(lobby.size))
+            item.setData(0, str(len(lobby.users)))
             self.setItem(index, 3, item)
+
+            item = QTableWidgetItem()
+            item.setData(0, str(lobby.size))
+            self.setItem(index, 4, item)
+
+        self.resizeColumnsToContents()
+
 
 
 class LobbyUserListView(QTableWidget):
 
     def __init__(self, lobby_model: LobbyModelClientConnection, lobby_name: str, parent: t.Optional[QObject] = None):
-        super().__init__(0, 1, parent)
+        super().__init__(0, 2, parent)
         self.setHorizontalHeaderLabels(
-            ('name',)
+            ('name', 'ready')
         )
 
         self._lobby_model = lobby_model
@@ -183,18 +193,97 @@ class LobbyUserListView(QTableWidget):
     def _update_content(self ) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
 
-        users = () if lobby is None else lobby.users
+        users = () if lobby is None else lobby.users.values()
         self.setRowCount(len(users))
 
-        for index, user in enumerate(sorted(users)):
+        for index, user in enumerate(sorted(users, key = lambda u: u.username)):
             item = QTableWidgetItem()
-            item.setData(0, user)
+            item.setData(0, user.username)
             self.setItem(index, 0, item)
+
+            item = QTableWidgetItem()
+            item.setData(0, 'ready' if user.ready else 'unready')
+            self.setItem(index, 1, item)
+
+
+class LobbyView(QWidget):
+
+    def __init__(self, lobby_model: LobbyModelClientConnection, lobby_name: str, parent: t.Optional[QObject] = None):
+        super().__init__(parent)
+        self._lobby_model = lobby_model
+        self._lobby_name = lobby_name
+
+        layout = QtWidgets.QVBoxLayout()
+
+        self._ready_button = QtWidgets.QPushButton('ready')
+        self._ready_button.clicked.connect(self._toggle_ready)
+
+        self._start_game_button = QtWidgets.QPushButton('start draft')
+        self._start_game_button.clicked.connect(self._start_game)
+
+        self._reconnect_button = QtWidgets.QPushButton('reconnect')
+        self._reconnect_button.clicked.connect(self._reconnect)
+
+        users_list = LobbyUserListView(self._lobby_model, self._lobby_name)
+
+        top_layout = QtWidgets.QHBoxLayout()
+
+        top_layout.addWidget(self._ready_button)
+        top_layout.addWidget(self._start_game_button)
+        top_layout.addWidget(self._reconnect_button)
+
+        layout.addLayout(top_layout)
+        layout.addWidget(users_list)
+
+        self._update_content()
+        self._lobby_model.changed.connect(self._update_content)
+
+        self.setLayout(layout)
+
+    def _toggle_ready(self) -> None:
+        lobby = self._lobby_model.get_lobby(self._lobby_name)
+        if lobby:
+            user = lobby.users.get(Context.username)
+            if user is not None:
+                self._lobby_model.set_ready(
+                    self._lobby_name,
+                    not user.ready,
+                )
+
+    def _start_game(self) -> None:
+        self._lobby_model.start_game(self._lobby_name)
+
+    def _reconnect(self) -> None:
+        pass
+
+    def _update_content(self) -> None:
+        lobby = self._lobby_model.get_lobby(self._lobby_name)
+        if lobby:
+            user = lobby.users.get(Context.username)
+            if user is not None:
+                self._ready_button.setText(
+                    'unready' if user.ready else 'ready'
+                )
+                self._ready_button.setVisible(lobby.state == 'pre-game')
+
+                self._start_game_button.setVisible(
+                    lobby.state == 'pre-game'
+                    and Context.username == lobby.owner
+                    and all(
+                        user.ready
+                        for user in
+                        lobby.users.values()
+                    )
+                )
+
+                self._reconnect_button.setVisible(
+                    lobby.key is not None
+                )
 
 
 class CreateLobbyDialog(QtWidgets.QDialog):
 
-    def __init__(self, parent: LobbyView = None):
+    def __init__(self, parent: LobbiesView = None):
         super().__init__(parent)
         self._lobby_view = parent
 
@@ -217,6 +306,8 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 
         self._ok_button.clicked.connect(self._create)
 
+        self.setTabOrder(self._lobby_name_selector, self._ok_button)
+
     def _create(self) -> None:
         self._lobby_view.lobby_model.create_lobby(
             self._lobby_name_selector.text()
@@ -226,9 +317,9 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 
 class LobbyTabs(QtWidgets.QTabWidget):
 
-    def __init__(self, parent: LobbyView):
+    def __init__(self, parent: LobbiesView):
         super().__init__(parent)
-        self._lobby_view: LobbyView = parent
+        self._lobby_view: LobbiesView = parent
 
         self.setTabsClosable(True)
 
@@ -274,7 +365,7 @@ class LobbyTabs(QtWidgets.QTabWidget):
                 self._tabs_map[added_name] = max_index
                 self.insertTab(
                     max_index,
-                    LobbyUserListView(self._lobby_view.lobby_model, added_name),
+                    LobbyView(self._lobby_view.lobby_model, added_name),
                     added_name,
                 )
 
@@ -302,10 +393,10 @@ class LobbyTabs(QtWidgets.QTabWidget):
         )
 
 
-class LobbyView(QWidget):
+class LobbiesView(QWidget):
     lobbies_changed = pyqtSignal()
 
-    def __init__(self, lobby_model: LobbyModelClientConnection, parent: typing.Optional[QWidget] = None) -> None:
+    def __init__(self, lobby_model: LobbyModelClientConnection, parent: t.Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._lobby_model = lobby_model
 
@@ -340,7 +431,7 @@ class LobbyView(QWidget):
     def lobby_model(self) -> LobbyModelClientConnection:
         return self._lobby_model
 
-    def set_model(self, lobby_model: LobbyModel) -> None:
+    def set_model(self, lobby_model: LobbyModelClientConnection) -> None:
         self._lobby_model = lobby_model
         self.lobbies_changed.connect(lobby_model.changed)
 

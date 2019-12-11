@@ -33,6 +33,8 @@ class _Context(QObject):
 
     focus_card_changed = pyqtSignal(object)
 
+    draft_started = pyqtSignal(object)
+
     @classmethod
     def init(cls) -> None:
         cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
