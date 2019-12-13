@@ -1,10 +1,14 @@
 from PyQt5 import QtWidgets
 
 from deckeditor.components.views.editables.deck import DeckView
-from deckeditor.models.deck import DeckModel
+from deckeditor.components.views.editables.editable import Editable
+from deckeditor.components.views.editables.pool import PoolView
+from deckeditor.context.context import Context
+from deckeditor.models.deck import DeckModel, PoolModel, CubeModel
+from magiccube.collections.cube import Cube
 
 
-class DeckTabs(QtWidgets.QTabWidget):
+class EditablesTabs(QtWidgets.QTabWidget):
     DEFAULT_TEMPLATE = 'New Deck {}'
 
     def __init__(self, parent: QtWidgets.QWidget = None):
@@ -13,15 +17,29 @@ class DeckTabs(QtWidgets.QTabWidget):
         self.setTabsClosable(True)
 
         self.tabCloseRequested.connect(self._tab_close_requested)
+        Context.new_pool.connect(self._new_pool)
         # self.currentChanged.connect(self._current_changed)
 
-    def add_deck(self, deck: DeckView) -> None:
-        self.addTab(deck, 'a deck')
+    def _new_pool(self, pool: Cube):
+        self.addTab(
+            PoolView(
+                PoolModel(
+                    CubeModel(
+                        pool
+                    )
+                )
+            ),
+            'a pool',
+        )
+
+    def add_editable(self, editable: Editable, name: str) -> None:
+        self.addTab(editable, name)
 
     def new_deck(self, model: DeckModel) -> DeckView:
         deck_widget = DeckView(model)
-        self.add_deck(
-            deck_widget
+        self.add_editable(
+            deck_widget,
+            'a deck',
         )
         self._new_decks += 1
 

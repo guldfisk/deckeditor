@@ -28,17 +28,21 @@ class _LobbyClient(LobbyClient):
         modified: t.Mapping[str, Lobby] = frozendict(),
         closed: t.AbstractSet[str] = frozenset(),
     ) -> None:
-        print('lobbies changed', created, modified, closed)
         self._model.changed.emit()
 
     def _game_started(self, lobby: Lobby, key: str) -> None:
-        # self._model.game_started.emit(lobby, key)
-        Context.draft_started.emit(
-            DraftModel(
-                key,
-                lobby.name,
+        if lobby.options['game_type'] == 'draft':
+            Context.draft_started.emit(
+                DraftModel(
+                    key,
+                    lobby.name,
+                )
             )
-        )
+        else:
+            sealed_pool = Context.cube_api_client.get_sealed_pool(
+                lobby.key
+            )
+            Context.new_pool.emit(sealed_pool.pool)
 
 
 class LobbyModelClientConnection(QObject):
@@ -82,6 +86,11 @@ class LobbyModelClientConnection(QObject):
             return
         self._lobby_client.create_lobby(name)
 
+    def set_options(self, name: str, options: t.Any) -> None:
+        if self._lobby_client is None:
+            return
+        self._lobby_client.set_options(name, options)
+
     def leave_lobby(self, name: str) -> None:
         if self._lobby_client is None:
             return
@@ -101,18 +110,6 @@ class LobbyModelClientConnection(QObject):
         if self._lobby_client is None:
             return
         self._lobby_client.start_game(name)
-
-
-# class DummyLobbyModel(LobbyModel):
-#
-#     def get_lobbies(self) -> t.Mapping[str, Lobby]:
-#         return {}
-#
-#     def get_lobby(self, name: str) -> t.Optional[Lobby]:
-#         return None
-#
-#     def create_lobby(self, name: str) -> None:
-#         pass
 
 
 class LobbiesListView(QTableWidget):
@@ -221,6 +218,11 @@ class LobbyView(QWidget):
         self._start_game_button = QtWidgets.QPushButton('start draft')
         self._start_game_button.clicked.connect(self._start_game)
 
+        self._game_type_selector = QtWidgets.QComboBox()
+        self._game_type_selector.addItem('draft')
+        self._game_type_selector.addItem('sealed')
+        self._game_type_selector.currentTextChanged.connect(self._select_game_type)
+
         self._reconnect_button = QtWidgets.QPushButton('reconnect')
         self._reconnect_button.clicked.connect(self._reconnect)
 
@@ -233,12 +235,21 @@ class LobbyView(QWidget):
         top_layout.addWidget(self._reconnect_button)
 
         layout.addLayout(top_layout)
+        layout.addWidget(self._game_type_selector)
         layout.addWidget(users_list)
 
         self._update_content()
         self._lobby_model.changed.connect(self._update_content)
 
         self.setLayout(layout)
+
+    def _select_game_type(self, game_type: str) -> None:
+        print('yikes')
+        lobby = self._lobby_model.get_lobby(self._lobby_name)
+        if lobby:
+            user = lobby.users.get(Context.username)
+            if user and user.username == lobby.owner:
+                self._lobby_model.set_options(self._lobby_name, {'game_type': game_type})
 
     def _toggle_ready(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
@@ -259,12 +270,23 @@ class LobbyView(QWidget):
     def _update_content(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
         if lobby:
+            game_type = lobby.options.get('game_type')
+            self._game_type_selector.currentTextChanged.disconnect(self._select_game_type)
+            print(game_type)
+            if game_type is not None:
+                self._game_type_selector.setCurrentText(game_type)
+            self._game_type_selector.currentTextChanged.connect(self._select_game_type)
+
             user = lobby.users.get(Context.username)
             if user is not None:
                 self._ready_button.setText(
                     'unready' if user.ready else 'ready'
                 )
                 self._ready_button.setVisible(lobby.state == 'pre-game')
+
+                self._game_type_selector.setEnabled(
+                    Context.username == lobby.owner
+                )
 
                 self._start_game_button.setVisible(
                     lobby.state == 'pre-game'

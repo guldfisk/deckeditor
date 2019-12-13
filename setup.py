@@ -33,6 +33,6 @@ setup(
 		'pillow',
 		'promise',
 		'PyQt5',
-		'frozendict', 'requests', 'websocket'
+		'frozendict', 'requests', 'websocket', 'bidict'
 	],
 )

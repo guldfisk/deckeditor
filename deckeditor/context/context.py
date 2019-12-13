@@ -4,6 +4,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoGroup
 
+from cubeclient.models import ApiClient
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader, DBLoadException
 from mtgorp.managejson.update import update
@@ -31,9 +32,13 @@ class _Context(QObject):
     username: str
     token_changed = pyqtSignal(str)
 
+    cube_api_client: ApiClient
+
     focus_card_changed = pyqtSignal(object)
 
     draft_started = pyqtSignal(object)
+
+    new_pool = pyqtSignal(object)
 
     @classmethod
     def init(cls) -> None:

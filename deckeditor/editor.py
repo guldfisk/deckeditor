@@ -32,7 +32,7 @@ from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.application.embargo import EmbargoApp
 from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
-from deckeditor.components.editables.decktabs import DeckTabs
+from deckeditor.components.editables.editablestabs import EditablesTabs
 # from deckeditor.components.generate.dialog import PoolGenerateable
 from deckeditor.models.deck import DeckModel, CubeModel
 from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
@@ -232,15 +232,15 @@ class MainView(QWidget):
         printings = list(Context.db.printings.values())
         cube = Cube(random.sample(printings, 10**1))
 
-        deck_tabs = DeckTabs()
+        deck_tabs = EditablesTabs()
         deck_tabs.new_deck(DeckModel(CubeModel(cube)))
 
         layout = QtWidgets.QVBoxLayout()
 
-        draft_tabs = DraftTabs()
-        layout.addWidget(draft_tabs)
+        # draft_tabs = DraftTabs()
+        # layout.addWidget(draft_tabs)
 
-        # layout.addWidget(deck_tabs)
+        layout.addWidget(deck_tabs)
 
         self.setLayout(layout)
 
