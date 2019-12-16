@@ -68,6 +68,7 @@ class CubeScene(SelectionScene):
         self.drop([physical_card], physical_card.pos())
 
     def remove_cubeable(self, cubeable: Cubeable) -> None:
+        print(cubeable, self._item_map)
         physical_card = self._item_map[cubeable].pop()
         self.pick_up([physical_card])
         self.removeItem(physical_card)

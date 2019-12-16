@@ -91,6 +91,11 @@ class LobbyModelClientConnection(QObject):
             return
         self._lobby_client.set_options(name, options)
 
+    # def get_options(self, name: str) -> t.Any:
+    #     if self._lobby_client is None:
+    #         return
+    #     return self._lobby_client.get_lobby(name)
+
     def leave_lobby(self, name: str) -> None:
         if self._lobby_client is None:
             return
@@ -169,7 +174,6 @@ class LobbiesListView(QTableWidget):
         self.resizeColumnsToContents()
 
 
-
 class LobbyUserListView(QTableWidget):
 
     def __init__(self, lobby_model: LobbyModelClientConnection, lobby_name: str, parent: t.Optional[QObject] = None):
@@ -244,7 +248,6 @@ class LobbyView(QWidget):
         self.setLayout(layout)
 
     def _select_game_type(self, game_type: str) -> None:
-        print('yikes')
         lobby = self._lobby_model.get_lobby(self._lobby_name)
         if lobby:
             user = lobby.users.get(Context.username)
@@ -265,7 +268,12 @@ class LobbyView(QWidget):
         self._lobby_model.start_game(self._lobby_name)
 
     def _reconnect(self) -> None:
-        pass
+        lobby = self._lobby_model.get_lobby(self._lobby_name)
+        if lobby.options.get('game_type') == 'sealed':
+            sealed_pool = Context.cube_api_client.get_sealed_pool(
+                lobby.key
+            )
+            Context.new_pool.emit(sealed_pool.pool)
 
     def _update_content(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)

@@ -35,3 +35,28 @@ class ModifyCubeModel(QUndoCommand):
         self._cube_model.modify(
             ~self._cube_delta_operation
         )
+
+
+class InterTransferCubeModels(QUndoCommand):
+
+    def __init__(self, giver: CubeModel, receiver: CubeModel, cube_delta_operation: CubeDeltaOperation):
+        super().__init__('cube transfer')
+        self._giver = giver
+        self._receiver = receiver
+        self._cube_delta_operation = cube_delta_operation
+
+    def redo(self) -> None:
+        self._giver.modify(
+            ~self._cube_delta_operation
+        )
+        self._receiver.modify(
+            self._cube_delta_operation
+        )
+
+    def undo(self) -> None:
+        self._giver.modify(
+            self._cube_delta_operation
+        )
+        self._receiver.modify(
+            ~self._cube_delta_operation
+        )

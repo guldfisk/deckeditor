@@ -52,7 +52,8 @@ class DeckView(Editable):
             CubeMultiImageView(
                 CubeScene(
                     self._deck_model.maindeck,
-                )
+                ),
+                self._undo_stack,
             )
         )
 

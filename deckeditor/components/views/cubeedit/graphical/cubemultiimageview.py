@@ -1,6 +1,7 @@
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor.components.views.cubeedit.graphical.alignment.aligner import Aligner
 from deckeditor.components.views.cubeedit.graphical.alignment.grid import GridAligner
@@ -85,7 +86,7 @@ class AlignSelector(QtWidgets.QComboBox):
 class CubeMultiImageView(QtWidgets.QWidget):
     aligner_changed = QtCore.pyqtSignal(type)
 
-    def __init__(self, scene: CubeScene, parent = None):
+    def __init__(self, scene: CubeScene, undo_stack: QUndoStack, parent = None):
         super().__init__(parent = parent)
 
         self._cube_scene = scene
@@ -95,6 +96,7 @@ class CubeMultiImageView(QtWidgets.QWidget):
         self._current_aligner_type = StaticStackingGrid
 
         self._cube_image_view = CubeImageView(
+            undo_stack,
             self._cube_scene
         )
 

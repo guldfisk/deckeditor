@@ -548,7 +548,7 @@ class CardStacker(ABC):
 
 class _CardInfo(object):
 
-    def __init__(self, stacker: CardStacker = None, position: int = None):
+    def __init__(self, stacker: t.Optional[CardStacker] = None, position: t.Optional[int] = None):
         self.card_stacker: t.Optional[CardStacker] = stacker
         self.position: t.Optional[int] = position
 
@@ -732,7 +732,8 @@ class StackingGrid(Aligner):
             card.setZValue(0)
 
         for stacker, cards in stacker_map.items():
-            stacker.remove_cards(cards)
+            if stacker:
+                stacker.remove_cards(cards)
 
     def drop(self, items: t.Iterable[PhysicalCard], position: QPoint) -> None:
         cards = list(items)

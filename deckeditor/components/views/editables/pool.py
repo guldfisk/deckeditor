@@ -34,22 +34,25 @@ class PoolView(Editable):
             CubeMultiImageView(
                 CubeScene(
                     self._pool_model.maindeck,
-                )
+                ),
+                self._undo_stack,
             )
         )
         horizontal_splitter.addWidget(
             CubeMultiImageView(
                 CubeScene(
                     self._pool_model.sideboard,
-                )
+                ),
+                self._undo_stack,
             )
         )
 
         vertical_splitter.addWidget(
             CubeMultiImageView(
                 CubeScene(
-                    self._pool_model.sideboard,
-                )
+                    self._pool_model.pool,
+                ),
+                self._undo_stack,
             )
         )
         vertical_splitter.addWidget(

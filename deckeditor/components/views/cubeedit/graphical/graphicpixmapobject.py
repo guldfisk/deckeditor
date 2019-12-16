@@ -1,3 +1,4 @@
+import math
 import typing as t
 
 from PyQt5 import QtWidgets, QtGui, QtCore
@@ -11,8 +12,8 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
         self._bounding_rect = QtCore.QRectF()
 
         self._selection_highlight_pen = QtGui.QPen(
-            QtGui.QColor(255, 0, 0, 120),
-            # 1,
+            QtGui.QColor(255, 0, 0),
+            10,
         )
 
         self._zero_point = QtCore.QPointF(0, 0)
@@ -39,5 +40,14 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
         painter.drawPixmap(self._zero_point, self._pixmap)
 
         if self.isSelected():
+            pen_width = math.ceil(self._selection_highlight_pen.width() / 2) - 1
+
             painter.setPen(self._selection_highlight_pen)
-            painter.drawRect(self.boundingRect())
+            painter.drawRect(
+                self.boundingRect().adjusted(
+                    pen_width,
+                    pen_width,
+                    -pen_width,
+                    -pen_width,
+                )
+            )

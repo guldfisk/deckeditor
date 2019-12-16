@@ -1,11 +1,12 @@
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor.components.views.cubeedit.graphical.physicalcard import PhysicalCard
 from deckeditor.components.views.cubeedit.graphical.cubescene import CubeScene
 from deckeditor.context.context import Context
-from deckeditor.undo.command.commands import ModifyCubeModel
+from deckeditor.undo.command.commands import ModifyCubeModel, InterTransferCubeModels
 from magiccube.collections.delta import CubeDeltaOperation
 from yeetlong.multiset import Multiset
 
@@ -15,16 +16,17 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
     def __init__(
         self,
-        # undo_stack: UndoStack,
+        undo_stack: QUndoStack,
         # aligner: t.Type[Aligner] = StaticStackingGrid,
         scene: CubeScene,
     ):
         self._scene = scene
         super().__init__(scene)
+        self._undo_stack = undo_stack
 
         self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
 
-        # self.setAcceptDrops(True)
+        self.setAcceptDrops(True)
         self.setMouseTracking(True)
 
         self._rubber_band = QtWidgets.QRubberBand(
@@ -236,22 +238,38 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         menu.exec_(self.mapToGlobal(position))
     #
-    # def dragEnterEvent(self, drag_event: QtGui.QDragEnterEvent):
-    #     if isinstance(drag_event.source(), CardContainer):
-    #         drag_event.accept()
-    #
-    # def dragMoveEvent(self, drag_event: QtGui.QDragMoveEvent):
-    #     pass
-    #
-    # def dropEvent(self, drop_event: QtGui.QDropEvent):
-    #     self._undo_stack.push(
-    #         self._card_scene.aligner.attach_cards(
-    #             drop_event.source().dragging,
-    #             self.mapToScene(
-    #                 drop_event.pos()
-    #             ),
-    #         )
-    #     )
+    def dragEnterEvent(self, drag_event: QtGui.QDragEnterEvent):
+        if isinstance(drag_event.source(), self.__class__):
+            drag_event.accept()
+        # print(drag_event.source())
+        # drag_event.accept()
+
+    def dragMoveEvent(self, drag_event: QtGui.QDragMoveEvent):
+        pass
+
+    def dropEvent(self, drop_event: QtGui.QDropEvent):
+        print('drop')
+        self._undo_stack.push(
+            InterTransferCubeModels(
+                drop_event.source().cube_scene.cube_model,
+                self._scene.cube_model,
+                CubeDeltaOperation(
+                    Multiset(
+                        card.cubeable
+                        for card in
+                        drop_event.source().dragging
+                    ).elements()
+                )
+            )
+        )
+        # self._undo_stack.push(
+        #     self._card_scene.aligner.attach_cards(
+        #         drop_event.source().dragging,
+        #         self.mapToScene(
+        #             drop_event.pos()
+        #         ),
+        #     )
+        # )
 
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
         modifiers = event.modifiers()
@@ -266,18 +284,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
             ]
             old_position = self.mapToScene(event.pos())
             self.resetTransform()
-            # self.setResizeAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
             self.scale(x_scale, y_scale)
             new_position = self.mapToScene(event.pos())
             position_delta = new_position - old_position
             self.translate(position_delta.x(), position_delta.y())
-            # self.horizontalScrollBar().setValue(
-            #     self.horizontalScrollBar().value() + position_delta.x()
-            # )
-            # # transform = self.transform()
-            # self.verticalScrollBar().setValue(
-            #     self.verticalScrollBar().value() + position_delta.y()
-            # )
         else:
             super().wheelEvent(event)
 
@@ -319,33 +329,35 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         elif self._rubber_band.isHidden():
 
-            # if not QtCore.QRectF(
-            #     0,
-            #     0,
-            #     self.size().width(),
-            #     self.size().height(),
-            # ).contains(
-            #     mouse_event.pos()
-            # ):
-            #     drag = QtGui.QDrag(self)
-            #     mime = QtCore.QMimeData()
-            #     stream = QtCore.QByteArray()
-            #
-            #     mime.setData('cards', stream)
-            #     drag.setMimeData(mime)
-            #     drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
-            #
-            #     # self._undo_stack.push(
-            #     #     self._card_scene.aligner.remove_cards(
-            #     #         self._floating,
-            #     #     )
-            #     # )
-            #
-            #     self._dragging[:] = self._floating[:]
-            #     self._floating[:] = []
-            #     drag.exec_()
-            #
-            #     return
+            if not QtCore.QRectF(
+                0,
+                0,
+                self.size().width(),
+                self.size().height(),
+            ).contains(
+                mouse_event.pos()
+            ):
+                drag = QtGui.QDrag(self)
+                mime = QtCore.QMimeData()
+                stream = QtCore.QByteArray()
+
+                mime.setData('cards', stream)
+                drag.setMimeData(mime)
+                drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
+
+                # self._undo_stack.push(
+                #     self._card_scene.aligner.remove_cards(
+                #         self._floating,
+                #     )
+                # )
+
+                self._dragging[:] = self._floating[:]
+                self._floating[:] = []
+                exec_value = drag.exec_()
+
+                print('drag returning', exec_value)
+
+                return
 
             if self._floating:
                 for item in self._floating:
