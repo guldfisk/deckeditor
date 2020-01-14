@@ -315,6 +315,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
     def __init__(self, parent = None):
         super().__init__(parent)
+
         self._notification_frame = NotificationFrame(self)
 
         self.setWindowTitle('Embargo Edit')
@@ -381,7 +382,8 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
         all_menus = {
             menu_bar.addMenu('File'): (
-                ('Exit', 'Ctrl+Q', QtWidgets.qApp.quit),
+                # ('Exit', 'Ctrl+Q', QtWidgets.qApp.quit),
+                ('Exit', 'Ctrl+Q', self.close),
                 ('New Deck', 'Ctrl+N', self._new_deck),
                 # ('Open Deck', 'Ctrl+O', self._load),
                 # ('Load Pool', 'Ctrl+P', self.load_pool),
@@ -685,36 +687,49 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
     #     dialog.exec()
 
     def _save_state(self):
-        Context.settings.beginGroup('main_window')
-        Context.settings.setValue('size', self.size())
-        Context.settings.setValue('position', self.pos())
-        Context.settings.setValue('state', self.saveState(0))
-        Context.settings.endGroup()
+        Context.settings.setValue('geometry', self.saveGeometry())
+        Context.settings.setValue('window_state', self.saveState(0))
+        print('state saved')
+        # Context.settings.beginGroup('main_window')
+        # Context.settings.setValue('size', self.size())
+        # Context.settings.setValue('position', self.pos())
+        # Context.settings.setValue('state', self.saveState(0))
+        # Context.settings.endGroup()
 
     def _load_state(self):
-        Context.settings.beginGroup('main_window')
-
-        saved_size = Context.settings.value('size', None)
-        if saved_size is not None:
-            self.resize(saved_size)
-
-        saved_position = Context.settings.value('position', None)
-        if saved_position is not None:
-            self.move(saved_position)
-
-        saved_state = Context.settings.value('state', None)
-        if saved_state is not None:
-            self.restoreState(saved_state, 0)
-
-        Context.settings.endGroup()
+        geometry = Context.settings.value('geometry', None)
+        print(geometry)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+        state = Context.settings.value('window_state')
+        print(state)
+        if state is not None:
+            self.restoreState(state, 0)
+        # Context.settings.beginGroup('main_window')
+        #
+        # saved_size = Context.settings.value('size', None)
+        # if saved_size is not None:
+        #     self.resize(saved_size)
+        #
+        # saved_position = Context.settings.value('position', None)
+        # if saved_position is not None:
+        #     self.move(saved_position)
+        #
+        # saved_state = Context.settings.value('state', None)
+        # if saved_state is not None:
+        #     self.restoreState(saved_state, 0)
+        #
+        # Context.settings.endGroup()
 
     def closeEvent(self, close_event):
-        super().closeEvent(close_event)
+        print('close event')
         self._save_state()
+        super().closeEvent(close_event)
 
 
 def run():
     app = EmbargoApp(sys.argv)
+    app.setQuitOnLastWindowClosed(True)
 
     # splash_image = QtGui.QPixmap(os.path.join(paths.RESOURCE_PATH, 'splash.png'))
     #

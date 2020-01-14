@@ -262,6 +262,8 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 )
             )
         )
+        drop_event.setDropAction(QtCore.Qt.MoveAction)
+        drop_event.accept()
         # self._undo_stack.push(
         #     self._card_scene.aligner.attach_cards(
         #         drop_event.source().dragging,
@@ -273,7 +275,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
         modifiers = event.modifiers()
-        if modifiers & QtCore.Qt.ControlModifier:
+        if (
+            modifiers & QtCore.Qt.ControlModifier
+            or Context.settings.value('image_view_scroll_default_zoom', True, bool)
+        ):
             transform = self.transform()
             x_scale, y_scale = transform.m11(), transform.m22()
             delta = event.angleDelta().y() / 2000
@@ -292,13 +297,13 @@ class CubeImageView(QtWidgets.QGraphicsView):
             super().wheelEvent(event)
 
     def mousePressEvent(self, mouse_event: QtGui.QMouseEvent):
-        if not mouse_event.button() == QtCore.Qt.LeftButton:
-            return
-
-        if mouse_event.modifiers() & QtCore.Qt.ControlModifier:
+        if (
+            mouse_event.button() == QtCore.Qt.LeftButton and mouse_event.modifiers() & QtCore.Qt.ControlModifier
+            or mouse_event.button() == QtCore.Qt.MiddleButton
+        ):
             self._dragging_move = True
 
-        else:
+        elif mouse_event.button() == QtCore.Qt.LeftButton:
             item = self.itemAt(mouse_event.pos())
 
             if item is None:
@@ -351,15 +356,22 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 #     )
                 # )
 
+                for card in self._floating:
+                    card.hide()
+
                 self._dragging[:] = self._floating[:]
                 self._floating[:] = []
                 exec_value = drag.exec_()
 
+                if exec_value != QtCore.Qt.MoveAction:
+                    self._scene.drop(self._dragging, mouse_event.pos())
+                    for card in self._dragging:
+                        card.show()
+                    self._dragging[:] = []
+
                 print('drag returning', exec_value)
 
-                return
-
-            if self._floating:
+            elif self._floating:
                 for item in self._floating:
                     item.setPos(self.mapToScene(mouse_event.pos()))
 
