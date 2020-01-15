@@ -4,8 +4,8 @@ import typing as t
 
 from PyQt5 import QtCore
 
-from deckeditor.components.views.cubeedit.graphical.alignment.stackinggrid import CardStacker, StackingGrid, StackerMap
-from deckeditor.components.views.cubeedit.graphical.selection import SelectionScene
+from deckeditor.models.cubes.alignment.stackinggrid import CardStacker, StackingGrid, StackerMap
+from deckeditor.models.cubes.selection import SelectionScene
 from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 

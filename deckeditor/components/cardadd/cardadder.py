@@ -4,7 +4,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCompleter
 
-from deckeditor.undo.command.commands import ModifyCubeModel
+# from deckeditor.undo.command.commands import ModifyCubeModel
 from magiccube.collections.delta import CubeDeltaOperation
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard

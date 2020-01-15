@@ -3,12 +3,9 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QUndoStack
 
-from deckeditor.components.views.cubeedit.graphical.physicalcard import PhysicalCard
-from deckeditor.components.views.cubeedit.graphical.cubescene import CubeScene
+from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
-from deckeditor.undo.command.commands import ModifyCubeModel, InterTransferCubeModels
-from magiccube.collections.delta import CubeDeltaOperation
-from yeetlong.multiset import Multiset
 
 
 class CubeImageView(QtWidgets.QGraphicsView):
@@ -186,19 +183,22 @@ class CubeImageView(QtWidgets.QGraphicsView):
         #     self.scale(.9, .9)
 
         if pressed_key == QtCore.Qt.Key_Delete:
-            cards = self._scene.selectedItems()
-            Context.undo_group.activeStack().push(
-                ModifyCubeModel(
-                    self._scene.cube_model,
-                    ~CubeDeltaOperation(
-                        Multiset(
-                            card.cubeable
-                            for card in
-                            cards
-                        ).elements()
-                    ),
-                )
-            )
+            pass
+            #TODO delete
+
+            # cards = self._scene.selectedItems()
+            # Context.undo_group.activeStack().push(
+            #     ModifyCubeModel(
+            #         self._scene.cube_model,
+            #         ~CubeDeltaOperation(
+            #             Multiset(
+            #                 card.cubeable
+            #                 for card in
+            #                 cards
+            #             ).elements()
+            #         ),
+            #     )
+            # )
             # self._undo_stack.push(
             #     self._card_scene.aligner.detach_cards(cards),
             #     self._card_scene.aligner.remove_cards(cards),
@@ -239,7 +239,8 @@ class CubeImageView(QtWidgets.QGraphicsView):
         menu.exec_(self.mapToGlobal(position))
     #
     def dragEnterEvent(self, drag_event: QtGui.QDragEnterEvent):
-        if isinstance(drag_event.source(), self.__class__):
+        # if isinstance(drag_event.source(), self.__class__):
+        if drag_event.source() == self:
             drag_event.accept()
         # print(drag_event.source())
         # drag_event.accept()
@@ -248,22 +249,47 @@ class CubeImageView(QtWidgets.QGraphicsView):
         pass
 
     def dropEvent(self, drop_event: QtGui.QDropEvent):
-        print('drop')
-        self._undo_stack.push(
-            InterTransferCubeModels(
-                drop_event.source().cube_scene.cube_model,
-                self._scene.cube_model,
-                CubeDeltaOperation(
-                    Multiset(
-                        card.cubeable
-                        for card in
-                        drop_event.source().dragging
-                    ).elements()
-                )
+        print('drop', self._floating)
+        if self._floating:
+            # self._undo_stack.push(
+            #     self._card_scene.aligner.attach_cards(
+            #         self._floating,
+            #         self.mapToScene(
+            #             mouse_event.pos()
+            #         ),
+            #     )
+            # )
+            intra_move = self._scene.get_intra_move(
+                self._floating,
+                self.mapToScene(
+                    drop_event.pos()
+                ),
             )
-        )
-        drop_event.setDropAction(QtCore.Qt.MoveAction)
-        drop_event.accept()
+            if intra_move is not None:
+                self._undo_stack.push(intra_move)
+            # self._scene.pick_up(self._floating)
+            # self._scene.drop(
+            #     self._floating,
+            #     self.mapToScene(
+            #         drop_event.pos()
+            #     )
+            # )
+            self._floating[:] = []
+        # self._undo_stack.push(
+        #     InterTransferCubeModels(
+        #         drop_event.source().cube_scene.cube_model,
+        #         self._scene.cube_model,
+        #         CubeDeltaOperation(
+        #             Multiset(
+        #                 card.cubeable
+        #                 for card in
+        #                 drop_event.source().dragging
+        #             ).elements()
+        #         )
+        #     )
+        # )
+        # drop_event.setDropAction(QtCore.Qt.MoveAction)
+        # drop_event.accept()
         # self._undo_stack.push(
         #     self._card_scene.aligner.attach_cards(
         #         drop_event.source().dragging,
@@ -314,16 +340,32 @@ class CubeImageView(QtWidgets.QGraphicsView):
                     self._scene.set_selection((item,))
 
                 self._floating = self.scene().selectedItems()
-                self._scene.pick_up(self._floating)
-                # self._undo_stack.push(
-                #     self._card_scene.aligner.detach_cards(self._floating)
-                # )
+                # self._scene.pick_up(self._floating)
+
+                drag = QtGui.QDrag(self)
+                mime = QtCore.QMimeData()
+                stream = QtCore.QByteArray()
+
+                mime.setData('cards', stream)
+                drag.setMimeData(mime)
+                drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
+
+                exec_value = drag.exec_()
+
+                # if exec_value != QtCore.Qt.MoveAction:
+                #     self._scene.drop(self._dragging, mouse_event.pos())
+                #     for card in self._dragging:
+                #         card.show()
+                #     self._dragging[:] = []
+                #
+                print('drag returning', exec_value)
 
     def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
         if self._last_move_event_pos:
             delta = mouse_event.globalPos() - self._last_move_event_pos
         else:
             delta = None
+
         self._last_move_event_pos = mouse_event.globalPos()
 
         if self._dragging_move:
@@ -334,62 +376,64 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         elif self._rubber_band.isHidden():
 
-            if not QtCore.QRectF(
-                0,
-                0,
-                self.size().width(),
-                self.size().height(),
-            ).contains(
-                mouse_event.pos()
-            ):
-                drag = QtGui.QDrag(self)
-                mime = QtCore.QMimeData()
-                stream = QtCore.QByteArray()
+            # # if mouse_event.buttons() & QtCore.Qt.LeftButton:
+            #
+            # if not QtCore.QRectF(
+            #     0,
+            #     0,
+            #     self.size().width(),
+            #     self.size().height(),
+            # ).contains(
+            #     mouse_event.pos()
+            # ):
+            #     drag = QtGui.QDrag(self)
+            #     mime = QtCore.QMimeData()
+            #     stream = QtCore.QByteArray()
+            #
+            #     mime.setData('cards', stream)
+            #     drag.setMimeData(mime)
+            #     drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
+            #
+            #     # self._undo_stack.push(
+            #     #     self._card_scene.aligner.remove_cards(
+            #     #         self._floating,
+            #     #     )
+            #     # )
+            #
+            #     for card in self._floating:
+            #         card.hide()
+            #
+            #     self._dragging[:] = self._floating[:]
+            #     self._floating[:] = []
+            #     exec_value = drag.exec_()
+            #
+            #     if exec_value != QtCore.Qt.MoveAction:
+            #         self._scene.drop(self._dragging, mouse_event.pos())
+            #         for card in self._dragging:
+            #             card.show()
+            #         self._dragging[:] = []
+            #
+            #     print('drag returning', exec_value)
+            #
+            # elif self._floating:
+            #     for item in self._floating:
+            #         item.setPos(self.mapToScene(mouse_event.pos()))
+            #
+            # else:
+            item = self.itemAt(mouse_event.pos())
 
-                mime.setData('cards', stream)
-                drag.setMimeData(mime)
-                drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
+            if isinstance(item, PhysicalCard):
+                Context.focus_card_changed.emit(item.cubeable)
 
-                # self._undo_stack.push(
-                #     self._card_scene.aligner.remove_cards(
-                #         self._floating,
-                #     )
-                # )
-
-                for card in self._floating:
-                    card.hide()
-
-                self._dragging[:] = self._floating[:]
-                self._floating[:] = []
-                exec_value = drag.exec_()
-
-                if exec_value != QtCore.Qt.MoveAction:
-                    self._scene.drop(self._dragging, mouse_event.pos())
-                    for card in self._dragging:
-                        card.show()
-                    self._dragging[:] = []
-
-                print('drag returning', exec_value)
-
-            elif self._floating:
-                for item in self._floating:
-                    item.setPos(self.mapToScene(mouse_event.pos()))
-
-            else:
-                item = self.itemAt(mouse_event.pos())
-
-                if isinstance(item, PhysicalCard):
-                    Context.focus_card_changed.emit(item.cubeable)
-
-                if mouse_event.buttons():
-                    self._rubber_band_origin = mouse_event.pos()
-                    self._rubber_band.setGeometry(
-                        QtCore.QRect(
-                            self._rubber_band_origin,
-                            QtCore.QSize(),
-                        )
+            if mouse_event.buttons():
+                self._rubber_band_origin = mouse_event.pos()
+                self._rubber_band.setGeometry(
+                    QtCore.QRect(
+                        self._rubber_band_origin,
+                        QtCore.QSize(),
                     )
-                    self._rubber_band.show()
+                )
+                self._rubber_band.show()
 
         else:
             self._rubber_band.setGeometry(
@@ -406,22 +450,22 @@ class CubeImageView(QtWidgets.QGraphicsView):
             return
 
         if self._rubber_band.isHidden():
-            if self._floating:
-                # self._undo_stack.push(
-                #     self._card_scene.aligner.attach_cards(
-                #         self._floating,
-                #         self.mapToScene(
-                #             mouse_event.pos()
-                #         ),
-                #     )
-                # )
-                self._scene.drop(
-                    self._floating,
-                    self.mapToScene(
-                        mouse_event.pos()
-                    )
-                )
-                self._floating[:] = []
+            # if self._floating:
+            #     # self._undo_stack.push(
+            #     #     self._card_scene.aligner.attach_cards(
+            #     #         self._floating,
+            #     #         self.mapToScene(
+            #     #             mouse_event.pos()
+            #     #         ),
+            #     #     )
+            #     # )
+            #     self._scene.drop(
+            #         self._floating,
+            #         self.mapToScene(
+            #             mouse_event.pos()
+            #         )
+            #     )
+            #     self._floating[:] = []
 
             return
 

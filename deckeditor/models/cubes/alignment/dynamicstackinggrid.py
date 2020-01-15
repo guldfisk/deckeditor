@@ -3,9 +3,9 @@ from __future__ import annotations
 import typing as t
 
 from deckeditor import values
-from deckeditor.components.views.cubeedit.graphical.alignment.stackinggrid import CardStacker, StackingGrid
-from deckeditor.components.views.cubeedit.graphical.physicalcard import PhysicalCard
-from deckeditor.components.views.cubeedit.graphical.selection import SelectionScene
+from deckeditor.models.cubes.alignment import CardStacker, StackingGrid
+from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.selection import SelectionScene
 
 
 class DynamicCardStacker(CardStacker):

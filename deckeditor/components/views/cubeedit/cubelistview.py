@@ -6,8 +6,8 @@ from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QTableView, QUndoSta
 from PyQt5.uic.properties import QtGui
 
 from deckeditor.context.context import Context
-from deckeditor.models.deck import CubeModel
-from deckeditor.undo.command.commands import ModifyCubeModel
+from deckeditor.models.cubes.cubescene import CubeScene
+# from deckeditor.undo.command.commands import ModifyCubeModel
 from magiccube.collections.cubeable import Cubeable
 from magiccube.collections.delta import CubeDeltaOperation
 from magiccube.laps.lap import Lap
@@ -32,14 +32,14 @@ class CubeableTableItem(QTableWidgetItem):
 
 class CubeListView(QTableWidget):
 
-    def __init__(self, cube_model: CubeModel, undo_stack: QUndoStack, parent: t.Optional[QObject] = None):
+    def __init__(self, cube_model: CubeScene, undo_stack: QUndoStack, parent: t.Optional[QObject] = None):
         super().__init__(0, 2, parent)
-        self._cube_model = cube_model
+        self._cube_scene = cube_model
         self._undo_stack = undo_stack
 
         self.itemChanged.connect(self._handle_item_edit)
         self._update_content()
-        self._cube_model.changed.connect(self._update_content)
+        self._cube_scene.changed.connect(self._update_content)
         self.resizeColumnsToContents()
         self.setSortingEnabled(True)
         self.setMouseTracking(True)
@@ -58,11 +58,10 @@ class CubeListView(QTableWidget):
         if item.column() == 0:
             cubeable = self.item(item.row(), 1).cubeable
             self._undo_stack.push(
-                ModifyCubeModel(
-                    self._cube_model,
+                self._cube_scene.get_cube_modification(
                     CubeDeltaOperation(
                         {
-                            cubeable: item.data(0) - self._cube_model.cube.cubeables[cubeable]
+                            cubeable: item.data(0) - self._cube_scene.cube.cubeables[cubeable]
                         }
                     ),
                 )
@@ -71,11 +70,11 @@ class CubeListView(QTableWidget):
     def _update_content(self, delta_operation: t.Optional[CubeDeltaOperation] = None) -> None:
         self.blockSignals(True)
         self.setSortingEnabled(False)
-        self.setRowCount(len(self._cube_model.cube.cubeables.distinct_elements()))
+        self.setRowCount(len(self._cube_scene.cube.cubeables.distinct_elements()))
 
         for index, (cubeable, multiplicity) in enumerate(
             sorted(
-                self._cube_model.cube.cubeables.items(),
+                self._cube_scene.cube.cubeables.items(),
                 key = lambda vs: str(vs[0].id),
             )
         ):
@@ -97,14 +96,3 @@ class CubeListView(QTableWidget):
         item = self.itemAt(event.pos())
         if item is not None:
             Context.focus_card_changed.emit(self.item(item.row(), 1).cubeable)
-
-
-# class CubeListView(QTableView):
-#
-#     def __init__(self, cube_model: CubeTable):
-#         super().__init__()
-#         proxy = QSortFilterProxyModel()
-#         proxy.setSourceModel(cube_model)
-#         self.setModel(proxy)
-#         self.setSortingEnabled(True)
-#         self.resizeColumnsToContents()

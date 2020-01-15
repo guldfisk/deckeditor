@@ -24,5 +24,26 @@ class EmbargoApp(QApplication):
             )
 
         self.setOrganizationName('EmbargoSoft')
-        self.setOrganizationDomain('ce.lost-world.dk')
+        self.setOrganizationDomain('prohunterdogkeeper.dk')
         self.setApplicationName('Embargo Edit')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

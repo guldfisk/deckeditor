@@ -9,16 +9,15 @@ from abc import abstractmethod, ABC
 from PyQt5 import QtCore
 from PyQt5.QtCore import QPoint
 
-from deckeditor.components.views.cubeedit.graphical.alignment.aligner import Aligner
-from deckeditor.components.views.cubeedit.graphical.selection import SelectionScene
-from mtgorp.models.persistent.attributes import typeline
-from mtgorp.models.persistent.attributes import colors
+from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner
+from deckeditor.models.cubes.selection import SelectionScene
 
 from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
-from deckeditor.components.views.cubeedit.graphical.physicalcard import PhysicalCard
+from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.context.context import Context
-from deckeditor.values import SortProperty, Direction
+from deckeditor.values import Direction
+
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]
 
@@ -190,102 +189,72 @@ class CardStacker(ABC):
         self._cards.clear()
 
 
-# class StackingAttach(AlignAttach):
-#
-#     def __init__(
-#         self,
-#         grid: 'StackingGrid',
-#         stacker: CardStacker,
-#         index: int,
-#         cards: t.Tuple[PhysicalCard, ...],
-#     ):
-#         super().__init__()
-#         self._grid = grid
-#         self._stacker = stacker
-#         self._index = index
-#         self._cards = cards
-#
-#     def redo(self):
-#         self._stacker.grid.scene.add_cards(
-#             *(
-#                 card
-#                 for card in
-#                 self._cards
-#                 if card.scene() != self._stacker.grid.scene
-#             )
-#         )
-#
-#         self._stacker.insert_cards(
-#             range(self._index, self._index + len(self._cards)),
-#             self._cards,
-#         )
-#
-#         if self._grid.cursor_position is None:
-#             self._grid.link_cursor(self._cards[-1])
-#
-#     def undo(self):
-#         self._stacker.remove_cards(self._cards)
-#
-#     def ignore(self) -> bool:
-#         return not self._cards
-#
-#
-# class StackingDetach(AlignDetach):
-#
-#     def __init__(
-#         self,
-#         grid: 'StackingGrid',
-#         cards: t.Iterable[PhysicalCard],
-#     ):
-#         super().__init__()
-#         self._grid = grid
-#         self._cards = list(cards)
-#
-#         self._stackers = {}  # type: t.Dict[CardStacker, t.List[t.Tuple[int, PhysicalCard]]]
-#
-#     def setup(self):
-#         for card in self._cards:
-#             info = self._grid.get_card_info(card)
-#             self._stacker_cards(info.card_stacker).append((info.position, card))
-#
-#     def _stacker_cards(self, stacker: CardStacker) -> t.List[t.Tuple[int, PhysicalCard]]:
-#         try:
-#             return self._stackers[stacker]
-#         except KeyError:
-#             self._stackers[stacker] = info = []
-#             return info
-#
-#     def redo(self):
-#
-#         for stacker, infos in self._stackers.items():
-#             if stacker is not None:
-#                 stacker.remove_cards(card for index, card in infos)
-#
-#         for card in self._cards:
-#             card.setZValue(0)
-#
-#     def undo(self):
-#         for stacker, infos in self._stackers.items():
-#             _infos = sorted(infos, key=lambda info: info[0])
-#
-#             adjusted_indexes = []
-#             passed = 0
-#
-#             for index, card in _infos:
-#                 if card.scene() != stacker.grid.scene:
-#                     stacker.grid.scene.add_cards(card)
-#                 adjusted_indexes.append((index - passed, card))
-#                 passed += 1
-#
-#             stacker.insert_cards(*zip(*adjusted_indexes))
-#
-#         if self._grid.cursor_position is None:
-#             self._grid.link_cursor(self._cards[-1])
-#
-#     def ignore(self) -> bool:
-#         return not self._cards
-#
-#
+class StackingDrop(AlignmentPickUp):
+
+    def __init__(
+        self,
+        grid: StackingGrid,
+        stacker: CardStacker,
+        index: int,
+        cards: t.Tuple[PhysicalCard, ...],
+    ):
+        super().__init__()
+        self._grid = grid
+        self._stacker = stacker
+        self._index = index
+        self._cards = cards
+
+    def redo(self):
+        self._stacker.insert_cards(
+            range(self._index, self._index + len(self._cards)),
+            self._cards,
+        )
+
+    def undo(self):
+        self._stacker.remove_cards(self._cards)
+
+
+class StackingPickUp(AlignmentDrop):
+
+    def __init__(
+        self,
+        grid: StackingGrid,
+        cards: t.Iterable[PhysicalCard],
+    ):
+        self._grid = grid
+        self._stacker_map: t.MutableMapping[CardStacker, t.List[t.Tuple[int, PhysicalCard]]] = defaultdict(list)
+
+        for card in cards:
+            info = self._grid.get_card_info(card)
+            self._stacker_map[info.card_stacker].append(
+                (info.position, card)
+            )
+
+    def redo(self):
+        for stacker, cards in self._stacker_map.items():
+            if stacker:
+                stacker.remove_cards(
+                    (
+                        card
+                        for position, card in
+                        cards
+                    )
+                )
+
+    def undo(self):
+        for stacker, infos in self._stacker_map.items():
+            _infos = sorted(infos, key = lambda info: info[0])
+
+            adjusted_indexes = []
+            passed = 0
+
+            for index, card in _infos:
+                adjusted_indexes.append((index - passed, card))
+                passed += 1
+
+            stacker.insert_cards(*zip(*adjusted_indexes))
+
+
 # class StackingRemove(AlignRemove):
 #
 #     def __init__(
@@ -724,25 +693,36 @@ class StackingGrid(Aligner):
         except KeyError:
             pass
 
-    def pick_up(self, items: t.Iterable[PhysicalCard]) -> None:
-        stacker_map: t.MutableMapping[CardStacker, t.List[PhysicalCard]] = defaultdict(list)
+    def pick_up(self, items: t.Iterable[PhysicalCard]) -> StackingPickUp:
+        # stacker_map: t.MutableMapping[CardStacker, t.List[PhysicalCard]] = defaultdict(list)
+        #
+        # for card in items:
+        #     stacker_map[self.get_card_info(card).card_stacker].append(card)
+        #     card.setZValue(0)
+        #
+        # for stacker, cards in stacker_map.items():
+        #     if stacker:
+        #         stacker.remove_cards(cards)
+        #
+        return StackingPickUp(
+            self,
+            items,
+        )
 
-        for card in items:
-            stacker_map[self.get_card_info(card).card_stacker].append(card)
-            card.setZValue(0)
-
-        for stacker, cards in stacker_map.items():
-            if stacker:
-                stacker.remove_cards(cards)
-
-    def drop(self, items: t.Iterable[PhysicalCard], position: QPoint) -> None:
-        cards = list(items)
+    def drop(self, items: t.Iterable[PhysicalCard], position: QPoint) -> StackingDrop:
+        # cards = list(items)
         x, y = position.x(), position.y()
         stacker = self.get_card_stacker(x, y)
         index = stacker.map_position_to_index(x, y - stacker.y)
-        stacker.insert_cards(
-            (index,) * len(cards),
-            cards,
+        # stacker.insert_cards(
+        #     (index,) * len(cards),
+        #     cards,
+        # )
+        return StackingDrop(
+            self,
+            stacker,
+            index,
+            tuple(items),
         )
 
     # def link_cursor(self, card: t.Optional[PhysicalCard]) -> None:
@@ -954,17 +934,17 @@ class StackingGrid(Aligner):
         #     if next_stacker is not None:
         #         stacker = next_stacker
 
-            # self.link_cursor(
-            #     stacker.cards[
-            #         min(
-            #             len(stacker.cards) - 1,
-            #             max(
-            #                 info.position,
-            #                 self._cursor_index,
-            #             )
-            #         )
-            #     ]
-            # )
+        # self.link_cursor(
+        #     stacker.cards[
+        #         min(
+        #             len(stacker.cards) - 1,
+        #             max(
+        #                 info.position,
+        #                 self._cursor_index,
+        #             )
+        #         )
+        #     ]
+        # )
 
         if modifiers & QtCore.Qt.ControlModifier:
             self._scene.add_selection((self._cursor_position,))

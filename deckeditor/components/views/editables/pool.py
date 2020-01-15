@@ -1,11 +1,10 @@
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWidgets import QWidget, QUndoStack, QVBoxLayout
+from PyQt5.QtWidgets import QWidget, QUndoStack
 
-from deckeditor.components.views.cubeedit.cubelistview import CubeListView
 from deckeditor.components.views.cubeedit.graphical.cubemultiimageview import CubeMultiImageView
-from deckeditor.components.views.cubeedit.graphical.cubescene import CubeScene
+from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
 from deckeditor.models.deck import PoolModel

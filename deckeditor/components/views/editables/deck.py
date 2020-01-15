@@ -1,14 +1,11 @@
 import typing
 
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QWidget, QLayout, QVBoxLayout, QUndoStack, QUndoCommand
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QUndoStack
 
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
-from deckeditor.components.views.cubeedit.graphical.alignment.grid import GridAligner
-from deckeditor.components.views.cubeedit.graphical.alignment.staticstackinggrid import StaticStackingGrid
-from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.components.views.cubeedit.graphical.cubemultiimageview import CubeMultiImageView
-from deckeditor.components.views.cubeedit.graphical.cubescene import CubeScene
+from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel
@@ -50,9 +47,7 @@ class DeckView(Editable):
             #     )
             # )
             CubeMultiImageView(
-                CubeScene(
-                    self._deck_model.maindeck,
-                ),
+                self._deck_model.maindeck,
                 self._undo_stack,
             )
         )

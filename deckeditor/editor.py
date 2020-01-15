@@ -13,6 +13,8 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.draft.view import DraftTabs
 from deckeditor.components.lobbies.view import LobbiesView, CreateLobbyDialog, LobbyModelClientConnection
+from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
+from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
 from mtgorp.tools.parsing.exceptions import ParseException
@@ -34,7 +36,7 @@ from deckeditor.application.embargo import EmbargoApp
 from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
 from deckeditor.components.editables.editablestabs import EditablesTabs
 # from deckeditor.components.generate.dialog import PoolGenerateable
-from deckeditor.models.deck import DeckModel, CubeModel
+from deckeditor.models.deck import DeckModel
 from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 # from deckeditor.notifications.frame import NotificationFrame
 # from deckeditor.notifications.notifyable import Notifyable
@@ -233,7 +235,7 @@ class MainView(QWidget):
         cube = Cube(random.sample(printings, 10**1))
 
         deck_tabs = EditablesTabs()
-        deck_tabs.new_deck(DeckModel(CubeModel(cube)))
+        deck_tabs.new_deck(DeckModel(CubeScene(StaticStackingGrid, cube)))
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -689,7 +691,6 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
     def _save_state(self):
         Context.settings.setValue('geometry', self.saveGeometry())
         Context.settings.setValue('window_state', self.saveState(0))
-        print('state saved')
         # Context.settings.beginGroup('main_window')
         # Context.settings.setValue('size', self.size())
         # Context.settings.setValue('position', self.pos())
@@ -698,11 +699,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
     def _load_state(self):
         geometry = Context.settings.value('geometry', None)
-        print(geometry)
         if geometry is not None:
             self.restoreGeometry(geometry)
         state = Context.settings.value('window_state')
-        print(state)
         if state is not None:
             self.restoreState(state, 0)
         # Context.settings.beginGroup('main_window')
@@ -722,7 +721,6 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         # Context.settings.endGroup()
 
     def closeEvent(self, close_event):
-        print('close event')
         self._save_state()
         super().closeEvent(close_event)
 

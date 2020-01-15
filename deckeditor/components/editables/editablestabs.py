@@ -4,7 +4,7 @@ from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.context.context import Context
-from deckeditor.models.deck import DeckModel, PoolModel, CubeModel
+from deckeditor.models.deck import DeckModel, PoolModel
 from magiccube.collections.cube import Cube
 
 
@@ -21,16 +21,17 @@ class EditablesTabs(QtWidgets.QTabWidget):
         # self.currentChanged.connect(self._current_changed)
 
     def _new_pool(self, pool: Cube):
-        self.addTab(
-            PoolView(
-                PoolModel(
-                    CubeModel(
-                        pool
-                    )
-                )
-            ),
-            'a pool',
-        )
+        pass
+        # self.addTab(
+        #     PoolView(
+        #         PoolModel(
+        #             CubeModel(
+        #                 pool
+        #             )
+        #         )
+        #     ),
+        #     'a pool',
+        # )
 
     def add_editable(self, editable: Editable, name: str) -> None:
         self.addTab(editable, name)

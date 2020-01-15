@@ -3,16 +3,13 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QUndoStack
 
-from deckeditor.components.views.cubeedit.graphical.alignment.aligner import Aligner
-from deckeditor.components.views.cubeedit.graphical.alignment.grid import GridAligner
-from deckeditor.components.views.cubeedit.graphical.alignment.staticstackinggrid import StaticStackingGrid
+from deckeditor.models.cubes.alignment.aligner import Aligner
+from deckeditor.models.cubes.alignment.grid import GridAligner
+from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
-from deckeditor.components.views.cubeedit.graphical.cubescene import CubeScene
-from mtgorp.models.persistent.printing import Printing
+from deckeditor.models.cubes.cubescene import CubeScene
 
 from deckeditor.context.context import Context
-from deckeditor.values import DeckZoneType
-
 
 ALIGNER_TYPE_MAP = {
     'Grid': GridAligner,
