@@ -17,12 +17,13 @@ from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingG
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
+from deckeditor.values import SUPPORTED_EXTENSIONS
+from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools.parsing.exceptions import ParseException
 from yeetlong.multiset import Multiset
 
 from mtgorp.db.database import CardDatabase
 from mtgorp.models.persistent.printing import Printing
-from mtgorp.models.collections.deck import Deck
 from mtgorp.models.serilization.serializeable import SerializationException
 from mtgorp.tools.search.pattern import Criteria, Pattern
 from mtgorp.tools.search.extraction import PrintingStrategy
@@ -36,7 +37,7 @@ from deckeditor.application.embargo import EmbargoApp
 from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
 from deckeditor.components.editables.editablestabs import EditablesTabs
 # from deckeditor.components.generate.dialog import PoolGenerateable
-from deckeditor.models.deck import DeckModel
+from deckeditor.models.deck import DeckModel, Deck
 from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 # from deckeditor.notifications.frame import NotificationFrame
 # from deckeditor.notifications.notifyable import Notifyable
@@ -234,15 +235,15 @@ class MainView(QWidget):
         printings = list(Context.db.printings.values())
         cube = Cube(random.sample(printings, 10**1))
 
-        deck_tabs = EditablesTabs()
-        deck_tabs.new_deck(DeckModel(CubeScene(StaticStackingGrid, cube)))
+        self.deck_tabs = EditablesTabs()
+        self.deck_tabs.new_deck(DeckModel(CubeScene(StaticStackingGrid, cube)))
 
         layout = QtWidgets.QVBoxLayout()
 
         # draft_tabs = DraftTabs()
         # layout.addWidget(draft_tabs)
 
-        layout.addWidget(deck_tabs)
+        layout.addWidget(self.deck_tabs)
 
         self.setLayout(layout)
 
@@ -270,45 +271,6 @@ class MainView(QWidget):
 
     def _button_clicked(self) -> None:
         self._cube_model.modify(CubeDeltaOperation({Context.db.cardboards['Abrade'].from_expansion('HOU'): 10}))
-
-
-class QueryEdit(QtWidgets.QLineEdit):
-
-    def keyPressEvent(self, key_press: QtGui.QKeyEvent):
-        if key_press.key() == QtCore.Qt.Key_Return or key_press.key() == QtCore.Qt.Key_Enter:
-            self.parent()._compile()
-
-        else:
-            super().keyPressEvent(key_press)
-
-
-class SearchSelectionDialog(QtWidgets.QDialog):
-
-    def __init__(self, parent: MainWindow):
-        super().__init__(parent)
-
-        self._query_edit = QueryEdit(self)
-
-        self._box = QtWidgets.QVBoxLayout()
-
-        self._box.addWidget(self._query_edit)
-
-        self.setLayout(self._box)
-
-    def parent(self) -> MainWindow:
-        return super().parent()
-
-    def _compile(self):
-        try:
-            self.parent().search_select.emit(
-                Context.search_pattern_parser.parse_criteria(
-                    self._query_edit.text()
-                )
-            )
-            self.accept()
-        except ParseException as e:
-            self.parent().notify(f'Invalid search query: {e}')
-            return
 
 
 class MainWindow(QMainWindow, CardAddable, Notifyable):
@@ -384,10 +346,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
         all_menus = {
             menu_bar.addMenu('File'): (
-                # ('Exit', 'Ctrl+Q', QtWidgets.qApp.quit),
                 ('Exit', 'Ctrl+Q', self.close),
                 ('New Deck', 'Ctrl+N', self._new_deck),
-                # ('Open Deck', 'Ctrl+O', self._load),
+                ('Open Deck', 'Ctrl+O', self._load),
                 # ('Load Pool', 'Ctrl+P', self.load_pool),
                 ('Save Deck', 'Ctrl+S', self._save_as),
                 # ('Save pool', 'Ctrl+l', self.save_pool),
@@ -402,9 +363,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 # ('Maindeck', 'Ctrl+1', lambda: self._focus_deck_zone(DeckZoneType.MAINDECK)),
                 # ('Sideboard', 'Ctrl+2', lambda: self._focus_deck_zone(DeckZoneType.SIDEBOARD)),
                 # ('Pool', 'Ctrl+3', lambda: self._focus_deck_zone(DeckZoneType.POOL)),
-                ('Exclusive Maindeck', 'Alt+Ctrl+1', self._exclusive_maindeck),
-                ('Exclusive Sideboard', 'Alt+Ctrl+2', self._exclusive_sideboard),
-                ('Exclusive Pool', 'Alt+Ctrl+3', self._exclusive_pool),
+                # ('Exclusive Maindeck', 'Alt+Ctrl+1', self._exclusive_maindeck),
+                # ('Exclusive Sideboard', 'Alt+Ctrl+2', self._exclusive_sideboard),
+                # ('Exclusive Pool', 'Alt+Ctrl+3', self._exclusive_pool),
             ),
             menu_bar.addMenu('Generate'): (
                 # ('Sealed pool', 'Ctrl+G', self._generate_pool),
@@ -415,9 +376,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 ('Add cards', 'Ctrl+F', self._add_cards),
             ),
             menu_bar.addMenu('Select'): (
-                ('All', 'Ctrl+A', self._select_all),
-                ('Clear Selection', 'Ctrl+D', self._clear_selection),
-                ('Select Matching', 'Ctrl+E', self._search_select),
+                # ('All', 'Ctrl+A', self._select_all),
+                # ('Clear Selection', 'Ctrl+D', self._clear_selection),
+                # ('Select Matching', 'Ctrl+E', self._search_select),
             ),
             menu_bar.addMenu('View'): (
                 ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
@@ -464,14 +425,14 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
     def _new_deck(self) -> None:
         self._main_view.deck_tabs.setCurrentWidget(
-            self._main_view.deck_tabs.new_deck()
+            self._main_view.deck_tabs.new_deck(
+                DeckModel()
+            )
         )
 
     def _close_deck(self) -> None:
         self._main_view.deck_tabs.tabCloseRequested.emit(
-            self._main_view.deck_tabs.indexOf(
-                self._main_view.active_deck
-            )
+            self._main_view.deck_tabs.currentIndex()
         )
 
     def _undo(self):
@@ -600,54 +561,11 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
     def generate_cube_pools(self):
         pass
 
-    # def _load(self):
-    #     dialog = QtWidgets.QFileDialog(self)
-    #     dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
-    #     dialog.setNameFilter('decks (*.emb *.dec *.cod)')
-    #     dialog.setViewMode(QtWidgets.QFileDialog.List)
-    #
-    #     if not dialog.exec_():
-    #         return
-    #
-    #     file_names = dialog.selectedFiles()
-    #
-    #     if not file_names:
-    #         return
-    #
-    #     print(file_names)
-    #
-    #     file_path = file_names[0]
-    #
-    #     name, extension = os.path.splitext(os.path.split(file_path)[1])
-    #
-    #     extension = extension[1:]
-    #
-    #     with open(file_names[0], 'r') as f:
-    #         deck = Context.soft_serialization.deserialize(Deck, f.read(), extension)
-    #
-    #     deck_widget = DeckWidget(name)
-    #
-    #     self._main_view.deck_tabs.add_deck(deck_widget)
-    #
-    #     self._main_view.deck_tabs.setCurrentWidget(deck_widget)
-    #
-    #     deck_widget.undo_stack.push(
-    #         deck_widget.maindeck.card_container.card_scene.aligner.attach_cards(
-    #             (PhysicalCard(printing) for printing in deck.maindeck)
-    #         ),
-    #         deck_widget.sideboard.card_container.card_scene.aligner.attach_cards(
-    #             (PhysicalCard(printing) for printing in deck.sideboard)
-    #         ),
-    #     )
-
-    def _save(self):
-        pass
-
-    def _save_as(self):
+    def _load(self):
         dialog = QtWidgets.QFileDialog(self)
-        dialog.setFileMode(QtWidgets.QFileDialog.AnyFile)
-        dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
-        # dialog.selectFile('u suck lol')
+        dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        dialog.setNameFilter(SUPPORTED_EXTENSIONS)
+        dialog.setViewMode(QtWidgets.QFileDialog.List)
 
         if not dialog.exec_():
             return
@@ -657,18 +575,31 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         if not file_names:
             return
 
-        file_name = file_names[0]
+        print(file_names)
 
-        try:
-            s = Context.soft_serialization.serialize(
-                self._main_view.active_deck.deck,
-                os.path.splitext(file_name)[1][1:],
+        file_path = file_names[0]
+
+        name, extension = os.path.splitext(os.path.split(file_path)[1])
+
+        extension = extension[1:]
+
+        with open(file_names[0], 'r') as f:
+            deck = JsonId(Context.db).deserialize(Deck, f.read())
+
+        self._main_view.deck_tabs.setCurrentWidget(
+            self._main_view.deck_tabs.new_deck(
+                DeckModel(
+                    CubeScene(StaticStackingGrid, deck.maindeck),
+                    CubeScene(StaticStackingGrid, deck.sideboard),
+                )
             )
-        except SerializationException:
-            return
+        )
 
-        with open(file_name, 'w') as f:
-            f.write(s)
+    def _save(self):
+        pass
+
+    def _save_as(self):
+        self._main_view.deck_tabs.currentWidget().save()
 
     # def _pool_generated(self, key: Multiset[Expansion]):
     #     deck_widget = DeckWidget('Generated Pool')

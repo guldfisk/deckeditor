@@ -1,9 +1,10 @@
+import typing
 import typing as t
 
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import QObject, Qt, QVariant, QSortFilterProxyModel
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QTableView, QUndoStack
-from PyQt5.uic.properties import QtGui
 
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.cubescene import CubeScene
@@ -30,10 +31,17 @@ class CubeableTableItem(QTableWidgetItem):
         return self._cubeable
 
 
+class NonEditableItem(QTableWidgetItem):
+
+    def __init__(self, text: str) -> None:
+        super().__init__(text, 0)
+        self.setFlags(self.flags() & ~Qt.ItemIsEditable)
+
+
 class CubeListView(QTableWidget):
 
     def __init__(self, cube_model: CubeScene, undo_stack: QUndoStack, parent: t.Optional[QObject] = None):
-        super().__init__(0, 2, parent)
+        super().__init__(0, 6, parent)
         self._cube_scene = cube_model
         self._undo_stack = undo_stack
 
@@ -45,12 +53,32 @@ class CubeListView(QTableWidget):
         self.setMouseTracking(True)
         self.currentCellChanged.connect(self._handle_current_cell_changed)
 
+    def keyPressEvent(self, key_event: QtGui.QKeyEvent):
+        pressed_key = key_event.key()
+        modifiers = key_event.modifiers()
+
+        if pressed_key == QtCore.Qt.Key_Delete:
+            print(self.selectedItems())
+            self._undo_stack.push(
+                self._cube_scene.get_cube_modification(
+                    CubeDeltaOperation(
+                        {
+                            self.item(item.row(), 1).cubeable: -int(self.item(item.row(), 0).text())
+                            for item in
+                            self.selectedItems()
+                        }
+                    ),
+                )
+            )
+        else:
+            super().keyPressEvent(key_event)
+
     def _handle_current_cell_changed(
-        self,
-        current_row: int,
-        current_column: int,
-        previous_row: int,
-        previous_column: int,
+            self,
+            current_row: int,
+            current_column: int,
+            previous_row: int,
+            previous_column: int,
     ):
         Context.focus_card_changed.emit(self.item(current_row, 1).cubeable)
 
@@ -73,21 +101,62 @@ class CubeListView(QTableWidget):
         self.setRowCount(len(self._cube_scene.cube.cubeables.distinct_elements()))
 
         for index, (cubeable, multiplicity) in enumerate(
-            sorted(
-                self._cube_scene.cube.cubeables.items(),
-                key = lambda vs: str(vs[0].id),
-            )
+                sorted(
+                    self._cube_scene.cube.cubeables.items(),
+                    key=lambda vs: str(vs[0].id),
+                )
         ):
             item = QTableWidgetItem()
             item.setData(0, multiplicity)
             self.setItem(index, 0, item)
 
-            item = CubeableTableItem(cubeable)
+            self.setItem(index, 1, CubeableTableItem(cubeable))
+
             self.setItem(
                 index,
-                1,
-                item
+                2,
+                NonEditableItem(
+                    cubeable.expansion.code
+                    if isinstance(cubeable, Printing) else
+                    ''
+                ),
             )
+            self.setItem(
+                index,
+                3,
+                NonEditableItem(
+                    str(cubeable.cardboard.front_card.mana_cost)
+                    if isinstance(cubeable, Printing) else
+                    ''
+                ),
+            )
+            self.setItem(
+                index,
+                4,
+                NonEditableItem(
+                    str(cubeable.cardboard.front_card.type_line)
+                    if isinstance(cubeable, Printing) else
+                    ''
+                ),
+            )
+            self.setItem(
+                index,
+                5,
+                NonEditableItem(
+                    str(
+                        cubeable.cardboard.front_card.loyalty
+                        if cubeable.cardboard.front_card.loyalty is not None else
+                        (
+                            cubeable.cardboard.front_card.power_toughness
+                            if cubeable.cardboard.front_card.power_toughness is not None else
+                            ''
+                        )
+                    )
+                    if isinstance(cubeable, Printing) else
+                    ''
+                ),
+            )
+
         self.setSortingEnabled(True)
         self.blockSignals(False)
 

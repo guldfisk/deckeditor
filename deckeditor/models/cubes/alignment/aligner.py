@@ -2,10 +2,13 @@ import typing as t
 
 from abc import ABC, abstractmethod
 
+from PyQt5 import QtCore
 from PyQt5.QtCore import QPoint
+from PyQt5.QtWidgets import QUndoCommand
 
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
+from deckeditor.sorting.sort import SortProperty
 
 
 class AlignmentPickUp(ABC):
@@ -41,4 +44,12 @@ class Aligner(ABC):
 
     @abstractmethod
     def drop(self, items: t.Iterable[PhysicalCard], position: QPoint) -> AlignmentDrop:
+        pass
+
+    @abstractmethod
+    def sort(
+            self,
+            sort_property: SortProperty,
+            orientation: int,
+    ) -> QUndoCommand:
         pass

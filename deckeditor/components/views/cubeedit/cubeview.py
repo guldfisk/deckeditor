@@ -1,8 +1,10 @@
 import typing as t
+from collections import OrderedDict
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QUndoStack
 
+from deckeditor.components.views.cubeedit.cubelistview import CubeListView
 from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.models.cubes.alignment.grid import GridAligner
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
@@ -11,11 +13,13 @@ from deckeditor.models.cubes.cubescene import CubeScene
 
 from deckeditor.context.context import Context
 
-ALIGNER_TYPE_MAP = {
-    'Grid': GridAligner,
-    'Static Stacking Grid': StaticStackingGrid,
-    # 'Dynamic Stacking Grid': DynamicStackingGrid,
-}
+ALIGNER_TYPE_MAP = OrderedDict(
+    (
+        ('Static Stacking Grid', StaticStackingGrid),
+        ('Grid', GridAligner),
+        # 'Dynamic Stacking Grid': DynamicStackingGrid,
+    )
+)
 
 
 # class ChangeAligner(UndoCommand):
@@ -62,8 +66,14 @@ class SelectedInfo(QtWidgets.QLabel):
 
 class AlignSelector(QtWidgets.QComboBox):
 
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
+    def __init__(self, cube_scene: CubeScene, undo_stack: QUndoStack):
+        super().__init__()
+
+        self._cube_scene = cube_scene
+        self._undo_stack = undo_stack
+
+        self._cube_scene.aligner_changed.connect(self._on_aligner_change)
+
         for name, aligner_type in ALIGNER_TYPE_MAP.items():
             self.addItem(name, aligner_type)
 
@@ -71,7 +81,19 @@ class AlignSelector(QtWidgets.QComboBox):
             self.findData(StaticStackingGrid)
         )
 
-    def change_current_item(self, aligner: Aligner) -> None:
+        self._cube_scene.aligner_changed.connect(self._on_aligner_change)
+        self.activated.connect(self._on_index_change)
+
+    def _on_index_change(self, idx: int) -> None:
+        aligner_type = self.itemData(idx)
+
+        self._undo_stack.push(
+            self._cube_scene.get_set_aligner(
+                aligner_type
+            )
+        )
+
+    def _on_aligner_change(self, aligner: Aligner) -> None:
         if aligner != self.currentData():
             self.setCurrentIndex(
                 self.findData(
@@ -80,15 +102,33 @@ class AlignSelector(QtWidgets.QComboBox):
             )
 
 
-class CubeMultiImageView(QtWidgets.QWidget):
-    aligner_changed = QtCore.pyqtSignal(type)
+class SelectionIndicator(QtWidgets.QLabel):
+
+    def __init__(self, scene: CubeScene):
+        super().__init__()
+        self._scene = scene
+        self._reset_text()
+
+        self._scene.selectionChanged.connect(self._reset_text)
+
+    def _reset_text(self) -> None:
+        self.setText(
+            '{}/{}'.format(
+                len(self._scene.selectedItems()),
+                len(self._scene.items()),
+            )
+        )
+
+
+class CubeView(QtWidgets.QWidget):
+    # aligner_changed = QtCore.pyqtSignal(type)
 
     def __init__(self, scene: CubeScene, undo_stack: QUndoStack, parent = None):
         super().__init__(parent = parent)
 
         self._cube_scene = scene
 
-        # self._undo_stack = undo_stack
+        self._undo_stack = undo_stack
 
         self._current_aligner_type = StaticStackingGrid
 
@@ -97,8 +137,13 @@ class CubeMultiImageView(QtWidgets.QWidget):
             self._cube_scene
         )
 
-        self._cube_scene.set_aligner(
-            self._current_aligner_type
+        # self._cube_scene.set_aligner(
+        #     self._current_aligner_type
+        # )
+
+        self._cube_list_view = CubeListView(
+            self._cube_scene,
+            undo_stack,
         )
 
         # self._card_container = CardContainer(
@@ -106,7 +151,9 @@ class CubeMultiImageView(QtWidgets.QWidget):
         #     self._current_aligner_type,
         # )
         # self._selected_info = SelectedInfo()
-        self._aligner_selector = AlignSelector(self)
+        self._aligner_selector = AlignSelector(self._cube_scene, self._undo_stack)
+
+        self._selection_indicator = SelectionIndicator(self._cube_scene)
 
         # self._zone_label.setText(self._zone.value)
 
@@ -122,39 +169,51 @@ class CubeMultiImageView(QtWidgets.QWidget):
         # self._tool_bar.addWidget(self._zone_label)
         # self._tool_bar.addWidget(self._selected_info)
         self._tool_bar.addWidget(self._aligner_selector)
+        self._tool_bar.addWidget(self._selection_indicator)
 
         # self._selected_info.set_amount_selected()
 
         box.addLayout(self._tool_bar)
-        box.addWidget(self._cube_image_view)
+
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
+
+        splitter.addWidget(self._cube_image_view)
+        splitter.addWidget(self._cube_list_view)
+
+        box.addWidget(splitter)
 
         self.setLayout(box)
 
-        self.aligner_changed.connect(self._aligner_changed)
-        self.aligner_changed.connect(self._aligner_selector.change_current_item)
-        self._aligner_selector.currentIndexChanged.connect(self._combo_box_changed)
-
-    def _aligner_changed(self, aligner: t.Type[Aligner]) -> None:
-        self._cube_scene.set_aligner(aligner)
-        self._current_aligner_type = aligner
-
-    def _combo_box_changed(self, index: int) -> None:
-        aligner_type = self._aligner_selector.itemData(index)
-
-        if aligner_type == self._current_aligner_type:
-            return
-
-        self.aligner_changed.emit(aligner_type)
-
-        # self._undo_stack.push(
-        #     ChangeAligner(
-        #         self,
-        #         aligner_type(
-        #             self.card_container.scene(),
-        #             self._undo_stack,
-        #         ),
-        #     )
-        # )
+    #     self.aligner_changed.connect(self._aligner_changed)
+    #     self.aligner_changed.connect(self._aligner_selector._on_aligner_change)
+    #     self._aligner_selector.currentIndexChanged.connect(self._combo_box_changed)
+    #
+    # def _aligner_changed(self, aligner: t.Type[Aligner]) -> None:
+    #     # self._cube_scene.set_aligner(aligner)
+    #     self._undo_stack.push(
+    #         self._cube_scene.get_set_aligner(
+    #             aligner
+    #         )
+    #     )
+    #     self._current_aligner_type = aligner
+    #
+    # def _combo_box_changed(self, index: int) -> None:
+    #     aligner_type = self._aligner_selector.itemData(index)
+    #
+    #     if aligner_type == self._current_aligner_type:
+    #         return
+    #
+    #     self.aligner_changed.emit(aligner_type)
+    #
+    #     # self._undo_stack.push(
+    #     #     ChangeAligner(
+    #     #         self,
+    #     #         aligner_type(
+    #     #             self.card_container.scene(),
+    #     #             self._undo_stack,
+    #     #         ),
+    #     #     )
+    #     # )
 
     # def selection_change(self):
     #     self._selected_info.set_amount_selected(
@@ -172,4 +231,3 @@ class CubeMultiImageView(QtWidgets.QWidget):
     # @property
     # def printings(self) -> t.Iterable[Printing]:
     #     return (card.cubeable for card in self._card_container.card_scene.cards)
-

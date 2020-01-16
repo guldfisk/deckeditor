@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import typing as t
 from collections import defaultdict
 
@@ -8,15 +9,23 @@ from abc import abstractmethod, ABC
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QPoint
+from PyQt5.QtWidgets import QUndoCommand
 
-from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner
-from deckeditor.models.cubes.selection import SelectionScene
+from deckeditor.sorting.sort import SortProperty, extract_cmc, extract_type, extract_rarity, extract_color, \
+    extract_name, extract_expansion, extract_collector_number
+from mtgorp.models.persistent.attributes import typeline, colors
+
+from mtgorp.models.persistent.printing import Printing
 
 from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
+
+from magiccube.collections import cubeable as Cubeable
 
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.context.context import Context
 from deckeditor.values import Direction
+from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner
+from deckeditor.models.cubes.selection import SelectionScene
 
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]
@@ -25,9 +34,9 @@ IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))
 class CardStacker(ABC):
 
     def __init__(
-        self,
-        aligner: StackingGrid,
-        index: t.Sequence[int],
+            self,
+            aligner: StackingGrid,
+            index: t.Sequence[int],
     ):
         self._aligner: StackingGrid = aligner
         self._index: t.List[int] = list(index)
@@ -192,11 +201,11 @@ class CardStacker(ABC):
 class StackingDrop(AlignmentPickUp):
 
     def __init__(
-        self,
-        grid: StackingGrid,
-        stacker: CardStacker,
-        index: int,
-        cards: t.Tuple[PhysicalCard, ...],
+            self,
+            grid: StackingGrid,
+            stacker: CardStacker,
+            index: int,
+            cards: t.Tuple[PhysicalCard, ...],
     ):
         super().__init__()
         self._grid = grid
@@ -217,9 +226,9 @@ class StackingDrop(AlignmentPickUp):
 class StackingPickUp(AlignmentDrop):
 
     def __init__(
-        self,
-        grid: StackingGrid,
-        cards: t.Iterable[PhysicalCard],
+            self,
+            grid: StackingGrid,
+            cards: t.Iterable[PhysicalCard],
     ):
         self._grid = grid
         self._stacker_map: t.MutableMapping[CardStacker, t.List[t.Tuple[int, PhysicalCard]]] = defaultdict(list)
@@ -243,7 +252,7 @@ class StackingPickUp(AlignmentDrop):
 
     def undo(self):
         for stacker, infos in self._stacker_map.items():
-            _infos = sorted(infos, key = lambda info: info[0])
+            _infos = sorted(infos, key=lambda info: info[0])
 
             adjusted_indexes = []
             passed = 0
@@ -255,264 +264,142 @@ class StackingPickUp(AlignmentDrop):
             stacker.insert_cards(*zip(*adjusted_indexes))
 
 
-# class StackingRemove(AlignRemove):
-#
-#     def __init__(
-#         self,
-#         grid: 'StackingGrid',
-#         cards: t.Iterable[PhysicalCard],
-#     ):
-#         super().__init__()
-#         self._grid = grid
-#         self._cards = cards
-#
-#     def redo(self):
-#         self._grid.scene.remove_cards(*self._cards)
-#
-#     def undo(self):
-#         self._grid.scene.add_cards(*self._cards)
-#
-#     def ignore(self) -> bool:
-#         return not self._cards
-#
-#
-# class _StackingMove(UndoCommand):
-#
-#     def __init__(self, grid: 'StackingGrid', cards: t.Iterable[PhysicalCard], stacker: CardStacker):
-#         self._grid = grid
-#         self._cards = list(cards)
-#         self._stacker = stacker
-#
-#         self._stackers = {}  # type: t.Dict[CardStacker, t.List[t.Tuple[int, PhysicalCard]]]
-#
-#     def _stacker_cards(self, stacker: CardStacker) -> t.List[t.Tuple[int, PhysicalCard]]:
-#         try:
-#             return self._stackers[stacker]
-#         except KeyError:
-#             self._stackers[stacker] = info = []
-#             return info
-#
-#     def setup(self):
-#         for card in self._cards:
-#             info = self._grid.get_card_info(card)
-#             self._stacker_cards(info.card_stacker).append((info.position, card))
-#
-#     def redo(self) -> None:
-#         for stacker, infos in self._stackers.items():
-#             if stacker is not None:
-#                 stacker.remove_cards(card for _, card in infos)
-#
-#         self._stacker.add_cards(self._cards)
-#
-#     def undo(self) -> None:
-#         self._stacker.remove_cards(self._cards)
-#
-#         for stacker, infos in self._stackers.items():
-#             _infos = sorted(infos, key=lambda info: info[0])
-#
-#             adjusted_indexes = []
-#             passed = 0
-#
-#             for index, card in _infos:
-#                 if card.scene() != stacker.grid.scene:
-#                     stacker.grid.scene.add_cards(card)
-#                 adjusted_indexes.append((index - passed, card))
-#                 passed += 1
-#
-#             stacker.insert_cards(*zip(*adjusted_indexes))
-#
-#     def ignore(self) -> bool:
-#         return not self._cards
-#
-#
-# class _StackingSort(AlignSort):
-#     EXCESS_LEFT = True  # type: bool
-#
-#     def __init__(self, grid: 'StackingGrid', orientation: int):
-#         self._grid = grid
-#         self._orientation = orientation
-#
-#         self._card_infos = {}  # type: t.Dict[PhysicalCard, t.Tuple[CardStacker, int]]
-#         self._stackers = {}  # type: t.Dict[CardStacker, t.List[t.Tuple[int, PhysicalCard]]]
-#
-#     def _sorted_cards(self) -> t.List[PhysicalCard]:
-#         return sorted(
-#             self._card_infos.keys(),
-#             key=lambda card: card.cubeable.cardboard.name,
-#         )
-#
-#     def _cards_separated(self) -> t.Iterable[t.Tuple[PhysicalCard, int]]:
-#         sorted_cards = self._sorted_cards()
-#
-#         parts = (
-#             self._grid.stacker_map.row_length
-#             if self._orientation == QtCore.Qt.Horizontal else
-#             self._grid.stacker_map.column_height
-#         )
-#
-#         part, excess = (
-#             len(sorted_cards) // parts,
-#             len(sorted_cards) % parts,
-#         )
-#
-#         if self.EXCESS_LEFT:
-#             for i in range(excess):
-#                 yield (sorted_cards[i], 0)
-#
-#         for i in range(parts):
-#             for n in range(part):
-#                 yield (
-#                     sorted_cards[
-#                         (excess if self.EXCESS_LEFT else 0) + i * part + n
-#                         ],
-#                     i,
-#                 )
-#
-#         if not self.EXCESS_LEFT:
-#             for i in range(excess):
-#                 yield (sorted_cards[parts * part + i], parts - 1)
-#
-#     def _card_sorted_indexes(self) -> t.Iterable[t.Tuple[PhysicalCard, int, int]]:
-#         info_extractor = (
-#             (lambda i, info: (i, info[0].index[1]))
-#             if self._orientation == QtCore.Qt.Horizontal else
-#             (lambda i, info: (info[0].index[0], i))
-#         )
-#
-#         for card, i in self._cards_separated():
-#             yield (card, *info_extractor(i, self._card_infos[card]))
-#
-#     def _stacker_cards(self, stacker: CardStacker) -> t.List[t.Tuple[int, PhysicalCard]]:
-#         try:
-#             return self._stackers[stacker]
-#         except KeyError:
-#             self._stackers[stacker] = info = []
-#             return info
-#
-#     def setup(self):
-#         for card, info in self._grid.stacked_cards.items():
-#             self._stacker_cards(info.card_stacker).append((info.position, card))
-#             self._card_infos[card] = (info.card_stacker, info.position)
-#
-#     def redo(self) -> None:
-#         for stacker in self._grid.stacker_map.stackers:
-#             stacker.clear_no_restack()
-#
-#         for card, x, y in self._card_sorted_indexes():
-#             (
-#                 self
-#                     ._grid
-#                     .get_card_stacker_at_index(x, y)
-#                     .add_card_no_restack(card)
-#             )
-#
-#         for stacker in self._grid.stacker_map.stackers:
-#             stacker.update()
-#
-#         self._grid.link_cursor(self._grid.cursor_position)
-#
-#     def undo(self) -> None:
-#         for stacker in self._grid.stacker_map.stackers:
-#             stacker.clear_no_restack()
-#
-#         for stacker, infos in self._stackers.items():
-#             stacker.add_cards(*(card for index, card in infos))
-#
-#     def ignore(self) -> bool:
-#         return not self._grid.stacked_cards
-#
-#
-# class _ValueToPositionSort(_StackingSort):
-#     class ListDict(dict):
-#
-#         def __getitem__(self, k: int) -> t.List[PhysicalCard]:
-#             try:
-#                 return super().__getitem__(k)
-#             except KeyError:
-#                 l = []
-#                 self.__setitem__(k, l)
-#                 return l
-#
-#     @abstractmethod
-#     def _sort_value(self, card: PhysicalCard) -> t.Any:
-#         pass
-#
-#     def _cards_separated(self) -> t.Iterable[t.Tuple[PhysicalCard, int]]:
-#         parts = (
-#             self._grid.stacker_map.row_length
-#             if self._orientation == QtCore.Qt.Horizontal else
-#             self._grid.stacker_map.column_height
-#         )
-#
-#         value_map = self.ListDict()
-#
-#         for card in self._card_infos.keys():
-#             value_map[self._sort_value(card)].append(card)
-#
-#         values = sorted(value_map.keys()).__iter__()
-#
-#         for i in range(parts):
-#             value = next(values, None)
-#             if value is None:
-#                 break
-#
-#             for card in value_map[value]:
-#                 yield card, i
-#
-#         for value in values:
-#             for card in value_map[value]:
-#                 yield card, parts - 1
-#
-#
-# class CmcSort(_ValueToPositionSort):
-#
-#     def _sort_value(self, card: PhysicalCard) -> int:
-#         return (
-#             -1
-#             if typeline.LAND in card.printing.cardboard.front_card.type_line else
-#             card.printing.cardboard.front_card.cmc
-#         )
-#
-#
-# class TypeSort(_ValueToPositionSort):
-#
-#     def _sort_value(self, card: PhysicalCard) -> bool:
-#         return not typeline.CREATURE in card.printing.cardboard.front_card.type_line
-#
-#
-# class RaritySort(_ValueToPositionSort):
-#
-#     def _sort_value(self, card: PhysicalCard) -> int:
-#         return -1 if card.printing.rarity is None else card.printing.rarity.value
-#
-#
-# class ColorSort(_ValueToPositionSort):
-#
-#     def _sort_value(self, card: PhysicalCard) -> int:
-#         return (
-#             -1
-#             if typeline.LAND in card.printing.cardboard.front_card.type_line else
-#             colors.color_set_sort_value_len_first(
-#                 card.printing.cardboard.front_card.color
-#             )
-#
-#         )
-#
-#
-# class NameSort(_StackingSort):
-#     pass
-#
-#
-# class ExpansionSort(_ValueToPositionSort):
-#
-#     def _sort_value(self, card: PhysicalCard) -> str:
-#         return '' if card.printing.expansion is None else card.printing.expansion.code
-#
-#
-# class CollectorsNumberSort(_StackingSort):
-#
-#     def _sorted_cards(self) -> t.List[PhysicalCard]:
-#         return sorted(self._card_infos.keys(), key=lambda card: card.cubeable.collector_number)
+class _StackingSort(QUndoCommand):
+    # EXCESS_LEFT: bool = True
+    sort_property_extractor: t.Callable[[Cubeable], t.Union[str, int]] = None
+
+    def __init__(self, grid: StackingGrid, orientation: int):
+        self._grid = grid
+        self._orientation = orientation
+
+        self._card_infos: t.Dict[PhysicalCard, t.Tuple[CardStacker, int]] = {}
+        self._stackers: t.MutableMapping[CardStacker, t.List[t.Tuple[int, PhysicalCard]]] = defaultdict(list)
+
+        for card, info in self._grid.stacked_cards.items():
+            self._stackers[info.card_stacker].append((info.position, card))
+            self._card_infos[card] = (info.card_stacker, info.position)
+
+        super().__init__('Sort')
+
+    def _sorted_cards(self) -> t.List[PhysicalCard]:
+        return sorted(
+            self._card_infos.keys(),
+            key=lambda card: self.sort_property_extractor(card.cubeable),
+        )
+
+    @property
+    def _cards_separated(self) -> t.Generator[t.Tuple[PhysicalCard, int]]:
+        sorted_cards = self._sorted_cards()
+
+        parts = (
+            self._grid.stacker_map.row_length
+            if self._orientation == QtCore.Qt.Horizontal else
+            self._grid.stacker_map.column_height
+        )
+
+        part = math.ceil(len(sorted_cards) / parts)
+
+        sorted_cards_iter = sorted_cards.__iter__()
+
+        try:
+            for i in range(parts):
+                for n in range(part):
+                    yield next(sorted_cards_iter), i
+        except StopIteration:
+            return
+
+    def _card_sorted_indexes(self) -> t.Iterator[t.Tuple[PhysicalCard, int, int]]:
+        info_extractor = (
+            (lambda i, info: (i, info[0].index[1]))
+            if self._orientation == QtCore.Qt.Horizontal else
+            (lambda i, info: (info[0].index[0], i))
+        )
+
+        for card, i in self._cards_separated:
+            yield (card, *info_extractor(i, self._card_infos[card]))
+
+    def redo(self) -> None:
+        for stacker in self._grid.stacker_map.stackers:
+            stacker.clear_no_restack()
+
+        for card, x, y in self._card_sorted_indexes():
+            (
+                self
+                    ._grid
+                    .get_card_stacker_at_index(x, y)
+                    .add_card_no_restack(card)
+            )
+
+        for stacker in self._grid.stacker_map.stackers:
+            stacker.update()
+
+    def undo(self) -> None:
+        for stacker in self._grid.stacker_map.stackers:
+            stacker.clear_no_restack()
+
+        for stacker, infos in self._stackers.items():
+            stacker.add_cards(card for index, card in infos)
+
+
+class _ValueToPositionSort(_StackingSort):
+
+    def _sort_value(self, card: PhysicalCard) -> t.Union[str, int]:
+        return self.sort_property_extractor(card.cubeable)
+
+    @property
+    def _cards_separated(self) -> t.Iterable[t.Tuple[PhysicalCard, int]]:
+        parts = (
+            self._grid.stacker_map.row_length
+            if self._orientation == QtCore.Qt.Horizontal else
+            self._grid.stacker_map.column_height
+        )
+
+        value_map = defaultdict(list)
+
+        for card in self._card_infos.keys():
+            value_map[self._sort_value(card)].append(card)
+
+        values = sorted(value_map.keys()).__iter__()
+
+        for i in range(parts):
+            value = next(values, None)
+            if value is None:
+                break
+
+            for card in value_map[value]:
+                yield card, i
+
+        for value in values:
+            for card in value_map[value]:
+                yield card, parts - 1
+
+
+class CmcSort(_ValueToPositionSort):
+    sort_property_extractor = staticmethod(extract_cmc)
+
+
+class TypeSort(_ValueToPositionSort):
+    sort_property_extractor = staticmethod(extract_type)
+
+
+class RaritySort(_ValueToPositionSort):
+    sort_property_extractor = staticmethod(extract_rarity)
+
+
+class ColorSort(_ValueToPositionSort):
+    sort_property_extractor = staticmethod(extract_color)
+
+
+class NameSort(_StackingSort):
+    sort_property_extractor = staticmethod(extract_name)
+
+
+class ExpansionSort(_ValueToPositionSort):
+    sort_property_extractor = staticmethod(extract_expansion)
+
+
+class CollectorsNumberSort(_StackingSort):
+    sort_property_extractor = staticmethod(extract_collector_number)
 
 
 class _CardInfo(object):
@@ -528,12 +415,12 @@ class _CardInfo(object):
 class StackerMap(object):
 
     def __init__(
-        self,
-        aligner: StackingGrid,
-        row_amount: int,
-        column_amount: int,
-        default_column_width: float = 1.,
-        default_row_height: float = 1.,
+            self,
+            aligner: StackingGrid,
+            row_amount: int,
+            column_amount: int,
+            default_column_width: float = 1.,
+            default_row_height: float = 1.,
     ):
         self._aligner = aligner
 
@@ -745,8 +632,8 @@ class StackingGrid(Aligner):
 
         if direction == Direction.UP:
             for _x in chain(
-                range(x, self.stacker_map.row_length),
-                reversed(range(0, x)),
+                    range(x, self.stacker_map.row_length),
+                    reversed(range(0, x)),
             ):
                 for _y in reversed(range(0, y + 1)):
                     if _x == x and _y == y:
@@ -756,8 +643,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _x in chain(
-                range(x, self.stacker_map.row_length),
-                reversed(range(0, x)),
+                    range(x, self.stacker_map.row_length),
+                    reversed(range(0, x)),
             ):
                 for _y in reversed(range(y + 1, self.stacker_map.column_height)):
                     if _x == x and _y == y:
@@ -768,8 +655,8 @@ class StackingGrid(Aligner):
 
         elif direction == Direction.RIGHT:
             for _y in chain(
-                range(y, self.stacker_map.column_height),
-                reversed(range(0, y)),
+                    range(y, self.stacker_map.column_height),
+                    reversed(range(0, y)),
             ):
                 for _x in range(x, self.stacker_map.row_length):
                     if _x == x and _y == y:
@@ -779,8 +666,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _y in chain(
-                range(y, self.stacker_map.column_height),
-                reversed(range(0, y)),
+                    range(y, self.stacker_map.column_height),
+                    reversed(range(0, y)),
             ):
                 for _x in range(0, x):
                     if _x == x and _y == y:
@@ -791,8 +678,8 @@ class StackingGrid(Aligner):
 
         elif direction == Direction.DOWN:
             for _x in chain(
-                reversed(range(0, x + 1)),
-                range(x + 1, self.stacker_map.row_length),
+                    reversed(range(0, x + 1)),
+                    range(x + 1, self.stacker_map.row_length),
             ):
                 for _y in range(y + 1, self.stacker_map.column_height):
                     if _x == x and _y == y:
@@ -802,8 +689,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _x in chain(
-                reversed(range(0, x + 1)),
-                range(x + 1, self.stacker_map.row_length),
+                    reversed(range(0, x + 1)),
+                    range(x + 1, self.stacker_map.row_length),
             ):
                 for _y in range(0, y + 1):
                     if _x == x and _y == y:
@@ -814,8 +701,8 @@ class StackingGrid(Aligner):
 
         elif direction == Direction.LEFT:
             for _y in chain(
-                reversed(range(0, y + 1)),
-                range(y + 1, self.stacker_map.column_height),
+                    reversed(range(0, y + 1)),
+                    range(y + 1, self.stacker_map.column_height),
             ):
                 for _x in reversed(range(0, x + 1)):
                     if _x == x and _y == y:
@@ -825,8 +712,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _y in chain(
-                reversed(range(0, y + 1)),
-                range(y + 1, self.stacker_map.column_height),
+                    reversed(range(0, y + 1)),
+                    range(y + 1, self.stacker_map.column_height),
             ):
                 for _x in reversed(range(x + 1, self.stacker_map.row_length)):
                     if _x == x and _y == y:
@@ -883,7 +770,7 @@ class StackingGrid(Aligner):
             selected_items = self._scene.selectedItems()
 
             if modifiers & QtCore.Qt.ControlModifier:
-                stacker = self.find_stacker(*info.card_stacker.index, direction = direction)
+                stacker = self.find_stacker(*info.card_stacker.index, direction=direction)
 
                 if stacker is None:
                     return
@@ -903,7 +790,7 @@ class StackingGrid(Aligner):
             position = info.position - 1
 
             if position < 0:
-                next_stacker = self.find_stacker(*stacker.index, direction = direction)
+                next_stacker = self.find_stacker(*stacker.index, direction=direction)
 
                 if next_stacker is not None:
                     stacker = next_stacker
@@ -916,7 +803,7 @@ class StackingGrid(Aligner):
             position = info.position + 1
 
             if position >= len(stacker.cards):
-                next_stacker = self.find_stacker(*stacker.index, direction = direction)
+                next_stacker = self.find_stacker(*stacker.index, direction=direction)
 
                 if next_stacker is not None:
                     stacker = next_stacker
@@ -1001,15 +888,15 @@ class StackingGrid(Aligner):
             *self._stacker_map.map_position_to_index(x, y)
         )
 
-    # SORT_PROPERTY_MAP = {
-    #     SortProperty.NAME: NameSort,
-    #     SortProperty.CMC: CmcSort,
-    #     SortProperty.COLOR: ColorSort,
-    #     SortProperty.RARITY: RaritySort,
-    #     SortProperty.TYPE: TypeSort,
-    #     SortProperty.EXPANSION: ExpansionSort,
-    #     SortProperty.COLLECTOR_NUMBER: CollectorsNumberSort,
-    # }
+    SORT_PROPERTY_MAP = {
+        SortProperty.NAME: NameSort,
+        SortProperty.CMC: CmcSort,
+        SortProperty.COLOR: ColorSort,
+        SortProperty.RARITY: RaritySort,
+        SortProperty.TYPE: TypeSort,
+        SortProperty.EXPANSION: ExpansionSort,
+        SortProperty.COLLECTOR_NUMBER: CollectorsNumberSort,
+    }
 
-    # def sort(self, sort_property: SortProperty, orientation: int) -> AlignSort:
-    #     return self.SORT_PROPERTY_MAP[sort_property](self, orientation)
+    def sort(self, sort_property: SortProperty, orientation: int) -> QUndoCommand:
+        return self.SORT_PROPERTY_MAP[sort_property](self, orientation)

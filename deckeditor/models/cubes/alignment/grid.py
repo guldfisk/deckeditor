@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import copy
 import typing as t
 
 from PyQt5.QtCore import QPoint
+from PyQt5.QtWidgets import QUndoCommand
 
 from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop
 from deckeditor.models.cubes.selection import SelectionScene
+from deckeditor.sorting.sort import SortProperty, extract_sort_value
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from mtgimg.interface import SizeSlug
 
@@ -19,13 +22,22 @@ class GridDrop(AlignmentDrop):
         self._cards = list(cards)
         self._idx = idx
 
+        self._snap_shot = None
+
     def redo(self):
+        self._snap_shot = copy.copy(self._aligner.cards)
+
         self._aligner.cards[self._idx:self._idx] = self._cards
         self._aligner.realign(self._idx)
 
     def undo(self):
         del self._aligner.cards[self._idx:self._idx + len(self._cards)]
         self._aligner.realign(self._idx)
+
+        if self._aligner.cards != self._snap_shot:
+            print('OH NO :O', 'drop')
+            print(self._snap_shot)
+            print(self._aligner.cards)
 
 
 class GridPickUp(AlignmentDrop):
@@ -45,7 +57,11 @@ class GridPickUp(AlignmentDrop):
         )
         self._min_index = self._indexes[-1][1] if self._indexes else len(self._cards) - 1
 
+        self._snap_shot = None
+
     def redo(self):
+        self._snap_shot = copy.copy(self._aligner.cards)
+
         for _, idx in self._indexes:
             self._aligner.cards.pop(idx)
 
@@ -56,6 +72,31 @@ class GridPickUp(AlignmentDrop):
             self._aligner.cards.insert(idx, card)
 
         self._aligner.realign(self._min_index)
+
+        if self._snap_shot != self._aligner.cards:
+            print('OH NO :O', 'pick up')
+            print(self._snap_shot)
+            print(self._aligner.cards)
+
+
+class GridSort(QUndoCommand):
+
+    def __init__(self, grid: GridAligner, sort_property: SortProperty, original_order: t.List[PhysicalCard]):
+        self._grid = grid
+        self._sort_property = sort_property
+        self._original_order = original_order
+        super().__init__('grid sort')
+
+    def redo(self) -> None:
+        self._grid.cards[:] = sorted(
+            self._original_order,
+            key = lambda card: extract_sort_value(card.cubeable, self._sort_property),
+        )
+        self._grid.realign()
+
+    def undo(self) -> None:
+        self._grid.cards[:] = self._original_order
+        self._grid.realign()
 
 
 class GridAligner(Aligner):
@@ -77,17 +118,6 @@ class GridAligner(Aligner):
             self,
             items,
         )
-        # minimum_index = len(self._cards) - 1
-        #
-        # for item in items:
-        #     idx = self._cards.index(item)
-        #     self._cards.pop(idx)
-        #     minimum_index = min(minimum_index, idx)
-        #
-        # self.realign(minimum_index)
-        #
-        # for card in items:
-        #     card.setZValue(1)
 
     def get_position_at_index(self, idx: int) -> QPoint:
         return QPoint(
@@ -114,7 +144,7 @@ class GridAligner(Aligner):
                )
         )
 
-    def realign(self, from_index: int) -> None:
+    def realign(self, from_index: int = 0) -> None:
         for card, idx in zip(self._cards[from_index:], range(from_index, len(self._cards))):
             card.setPos(
                 self.get_position_at_index(
@@ -128,8 +158,10 @@ class GridAligner(Aligner):
             items,
             self.map_position_to_index(position)
         )
-        # drop_idx = self.map_position_to_index(position)
-        # self._cards[drop_idx:drop_idx] = list(items)
-        # self.realign(drop_idx)
-        # for card in items:
-        #     card.setZValue(0)
+
+    def sort(self, sort_property: SortProperty, orientation: int) -> QUndoCommand:
+        return GridSort(
+            self,
+            sort_property,
+            copy.copy(self._cards),
+        )

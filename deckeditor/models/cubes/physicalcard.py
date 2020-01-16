@@ -62,6 +62,12 @@ class PhysicalCard(GraphicPixmapObject):
         self._back = not self._back
         self._update_image()
 
+    def __repr__(self):
+        return '{}({})'.format(
+            self.__class__.__name__,
+            self.cubeable,
+        )
+
     # def _change_printing(self, printing: Printing) -> None:
     #     self._cubeable = printing
     #     self._set_pixmap(self.DEFAULT_PIXMAP)

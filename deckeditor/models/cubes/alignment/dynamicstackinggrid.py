@@ -89,10 +89,9 @@ class DynamicStackingGrid(StackingGrid):
         if (
             height > row_heights_at_index[-1]
             or (
-            old_height >= row_heights_at_index[-1]
-            and len(row_heights_at_index) > 1
-            and row_heights_at_index[-1] > row_heights_at_index[-2]
-        )
+                old_height >= row_heights_at_index[-1] > row_heights_at_index[-2]
+                and len(row_heights_at_index) > 1
+            )
         ):
 
             # for _x in range(self.stacker_map.row_length):

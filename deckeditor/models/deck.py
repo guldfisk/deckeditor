@@ -8,27 +8,48 @@ from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingG
 from deckeditor.models.cubes.cubescene import CubeScene
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
+from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 
 
-# class CubeModel(QObject):
-#
-#     changed = pyqtSignal(CubeDeltaOperation)
-#
-#     def __init__(self, cube: t.Optional[Cube] = None) -> None:
-#         super().__init__()
-#         self._cube = Cube() if cube is None else cube
-#
-#     @property
-#     def cube(self) -> Cube:
-#         return self._cube
-#
-#     def modify(self, cube_delta_operation: CubeDeltaOperation) -> None:
-#         self._cube += cube_delta_operation
-#         self.changed.emit(cube_delta_operation)
+class Deck(Serializeable):
+
+    def __init__(self, maindeck: Cube, sideboard: Cube):
+        self._maindeck = maindeck
+        self._sideboard = sideboard
+
+    @property
+    def maindeck(self) -> Cube:
+        return self._maindeck
+
+    @property
+    def sideboard(self) -> Cube:
+        return self._sideboard
+
+    def serialize(self) -> serialization_model:
+        return {
+            'maindeck': self._maindeck.serialize(),
+            'sideboard': self._sideboard.serialize(),
+        }
+
+    @classmethod
+    def deserialize(cls, value: serialization_model, inflator: Inflator) -> Serializeable:
+        return cls(
+            maindeck = Cube.deserialize(value['maindeck'], inflator),
+            sideboard = Cube.deserialize(value['sideboard'], inflator),
+        )
+
+    def __hash__(self) -> int:
+        return hash((self._maindeck, self._sideboard))
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, self.__class__)
+            and self._maindeck == other._maindeck
+            and self._sideboard == other._sideboard
+        )
 
 
 class DeckModel(QObject):
-
     changed = pyqtSignal()
 
     def __init__(self, maindeck: t.Optional[CubeScene] = None, sideboard: t.Optional[CubeScene] = None):
@@ -46,6 +67,12 @@ class DeckModel(QObject):
     @property
     def sideboard(self) -> CubeScene:
         return self._sideboard
+
+    def as_deck(self) -> Deck:
+        return Deck(
+            self._maindeck.cube,
+            self._sideboard.cube,
+        )
 
 
 class PoolModel(DeckModel):

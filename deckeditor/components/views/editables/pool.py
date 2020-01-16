@@ -3,8 +3,7 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QWidget, QUndoStack
 
-from deckeditor.components.views.cubeedit.graphical.cubemultiimageview import CubeMultiImageView
-from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
 from deckeditor.models.deck import PoolModel
@@ -30,27 +29,21 @@ class PoolView(Editable):
         horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 
         horizontal_splitter.addWidget(
-            CubeMultiImageView(
-                CubeScene(
-                    self._pool_model.maindeck,
-                ),
+            CubeView(
+                self._pool_model.maindeck,
                 self._undo_stack,
             )
         )
         horizontal_splitter.addWidget(
-            CubeMultiImageView(
-                CubeScene(
-                    self._pool_model.sideboard,
-                ),
+            CubeView(
+                self._pool_model.sideboard,
                 self._undo_stack,
             )
         )
 
         vertical_splitter.addWidget(
-            CubeMultiImageView(
-                CubeScene(
-                    self._pool_model.pool,
-                ),
+            CubeView(
+                self._pool_model.pool,
                 self._undo_stack,
             )
         )

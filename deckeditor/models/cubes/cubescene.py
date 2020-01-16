@@ -4,7 +4,7 @@ import itertools
 import typing as t
 from collections import defaultdict
 
-from PyQt5.QtCore import QPoint
+from PyQt5.QtCore import QPoint, pyqtSignal
 from PyQt5.QtWidgets import QGraphicsItem, QUndoCommand
 
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner
@@ -38,6 +38,53 @@ class IntraCubeSceneMove(QUndoCommand):
         self._pick_up.undo()
 
 
+class InterCubeSceneMove(QUndoCommand):
+
+    def __init__(
+            self,
+            cards: t.Iterable[PhysicalCard],
+            from_scene: CubeScene,
+            pick_up: AlignmentPickUp,
+            to_scene: CubeScene,
+            drop: AlignmentDrop,
+    ):
+        self._cards = list(cards)
+        self._from_scene = from_scene
+        self._pick_up = pick_up
+        self._to_scene = to_scene
+        self._drop = drop
+        super().__init__('Inter scene move')
+
+    def redo(self) -> None:
+        self._pick_up.redo()
+        self._from_scene.remove_physical_cards(*self._cards)
+        self._to_scene.add_physical_cards(*self._cards)
+        self._drop.redo()
+
+    def undo(self) -> None:
+        self._drop.undo()
+        self._to_scene.remove_physical_cards(*self._cards)
+        self._from_scene.add_physical_cards(*self._cards)
+        self._pick_up.undo()
+
+
+class CubeSceneRemove(QUndoCommand):
+
+    def __init__(self, scene: CubeScene, pick_up: AlignmentPickUp, cards: t.Iterable[PhysicalCard]):
+        self._scene = scene
+        self._pick_up = pick_up
+        self._cards = list(cards)
+        super().__init__('Remove cubeables')
+
+    def redo(self) -> None:
+        self._pick_up.redo()
+        self._scene.remove_physical_cards(*self._cards)
+
+    def undo(self) -> None:
+        self._scene.add_physical_cards(*self._cards)
+        self._pick_up.undo()
+
+
 class CubeSceneModification(QUndoCommand):
 
     def __init__(
@@ -68,7 +115,38 @@ class CubeSceneModification(QUndoCommand):
         self._scene.remove_physical_cards(*self._add)
 
 
+class ChangeAligner(QUndoCommand):
+
+    def __init__(
+            self,
+            scene: CubeScene,
+            pick_up: AlignmentPickUp,
+            from_aligner: Aligner,
+            to_aligner: Aligner,
+            drops: t.Sequence[AlignmentDrop],
+    ):
+        self._scene = scene
+        self._pick_up = pick_up
+        self._from_aligner = from_aligner
+        self._to_aligner = to_aligner
+        self._drops = drops
+        super().__init__('Change aligner')
+
+    def redo(self) -> None:
+        self._pick_up.redo()
+        self._scene.aligner_changed.emit(self._to_aligner)
+        for drop in self._drops:
+            drop.redo()
+
+    def undo(self) -> None:
+        for drop in reversed(self._drops):
+            drop.undo()
+        self._scene.aligner_changed.emit(self._from_aligner)
+        self._pick_up.undo()
+
+
 class CubeScene(SelectionScene):
+    aligner_changed = pyqtSignal(Aligner)
 
     def __init__(self, aligner_type: t.Optional[t.Type[Aligner]], cube: t.Optional[Cube] = None):
         super().__init__()
@@ -83,12 +161,12 @@ class CubeScene(SelectionScene):
         if cube is not None:
             for cubeable in cube:
                 self.add_cubeables(cubeable)
-        # self._update(
-        #     CubeDeltaOperation(
-        #         cube_model.cube.cubeables.elements()
-        #     )
-        # )
-        # self._cube_model.changed.connect(self._update)
+            self._aligner.drop(
+                self.items(),
+                QPoint(),
+            ).redo()
+
+        self.aligner_changed.connect(self._on_aligner_changed)
 
     # @property
     # def cube_model(self) -> CubeModel:
@@ -103,16 +181,39 @@ class CubeScene(SelectionScene):
             if isinstance(item, PhysicalCard)
         )
 
-    def set_aligner(self, aligner_type: t.Type[Aligner]) -> None:
-        cards = list(
-            itertools.chain(
-                *self._item_map.values()
-            )
+    @property
+    def aligner(self) -> Aligner:
+        return self._aligner
+
+    def _on_aligner_changed(self, aligner: Aligner) -> None:
+        self._aligner = aligner
+
+    # @aligner.setter
+    # def aligner(self, value: Aligner) -> None:
+    #     self._aligner = value
+
+    def get_set_aligner(self, aligner_type: t.Type[Aligner]):
+        new_aligner = aligner_type(self)
+        return ChangeAligner(
+            self,
+            self._aligner.pick_up(
+                self.items()
+            ),
+            self._aligner,
+            new_aligner,
+            [new_aligner.drop((card,), card.pos()) for card in self.items()],
         )
-        self._aligner.pick_up(cards).redo()
-        self._aligner = aligner_type(self)
-        for card in cards:
-            self._aligner.drop((card,), card.pos()).redo()
+
+    # def set_aligner(self, aligner_type: t.Type[Aligner]) -> None:
+    #     cards = list(
+    #         itertools.chain(
+    #             *self._item_map.values()
+    #         )
+    #     )
+    #     self._aligner.pick_up(cards).redo()
+    #     self._aligner = aligner_type(self)
+    #     for card in cards:
+    #         self._aligner.drop((card,), card.pos()).redo()
 
     # def pick_up(self, items: t.Iterable[PhysicalCard]) -> None:
     #     if self._aligner is not None:
@@ -122,13 +223,24 @@ class CubeScene(SelectionScene):
     #     if self._aligner is not None:
     #         self._aligner.drop(items, position)
 
-    def get_intra_move(self, items: t.Sequence[PhysicalCard], position: QPoint) -> t.Optional[IntraCubeSceneMove]:
-        if self._aligner is None:
-            return None
-
+    def get_intra_move(self, items: t.Sequence[PhysicalCard], position: QPoint) -> IntraCubeSceneMove:
         return IntraCubeSceneMove(
             self._aligner.pick_up(items),
             self._aligner.drop(items, position),
+        )
+
+    def get_inter_move(
+            self,
+            cards: t.Sequence[PhysicalCard],
+            target_scene: CubeScene,
+            position: QPoint,
+    ) -> InterCubeSceneMove:
+        return InterCubeSceneMove(
+            cards,
+            self,
+            self._aligner.pick_up(cards),
+            target_scene,
+            target_scene._aligner.drop(cards, position),
         )
 
     def get_cube_modification(
@@ -136,11 +248,6 @@ class CubeScene(SelectionScene):
             delta_operation: CubeDeltaOperation,
             position: t.Optional[QPoint] = None,
     ) -> CubeSceneModification:
-        print('get cube mod', delta_operation)
-
-        if self._aligner is None:
-            raise Exception('fix this this')
-
         new_physical_cards = list(
             itertools.chain.from_iterable(
                 (PhysicalCard(cubeable) for _ in range(multiplicity))
@@ -157,14 +264,20 @@ class CubeScene(SelectionScene):
             )
         )
 
-        print('removed phys cards', removed_physical_cards)
-
         return CubeSceneModification(
             self,
             new_physical_cards,
             self._aligner.drop(new_physical_cards, QPoint() if position is None else position),
             self._aligner.pick_up(removed_physical_cards),
             removed_physical_cards,
+        )
+
+    def get_cube_scene_remove(self, cards: t.Iterable[PhysicalCard]):
+        cards = list(cards)
+        return CubeSceneRemove(
+            self,
+            self._aligner.pick_up(cards),
+            cards,
         )
 
     def add_physical_cards(self, *physical_cards: PhysicalCard) -> None:
