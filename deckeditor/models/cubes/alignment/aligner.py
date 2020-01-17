@@ -33,17 +33,32 @@ class AlignmentDrop(ABC):
         pass
 
 
+class AlignmentMultiDrop(ABC):
+
+    @abstractmethod
+    def redo(self):
+        pass
+
+    @abstractmethod
+    def undo(self):
+        pass
+
+
 class Aligner(ABC):
 
     def __init__(self, scene: SelectionScene):
         self._scene = scene
 
     @abstractmethod
-    def pick_up(self, items: t.Iterable[PhysicalCard]) -> AlignmentPickUp:
+    def pick_up(self, cards: t.Iterable[PhysicalCard]) -> AlignmentPickUp:
         pass
 
     @abstractmethod
-    def drop(self, items: t.Iterable[PhysicalCard], position: QPoint) -> AlignmentDrop:
+    def drop(self, cards: t.Iterable[PhysicalCard], position: QPoint) -> AlignmentDrop:
+        pass
+
+    @abstractmethod
+    def multi_drop(self, drops: t.Iterable[t.Tuple[t.Sequence[PhysicalCard], QPoint]]) -> AlignmentMultiDrop:
         pass
 
     @abstractmethod

@@ -3,8 +3,12 @@ from __future__ import annotations
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QUndoStack
+from PyQt5.QtCore import QPoint
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem
 
+from magiccube.collections.delta import CubeDeltaOperation
+from magiccube.laps.traps.trap import Trap
+from magiccube.laps.traps.tree.printingtree import AllNode, AnyNode, BorderedNode
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
@@ -14,6 +18,7 @@ from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting.sort import SortProperty
+from yeetlong.multiset import Multiset
 
 
 class QueryEdit(QtWidgets.QLineEdit):
@@ -104,10 +109,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._create_sort_action_pair(SortProperty.COLLECTOR_NUMBER)
         #
         self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+I')
-        self._select_all_cards_action = self._create_action('Select All', lambda : self._scene.select_all(), 'Ctrl+A')
+        self._select_all_cards_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
         self._deselect_all_action = self._create_action(
             'Deselect All',
-            lambda : self._scene.clear_selection(),
+            lambda: self._scene.clear_selection(),
             'Ctrl+D',
         )
         self._selection_search_action = self._create_action(
@@ -284,6 +289,54 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def _fit_all_cards(self) -> None:
         self.fitInView(self._scene.itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
 
+    def _get_flatten_trap(self, card: PhysicalCard[Trap]) -> t.Callable[[], None]:
+        def _flatten_trap():
+            self._undo_stack.push(
+                self._scene.get_cube_modification(
+                    (
+                        list(
+                            map(
+                                PhysicalCard,
+                                (
+                                    child if isinstance(child, Printing) else Trap(child)
+                                    for child in
+                                    card.cubeable.node.flattened
+                                ),
+                            )
+                        ),
+                        (card,),
+                    ),
+                    card.pos() + QPoint(1, 1),
+                )
+            )
+
+        return _flatten_trap
+
+    def _get_select_or(self, card: PhysicalCard[Trap], child: t.Union[BorderedNode, Printing]):
+        def _select_or():
+            self._undo_stack.push(
+                self._scene.get_cube_modification(
+                    (
+                        list(
+                            map(
+                                PhysicalCard,
+                                (child,)
+                                if isinstance(child, Printing) else
+                                (
+                                    _child if isinstance(_child, Printing) else Trap(_child)
+                                    for _child in
+                                    child.flattened
+                                )
+                            )
+                        ),
+                        (card,),
+                    ),
+                    card.pos() + QPoint(1, 1),
+                )
+            )
+
+        return _select_or
+
     def _context_menu_event(self, position: QtCore.QPoint):
         menu = QtWidgets.QMenu(self)
 
@@ -296,16 +349,37 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         menu.addSeparator()
 
-        # item = self.itemAt(position)
-        #
-        # if item and isinstance(item, PhysicalCard):
-        #     item.context_menu(menu)
+        item: QGraphicsItem = self.itemAt(position)
+
+        if item and isinstance(item, PhysicalCard):
+
+            if isinstance(item.cubeable, Trap):
+
+                if isinstance(item.cubeable.node, AllNode):
+                    flatten = QtWidgets.QAction('Flatten', menu)
+                    flatten.triggered.connect(self._get_flatten_trap(item))
+                    menu.addAction(flatten)
+
+                elif isinstance(item.cubeable.node, AnyNode):
+                    flatten = menu.addMenu('Flatten')
+
+                    for child in item.cubeable.node.children:
+                        _flatten = QtWidgets.QAction(str(child), flatten)
+                        _flatten.triggered.connect(self._get_select_or(item, child))
+                        flatten.addAction(_flatten)
+
+            elif isinstance(item.cubeable, Printing):
+
+                if item.cubeable.cardboard.back_cards:
+                    transform = QtWidgets.QAction('Transform', menu)
+                    transform.triggered.connect(self.flip)
+                    menu.addAction(transform)
 
         menu.exec_(self.mapToGlobal(position))
-    #
+
     def dragEnterEvent(self, drag_event: QtGui.QDragEnterEvent):
         if isinstance(drag_event.source(), self.__class__):
-        # if drag_event.source() == self:
+            # if drag_event.source() == self:
             drag_event.accept()
         # print(drag_event.source())
         # drag_event.accept()

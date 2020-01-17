@@ -31,31 +31,27 @@ class DeckView(Editable):
         horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 
         horizontal_splitter.addWidget(
-            CubeListView(
-                self._deck_model.maindeck,
-                self._undo_stack,
-            )
-        )
-        horizontal_splitter.addWidget(
-            # CubeListView(
-            #     # TODO should be sideboard
-            #     self._deck_model.maindeck
-            # )
-            # CubeImageView(
-            #     CubeScene(
-            #         self._deck_model.maindeck,
-            #         StaticStackingGrid,
-            #     )
-            # )
             CubeView(
                 self._deck_model.maindeck,
                 self._undo_stack,
             )
         )
+        horizontal_splitter.addWidget(
+            CubeView(
+                self._deck_model.sideboard,
+                self._undo_stack,
+            )
 
-        layout.addWidget(horizontal_splitter)
+        )
+        layout.addWidget(
+           horizontal_splitter
+        )
 
         self.setLayout(layout)
+
+    @property
+    def deck_model(self) -> DeckModel:
+        return self._deck_model
 
     @property
     def undo_stack(self) -> QUndoStack:

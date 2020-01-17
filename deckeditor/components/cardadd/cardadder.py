@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 
 from PyQt5 import QtWidgets, QtGui, QtCore
@@ -58,26 +60,23 @@ class QueryEditor(QtWidgets.QLineEdit):
             super().keyPressEvent(key_event)
 
 
-class PrintingList(QtWidgets.QListView):
+class PrintingList(QtWidgets.QListWidget):
 
     def __init__(
         self,
+        card_adder: CardAdder,
         addable: CardAddable,
         target_selector: TargetSelector,
         amounter: QtWidgets.QLineEdit,
-        parent: QtWidgets.QWidget,
     ):
-        super().__init__(parent)
-
+        super().__init__()
+        self._card_adder = card_adder
         self._addable = addable
         self._target_selector = target_selector
         self._amounter = amounter
 
-        self._item_model = QtGui.QStandardItemModel(parent)
-        self.setModel(self._item_model)
-
     def currentChanged(self, index, _index):
-        current = self.model().item(self.currentIndex().row())
+        current = self.currentItem()
 
         if current is not None:
             Context.focus_card_changed.emit(
@@ -86,20 +85,13 @@ class PrintingList(QtWidgets.QListView):
             self.scrollTo(self.currentIndex())
 
     def _add_printings(self) -> None:
-        Context.undo_group.activeStack().push(
-            ModifyCubeModel(
-                #TODO get current cube model.
-                CubeDeltaOperation(
-                    {
-                        self.model().item(self.currentIndex().row().printing): int(self._amounter.text())
-                    }
-                )
+        self._card_adder.add_printings.emit(
+            CubeDeltaOperation(
+                {
+                    self.currentItem().printing: int(self._amounter.text())
+                }
             )
         )
-        # self._addable.add_printings(
-        #     DeckZoneType[self._target_selector.currentText()],
-        #     [self.model().item(self.currentIndex().row()).cubeable] * int(self._amounter.text()),
-        # )
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         if key_event.key() == QtCore.Qt.Key_Enter or key_event.key() == QtCore.Qt.Key_Return:
@@ -109,10 +101,11 @@ class PrintingList(QtWidgets.QListView):
 
     def set_printings(self, printings: t.Iterable[Printing]) -> None:
         _printings = sorted(printings, key = lambda _printing: _printing.expansion.code)
-        self.model().clear()
-        for printing in _printings:
-            item = PrintingItem(printing)
-            self.model().appendRow(item)
+        self.clear()
+        for idx, printing in enumerate(_printings):
+            self.addItem(
+                PrintingItem(printing)
+            )
 
 
 class CardboardList(QtWidgets.QListView):
@@ -165,7 +158,8 @@ class CardboardItem(QtGui.QStandardItem):
         return self._cardboard
 
 
-class PrintingItem(QtGui.QStandardItem):
+class PrintingItem(QtWidgets.QListWidgetItem
+                   ):
 
     def __init__(self, printing: Printing):
         super().__init__()
@@ -178,6 +172,7 @@ class PrintingItem(QtGui.QStandardItem):
 
 
 class CardAdder(QtWidgets.QWidget):
+    add_printings = QtCore.pyqtSignal(CubeDeltaOperation)
 
     def __init__(
         self,
@@ -197,10 +192,10 @@ class CardAdder(QtWidgets.QWidget):
         self._amounter = QtWidgets.QLineEdit(self)
         self._amount_label = QtWidgets.QLabel(self)
         self._printing_list = PrintingList(
+            card_adder = self,
             addable = self._addable,
             target_selector = self._target_selector,
             amounter = self._amounter,
-            parent = self,
         )
         self._cardboard_list = CardboardList(
             self._printing_list,

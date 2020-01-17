@@ -13,11 +13,14 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.draft.view import DraftTabs
 from deckeditor.components.lobbies.view import LobbiesView, CreateLobbyDialog, LobbyModelClientConnection
+from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
 from deckeditor.values import SUPPORTED_EXTENSIONS
+from magiccube.laps.traps.trap import Trap
+from magiccube.laps.traps.tree.printingtree import AllNode
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools.parsing.exceptions import ParseException
 from yeetlong.multiset import Multiset
@@ -233,7 +236,19 @@ class MainView(QWidget):
         # cube = CubeLoader(Context.db).load()
         import random
         printings = list(Context.db.printings.values())
-        cube = Cube(random.sample(printings, 10**1))
+        # cube = Cube(random.sample(printings, 10 ** 1))
+        cube = Cube(
+            (
+                Trap(
+                    AllNode(
+                        (
+                            Context.db.cardboards['Through the Breach'].from_expansion('UMA'),
+                            Context.db.cardboards['Reach Through Mists'].from_expansion('CHK'),
+                        )
+                    )
+                ),
+            )
+        )
 
         self.deck_tabs = EditablesTabs()
         self.deck_tabs.new_deck(DeckModel(CubeScene(StaticStackingGrid, cube)))
@@ -293,14 +308,15 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._card_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
         self._card_adder = CardAdder(self, self, self._card_view, self)
+        self._card_adder.add_printings.connect(self._on_add_printings)
 
         self._card_adder_dock = QtWidgets.QDockWidget('Card Adder', self)
         self._card_adder_dock.setObjectName('card adder dock')
         self._card_adder_dock.setWidget(self._card_adder)
         self._card_adder_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
-        
+
         self._undo_view = QUndoView(Context.undo_group)
-        
+
         self._undo_view_dock = QtWidgets.QDockWidget('Undo View', self)
         self._undo_view_dock.setObjectName('undo view dock')
         self._undo_view_dock.setWidget(self._undo_view)
@@ -414,6 +430,13 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         # self.pool_generated.connect(self._pool_generated)
 
         self._load_state()
+
+    def _on_add_printings(self, delta_operation: CubeDeltaOperation):
+        tab = self._main_view.deck_tabs.currentWidget()
+        if isinstance(tab, DeckView):
+            tab.undo_stack.push(
+                tab.deck_model.maindeck.get_cube_modification(delta_operation)
+            )
 
     def _login(self):
         dialog = LoginDialog(self)

@@ -207,7 +207,6 @@ class StackingDrop(AlignmentPickUp):
             index: int,
             cards: t.Tuple[PhysicalCard, ...],
     ):
-        super().__init__()
         self._grid = grid
         self._stacker = stacker
         self._index = index
@@ -221,6 +220,28 @@ class StackingDrop(AlignmentPickUp):
 
     def undo(self):
         self._stacker.remove_cards(self._cards)
+
+
+class StackingMultiDrop(AlignmentPickUp):
+
+    def __init__(
+        self,
+        grid: StackingGrid,
+        drops: t.Sequence[t.Tuple[t.Sequence[PhysicalCard], CardStacker, int]],
+    ):
+        self._grid = grid
+        self._drops = drops
+
+    def redo(self):
+        for cards, stacker, idx in self._drops:
+            stacker.insert_cards(
+                range(idx, idx + len(cards)),
+                cards,
+            )
+
+    def undo(self):
+        for cards, stacker, idx in self._drops:
+            stacker.remove_cards(cards)
 
 
 class StackingPickUp(AlignmentDrop):
@@ -611,6 +632,22 @@ class StackingGrid(Aligner):
             index,
             tuple(items),
         )
+
+    def multi_drop(self, drops: t.Iterable[t.Tuple[t.Sequence[PhysicalCard], QPoint]]) -> StackingMultiDrop:
+        _drops = []
+        for cards, position in drops:
+            x, y = position.x(), position.y()
+            stacker = self.get_card_stacker(x, y)
+            index = stacker.map_position_to_index(x, y - stacker.y)
+            _drops.append(
+                (
+                    cards,
+                    stacker,
+                    index,
+                )
+            )
+
+        return StackingMultiDrop(self, _drops)
 
     # def link_cursor(self, card: t.Optional[PhysicalCard]) -> None:
     #     if card is None:

@@ -7,3 +7,8 @@ RESOURCE_PATH = os.path.join(
     ),
     'resources',
 )
+
+ICONS_PATH = os.path.join(
+    RESOURCE_PATH,
+    'icons',
+)

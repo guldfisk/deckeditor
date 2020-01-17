@@ -22,22 +22,13 @@ class GridDrop(AlignmentDrop):
         self._cards = list(cards)
         self._idx = idx
 
-        self._snap_shot = None
-
     def redo(self):
-        self._snap_shot = copy.copy(self._aligner.cards)
-
         self._aligner.cards[self._idx:self._idx] = self._cards
         self._aligner.realign(self._idx)
 
     def undo(self):
         del self._aligner.cards[self._idx:self._idx + len(self._cards)]
         self._aligner.realign(self._idx)
-
-        if self._aligner.cards != self._snap_shot:
-            print('OH NO :O', 'drop')
-            print(self._snap_shot)
-            print(self._aligner.cards)
 
 
 class GridPickUp(AlignmentDrop):
@@ -57,11 +48,7 @@ class GridPickUp(AlignmentDrop):
         )
         self._min_index = self._indexes[-1][1] if self._indexes else len(self._cards) - 1
 
-        self._snap_shot = None
-
     def redo(self):
-        self._snap_shot = copy.copy(self._aligner.cards)
-
         for _, idx in self._indexes:
             self._aligner.cards.pop(idx)
 
@@ -73,10 +60,24 @@ class GridPickUp(AlignmentDrop):
 
         self._aligner.realign(self._min_index)
 
-        if self._snap_shot != self._aligner.cards:
-            print('OH NO :O', 'pick up')
-            print(self._snap_shot)
-            print(self._aligner.cards)
+
+class GridMultiDrop(AlignmentDrop):
+
+    def __init__(self, aligner: GridAligner, drops: t.Sequence[t.Tuple[t.Sequence[PhysicalCard], int]]):
+        self._aligner = aligner
+        self._drops = drops
+
+    def redo(self):
+        for cards, idx in reversed(self._drops):
+            self._aligner.cards[idx:idx] = cards
+
+        self._aligner.realign(self._drops[0][1])
+
+    def undo(self):
+        for cards, idx in reversed(self._drops):
+            del self._aligner.cards[idx:idx + len(cards)]
+
+        self._aligner.realign(self._drops[0][1])
 
 
 class GridSort(QUndoCommand):
@@ -157,6 +158,19 @@ class GridAligner(Aligner):
             self,
             items,
             self.map_position_to_index(position)
+        )
+
+    def multi_drop(self, drops: t.Iterable[t.Tuple[t.Sequence[PhysicalCard], QPoint]]) -> GridMultiDrop:
+        return GridMultiDrop(
+            self,
+            sorted(
+                (
+                    (cards, self.map_position_to_index(point))
+                    for cards, point in
+                    drops
+                ),
+                key = lambda p: p[1],
+            )
         )
 
     def sort(self, sort_property: SortProperty, orientation: int) -> QUndoCommand:

@@ -1,26 +1,34 @@
 from __future__ import annotations
 
+import typing as t
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
+from magiccube.laps.lap import Lap
+from magiccube.laps.traps.trap import Trap
+from magiccube.laps.traps.tree.printingtree import AnyNode, BorderedNode
 
 from mtgimg.interface import ImageRequest
 
 from magiccube.collections import cubeable as Cubeable
+from mtgorp.models.interfaces import Printing
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
 from deckeditor.context.context import Context
 
+# C = t.TypeVar('C', bound = t.Union[Printing, Lap])
+C = t.TypeVar('C')
 
-class PhysicalCard(GraphicPixmapObject):
 
+class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
     signal = QtCore.pyqtSignal(QtGui.QPixmap)
     pixmap_loader: PixmapLoader = None
 
     DEFAULT_PIXMAP: QtGui.QPixmap = None
 
-    def __init__(self, cubeable: Cubeable):
+    def __init__(self, cubeable: C):
         super().__init__(Context.pixmap_loader.get_default_pixmap())
 
         self._selection_highlight_pen = QtGui.QPen(
@@ -38,7 +46,7 @@ class PhysicalCard(GraphicPixmapObject):
         self._update_image()
 
     @property
-    def cubeable(self) -> Cubeable:
+    def cubeable(self) -> C:
         return self._cubeable
 
     def image_request(self) -> ImageRequest:
@@ -58,7 +66,7 @@ class PhysicalCard(GraphicPixmapObject):
         self.set_pixmap(pixmap)
         self.update()
 
-    def _transform(self) -> None:
+    def flip(self) -> None:
         self._back = not self._back
         self._update_image()
 
@@ -84,18 +92,70 @@ class PhysicalCard(GraphicPixmapObject):
     #
     #
     # def context_menu(self, menu: QtWidgets.QMenu) -> None:
-    #     other_printings = self.cubeable.cardboard.printings - {self.cubeable}
+    #     # if isinstance(self.cubeable, Trap):
+    #     #
     #
-    #     if other_printings:
-    #         change_printing_menu = menu.addMenu('Change Printing')
-    #
-    #         for printing in sorted(other_printings, key = lambda _printing: _printing.expansion.name):
-    #             action = QtWidgets.QAction(printing.expansion.name, change_printing_menu)
-    #             action.triggered.connect(self._PrintingChanger(self, printing))
-    #             change_printing_menu.addAction(action)
-    #
+    #     # other_printings = self.cubeable.cardboard.printings - {self.cubeable}
+    #     #
+    #     # if other_printings:
+    #     #     change_printing_menu = menu.addMenu('Change Printing')
+    #     #
+    #     #     for printing in sorted(other_printings, key = lambda _printing: _printing.expansion.name):
+    #     #         action = QtWidgets.QAction(printing.expansion.name, change_printing_menu)
+    #     #         action.triggered.connect(self._PrintingChanger(self, printing))
+    #     #         change_printing_menu.addAction(action)
+    #     #
     #     if self._cubeable.cardboard.back_cards:
     #         transform = QtWidgets.QAction('Transform', menu)
     #         transform.triggered.connect(self._transform)
     #
     #         menu.addAction(transform)
+
+
+class PhysicalOrCardOption(object):
+    _options: t.Sequence[PhysicalOrCard]
+    node: AnyNode
+
+    def __init__(self, options: t.Sequence[PhysicalOrCard], node: AnyNode):
+        self._options = options
+        self._node = node
+
+    @property
+    def options(self) -> t.Sequence[PhysicalOrCardOption]:
+        return self._options
+
+    @property
+    def node(self) -> AnyNode:
+        return self._node
+
+    @classmethod
+    def from_or_selection(
+        cls,
+        node: AnyNode,
+        selection: t.Union[Printing, BorderedNode],
+    ) -> PhysicalOrCardOption:
+        option = cls(
+            list(
+                map(
+                    PhysicalOrCard,
+                    (selection,)
+                    if isinstance(selection, Printing) else
+                    (
+                        _child if isinstance(_child, Printing) else Trap(_child)
+                        for _child in
+                        selection.flattened
+                    )
+                )
+            ),
+            node,
+        )
+
+        for card in option.options:
+            card._option = option
+
+        return option
+
+
+
+class PhysicalOrCard(PhysicalCard[C]):
+    _option: PhysicalOrCardOption

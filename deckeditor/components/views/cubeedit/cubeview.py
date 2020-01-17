@@ -1,9 +1,17 @@
+from __future__ import annotations
+
+import os
 import typing as t
 from collections import OrderedDict
+from enum import Enum
 
 from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QIcon
+from PyQt5.QtSvg import QSvgWidget
 from PyQt5.QtWidgets import QUndoStack
 
+from deckeditor import paths
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
 from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.models.cubes.alignment.grid import GridAligner
@@ -12,6 +20,7 @@ from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeIma
 from deckeditor.models.cubes.cubescene import CubeScene
 
 from deckeditor.context.context import Context
+
 
 ALIGNER_TYPE_MAP = OrderedDict(
     (
@@ -22,40 +31,34 @@ ALIGNER_TYPE_MAP = OrderedDict(
 )
 
 
-# class ChangeAligner(UndoCommand):
-#
-#     def __init__(self, deck_zone_widget: 'DeckZone', aligner: Aligner):
-#         self._deck_zone_widget = deck_zone_widget
-#         self._scene = deck_zone_widget.card_container.card_scene
-#         self._aligner = aligner
-#         self._previous_aligner = None #type: t.Optional[Aligner]
-#         self._cards = [] #type: t.List[PhysicalCard]
-#         self._detach = None #type: UndoCommand
-#         self._attach = None #type: UndoCommand
-#
-#     def setup(self):
-#         self._previous_aligner = self._scene.aligner
-#         self._cards = list(self._scene.cards)
-#
-#         self._detach = self._scene.aligner.detach_cards(self._cards)
-#         self._detach.setup()
-#
-#         self._attach = self._aligner.attach_cards(self._cards, QtCore.QPointF(0, 0))
-#         self._attach.setup()
-#
-#     def redo(self) -> None:
-#         if not self._detach.ignore():
-#             self._detach.redo()
-#         self._deck_zone_widget.aligner_changed.emit(self._aligner)
-#         if not self._attach.ignore():
-#             self._attach.redo()
-#
-#     def undo(self) -> None:
-#         if not self._attach.ignore():
-#             self._attach.undo()
-#         self._deck_zone_widget.aligner_changed.emit(self._previous_aligner)
-#         if not self._detach.ignore():
-#             self._detach.undo()
+class CubeViewLayout(Enum):
+    IMAGE = 'image-line.svg'
+    MIXED = 'checkbox-multiple-line.svg'
+    TABLE = 'file-text-line.svg'
+
+
+class LayoutSelector(QtWidgets.QPushButton):
+
+    def __init__(self, cube_view: CubeView):
+        super().__init__()
+        self._cube_view = cube_view
+        self._on_layout_changed(self._cube_view.view_layout)
+        self._cube_view.layout_changed.connect(self._on_layout_changed)
+        self.clicked.connect(self._on_clicked)
+
+    def _on_clicked(self) -> None:
+        layouts = list(CubeViewLayout)
+        current_index = layouts.index(self._cube_view.view_layout)
+        self._cube_view.layout_changed.emit(
+            layouts[(current_index + 1) % len(layouts)]
+        )
+
+    def _on_layout_changed(self, layout: CubeViewLayout) -> None:
+        self.setIcon(
+            QIcon(
+                os.path.join(paths.ICONS_PATH, layout.value)
+            )
+        )
 
 
 class SelectedInfo(QtWidgets.QLabel):
@@ -121,7 +124,7 @@ class SelectionIndicator(QtWidgets.QLabel):
 
 
 class CubeView(QtWidgets.QWidget):
-    # aligner_changed = QtCore.pyqtSignal(type)
+    layout_changed = QtCore.pyqtSignal(CubeViewLayout)
 
     def __init__(self, scene: CubeScene, undo_stack: QUndoStack, parent = None):
         super().__init__(parent = parent)
@@ -131,47 +134,34 @@ class CubeView(QtWidgets.QWidget):
         self._undo_stack = undo_stack
 
         self._current_aligner_type = StaticStackingGrid
+        self._view_layout = CubeViewLayout.IMAGE
 
         self._cube_image_view = CubeImageView(
             undo_stack,
             self._cube_scene
         )
 
-        # self._cube_scene.set_aligner(
-        #     self._current_aligner_type
-        # )
-
         self._cube_list_view = CubeListView(
             self._cube_scene,
             undo_stack,
         )
+        self._cube_list_view.hide()
 
-        # self._card_container = CardContainer(
-        #     self._undo_stack,
-        #     self._current_aligner_type,
-        # )
-        # self._selected_info = SelectedInfo()
         self._aligner_selector = AlignSelector(self._cube_scene, self._undo_stack)
 
         self._selection_indicator = SelectionIndicator(self._cube_scene)
 
-        # self._zone_label.setText(self._zone.value)
+        self._layout_selector = LayoutSelector(self)
+        self._layout_selector.setFixedSize(QSize(20, 20))
 
-        # self._card_container.scene().selectionChanged.connect(self.selection_change)
-
-        default_scale = Context.settings.value('default_card_view_scale', .2, float)
-        # self._cube_scene.setScale(default_scale, default_scale)
 
         box = QtWidgets.QVBoxLayout(self)
 
         self._tool_bar = QtWidgets.QHBoxLayout(self)
 
-        # self._tool_bar.addWidget(self._zone_label)
-        # self._tool_bar.addWidget(self._selected_info)
         self._tool_bar.addWidget(self._aligner_selector)
         self._tool_bar.addWidget(self._selection_indicator)
-
-        # self._selected_info.set_amount_selected()
+        self._tool_bar.addWidget(self._layout_selector)
 
         box.addLayout(self._tool_bar)
 
@@ -184,50 +174,22 @@ class CubeView(QtWidgets.QWidget):
 
         self.setLayout(box)
 
-    #     self.aligner_changed.connect(self._aligner_changed)
-    #     self.aligner_changed.connect(self._aligner_selector._on_aligner_change)
-    #     self._aligner_selector.currentIndexChanged.connect(self._combo_box_changed)
-    #
-    # def _aligner_changed(self, aligner: t.Type[Aligner]) -> None:
-    #     # self._cube_scene.set_aligner(aligner)
-    #     self._undo_stack.push(
-    #         self._cube_scene.get_set_aligner(
-    #             aligner
-    #         )
-    #     )
-    #     self._current_aligner_type = aligner
-    #
-    # def _combo_box_changed(self, index: int) -> None:
-    #     aligner_type = self._aligner_selector.itemData(index)
-    #
-    #     if aligner_type == self._current_aligner_type:
-    #         return
-    #
-    #     self.aligner_changed.emit(aligner_type)
-    #
-    #     # self._undo_stack.push(
-    #     #     ChangeAligner(
-    #     #         self,
-    #     #         aligner_type(
-    #     #             self.card_container.scene(),
-    #     #             self._undo_stack,
-    #     #         ),
-    #     #     )
-    #     # )
+        self.layout_changed.connect(self._on_layout_change)
 
-    # def selection_change(self):
-    #     self._selected_info.set_amount_selected(
-    #         len(self._card_container.scene().selectedItems())
-    #     )
-    #
-    # @property
-    # def card_container(self) -> CardContainer:
-    #     return self._card_container
-    #
-    # @property
-    # def undo_stack(self) -> UndoStack:
-    #     return self._undo_stack
-    #
-    # @property
-    # def printings(self) -> t.Iterable[Printing]:
-    #     return (card.cubeable for card in self._card_container.card_scene.cards)
+    @property
+    def view_layout(self) -> CubeViewLayout:
+        return self._view_layout
+
+    def _on_layout_change(self, layout: CubeViewLayout) -> None:
+        self._view_layout = layout
+        if layout == CubeViewLayout.TABLE:
+            self._cube_image_view.hide()
+            self._cube_list_view.show()
+
+        elif layout == CubeViewLayout.IMAGE:
+            self._cube_image_view.show()
+            self._cube_list_view.hide()
+
+        elif layout == CubeViewLayout.MIXED:
+            self._cube_image_view.show()
+            self._cube_list_view.show()
