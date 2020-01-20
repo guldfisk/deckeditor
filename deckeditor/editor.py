@@ -20,7 +20,7 @@ from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
 from deckeditor.values import SUPPORTED_EXTENSIONS
 from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import AllNode
+from magiccube.laps.traps.tree.printingtree import AllNode, AnyNode
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools.parsing.exceptions import ParseException
 from yeetlong.multiset import Multiset
@@ -240,10 +240,20 @@ class MainView(QWidget):
         cube = Cube(
             (
                 Trap(
-                    AllNode(
+                    AnyNode(
                         (
-                            Context.db.cardboards['Through the Breach'].from_expansion('UMA'),
-                            Context.db.cardboards['Reach Through Mists'].from_expansion('CHK'),
+                            AllNode(
+                                (
+                                    Context.db.cardboards['Through the Breach'].from_expansion('UMA'),
+                                    Context.db.cardboards['Reach Through Mists'].from_expansion('CHK'),
+                                )
+                            ),
+                            AllNode(
+                                (
+                                    Context.db.cardboards['Birds of Paradise'].from_expansion('LEA'),
+                                    Context.db.cardboards['Lightning Bolt'].from_expansion('LEA'),
+                                )
+                            )
                         )
                     )
                 ),

@@ -14,7 +14,7 @@ from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
 
-from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalOrCardOption, PhysicalAllNodeTrap
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting.sort import SortProperty
@@ -294,16 +294,17 @@ class CubeImageView(QtWidgets.QGraphicsView):
             self._undo_stack.push(
                 self._scene.get_cube_modification(
                     (
-                        list(
-                            map(
-                                PhysicalCard,
-                                (
-                                    child if isinstance(child, Printing) else Trap(child)
-                                    for child in
-                                    card.cubeable.node.flattened
-                                ),
-                            )
-                        ),
+                        # list(
+                        #     map(
+                        #         PhysicalCard,
+                        #         (
+                        #             child if isinstance(child, Printing) else Trap(child)
+                        #             for child in
+                        #             card.cubeable.node.flattened
+                        #         ),
+                        #     )
+                        # ),
+                        PhysicalAllNodeTrap.from_node(card.cubeable.node),
                         (card,),
                     ),
                     card.pos() + QPoint(1, 1),
@@ -312,23 +313,15 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         return _flatten_trap
 
-    def _get_select_or(self, card: PhysicalCard[Trap], child: t.Union[BorderedNode, Printing]):
+    def _get_select_or(self, card: PhysicalCard[Trap], child: t.Union[BorderedNode, Printing], node: AnyNode):
         def _select_or():
             self._undo_stack.push(
                 self._scene.get_cube_modification(
                     (
-                        list(
-                            map(
-                                PhysicalCard,
-                                (child,)
-                                if isinstance(child, Printing) else
-                                (
-                                    _child if isinstance(_child, Printing) else Trap(_child)
-                                    for _child in
-                                    child.flattened
-                                )
-                            )
-                        ),
+                        PhysicalOrCardOption.from_or_selection(
+                            node,
+                            child,
+                        ).cards,
                         (card,),
                     ),
                     card.pos() + QPoint(1, 1),
@@ -365,7 +358,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
                     for child in item.cubeable.node.children:
                         _flatten = QtWidgets.QAction(str(child), flatten)
-                        _flatten.triggered.connect(self._get_select_or(item, child))
+                        _flatten.triggered.connect(self._get_select_or(item, child, item.cubeable.node))
                         flatten.addAction(_flatten)
 
             elif isinstance(item.cubeable, Printing):
@@ -374,6 +367,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
                     transform = QtWidgets.QAction('Transform', menu)
                     transform.triggered.connect(self.flip)
                     menu.addAction(transform)
+
+            menu.addSeparator()
+
+            item.context_menu(menu, self._undo_stack)
 
         menu.exec_(self.mapToGlobal(position))
 
