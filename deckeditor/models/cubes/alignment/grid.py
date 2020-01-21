@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import copy
 import typing as t
+from abc import abstractmethod
 
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand
 
-from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop
+from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop, AlignmentCommand
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting.sort import SortProperty, extract_sort_value
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
@@ -15,14 +16,39 @@ from mtgimg.interface import SizeSlug
 from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 
 
-class GridDrop(AlignmentDrop):
+class GridAlignmentCommandMixin(object):
 
-    def __init__(self, aligner: GridAligner, cards: t.Iterable[PhysicalCard], idx: int):
-        self._aligner = aligner
-        self._cards = list(cards)
-        self._idx = idx
+    def __init__(self) -> None:
+        super().__init__()
+        self._is_setup: bool = False
+
+    def _setup(self) -> None:
+        pass
+
+    @abstractmethod
+    def _redo(self) -> None:
+        pass
 
     def redo(self):
+        if not self._is_setup:
+            self._setup()
+            self._is_setup = True
+        self._redo()
+
+
+class GridDrop(GridAlignmentCommandMixin, AlignmentDrop):
+    _idx: int
+
+    def __init__(self, aligner: GridAligner, cards: t.Iterable[PhysicalCard], pos: QPoint):
+        super().__init__()
+        self._aligner = aligner
+        self._cards = list(cards)
+        self._pos = pos
+
+    def _setup(self) -> None:
+        self._idx = self._aligner.map_position_to_index(self._pos)
+
+    def _redo(self) -> None:
         self._aligner.cards[self._idx:self._idx] = self._cards
         self._aligner.realign(self._idx)
 
@@ -31,12 +57,16 @@ class GridDrop(AlignmentDrop):
         self._aligner.realign(self._idx)
 
 
-class GridPickUp(AlignmentDrop):
+class GridPickUp(GridAlignmentCommandMixin, AlignmentDrop):
+    _indexes: t.List[t.Tuple[PhysicalCard, int]]
+    _min_index: int
 
     def __init__(self, aligner: GridAligner, cards: t.Iterable[PhysicalCard]):
+        super().__init__()
         self._aligner = aligner
         self._cards = list(cards)
 
+    def _setup(self) -> None:
         self._indexes = sorted(
             (
                 (card, self._aligner.cards.index(card))
@@ -48,7 +78,7 @@ class GridPickUp(AlignmentDrop):
         )
         self._min_index = self._indexes[-1][1] if self._indexes else len(self._cards) - 1
 
-    def redo(self):
+    def _redo(self) -> None:
         for _, idx in self._indexes:
             self._aligner.cards.pop(idx)
 
@@ -61,19 +91,37 @@ class GridPickUp(AlignmentDrop):
         self._aligner.realign(self._min_index)
 
 
-class GridMultiDrop(AlignmentDrop):
+class GridMultiDrop(GridAlignmentCommandMixin, AlignmentDrop):
+    _drops: t.Sequence[t.Tuple[t.Sequence[PhysicalCard], int]]
 
-    def __init__(self, aligner: GridAligner, drops: t.Sequence[t.Tuple[t.Sequence[PhysicalCard], int]]):
+    def __init__(self, aligner: GridAligner, drops: t.Sequence[t.Tuple[t.Sequence[PhysicalCard], QPoint]]):
+        super().__init__()
         self._aligner = aligner
-        self._drops = drops
+        self._raw_drops = drops
 
-    def redo(self):
+    def _setup(self):
+        self._drops = sorted(
+            (
+                (cards, self._aligner.map_position_to_index(point))
+                for cards, point in
+                self._raw_drops
+            ),
+            key = lambda p: p[1],
+        )
+
+    def _redo(self):
+        if not self._drops:
+            return
+
         for cards, idx in reversed(self._drops):
             self._aligner.cards[idx:idx] = cards
 
         self._aligner.realign(self._drops[0][1])
 
     def undo(self):
+        if not self._drops:
+            return
+
         for cards, idx in reversed(self._drops):
             del self._aligner.cards[idx:idx + len(cards)]
 
@@ -125,24 +173,28 @@ class GridAligner(Aligner):
             max(
                 min(
                     (idx % self._columns) * (IMAGE_WIDTH + self._margin),
-                    self._scene.width() - IMAGE_WIDTH
+                    self._scene.width() - IMAGE_WIDTH,
                 ),
-                0
+                0,
             ),
             max(
                 min(
                     (idx // self._columns) * (IMAGE_HEIGHT + self._margin),
-                    self._scene.height() - IMAGE_HEIGHT
+                    self._scene.height() - IMAGE_HEIGHT,
                 ),
-                0
+                0,
             ),
         )
 
     def map_position_to_index(self, position: QPoint) -> int:
-        return int(
-            position.x() // (SizeSlug.ORIGINAL.get_size(False)[0] + self._margin)
-            + (position.y() // (SizeSlug.ORIGINAL.get_size(False)[1] + self._margin) * self._columns
-               )
+        return min(
+            int(
+                position.x() // (SizeSlug.ORIGINAL.get_size(False)[0] + self._margin)
+                + (
+                    position.y() // (SizeSlug.ORIGINAL.get_size(False)[1] + self._margin) * self._columns
+                )
+            ),
+            len(self._cards),
         )
 
     def realign(self, from_index: int = 0) -> None:
@@ -157,20 +209,13 @@ class GridAligner(Aligner):
         return GridDrop(
             self,
             items,
-            self.map_position_to_index(position)
+            position,
         )
 
-    def multi_drop(self, drops: t.Iterable[t.Tuple[t.Sequence[PhysicalCard], QPoint]]) -> GridMultiDrop:
+    def multi_drop(self, drops: t.Sequence[t.Tuple[t.Sequence[PhysicalCard], QPoint]]) -> GridMultiDrop:
         return GridMultiDrop(
             self,
-            sorted(
-                (
-                    (cards, self.map_position_to_index(point))
-                    for cards, point in
-                    drops
-                ),
-                key = lambda p: p[1],
-            )
+            drops,
         )
 
     def sort(self, sort_property: SortProperty, orientation: int) -> QUndoCommand:

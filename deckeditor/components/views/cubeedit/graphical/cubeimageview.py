@@ -14,7 +14,7 @@ from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
 
-from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalOrCardOption, PhysicalAllNodeTrap
+from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting.sort import SortProperty
@@ -289,47 +289,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def _fit_all_cards(self) -> None:
         self.fitInView(self._scene.itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
 
-    def _get_flatten_trap(self, card: PhysicalCard[Trap]) -> t.Callable[[], None]:
-        def _flatten_trap():
-            self._undo_stack.push(
-                self._scene.get_cube_modification(
-                    (
-                        # list(
-                        #     map(
-                        #         PhysicalCard,
-                        #         (
-                        #             child if isinstance(child, Printing) else Trap(child)
-                        #             for child in
-                        #             card.cubeable.node.flattened
-                        #         ),
-                        #     )
-                        # ),
-                        PhysicalAllNodeTrap.from_node(card.cubeable.node),
-                        (card,),
-                    ),
-                    card.pos() + QPoint(1, 1),
-                )
-            )
-
-        return _flatten_trap
-
-    def _get_select_or(self, card: PhysicalCard[Trap], child: t.Union[BorderedNode, Printing], node: AnyNode):
-        def _select_or():
-            self._undo_stack.push(
-                self._scene.get_cube_modification(
-                    (
-                        PhysicalOrCardOption.from_or_selection(
-                            node,
-                            child,
-                        ).cards,
-                        (card,),
-                    ),
-                    card.pos() + QPoint(1, 1),
-                )
-            )
-
-        return _select_or
-
     def _context_menu_event(self, position: QtCore.QPoint):
         menu = QtWidgets.QMenu(self)
 
@@ -345,28 +304,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
         item: QGraphicsItem = self.itemAt(position)
 
         if item and isinstance(item, PhysicalCard):
-
-            if isinstance(item.cubeable, Trap):
-
-                if isinstance(item.cubeable.node, AllNode):
-                    flatten = QtWidgets.QAction('Flatten', menu)
-                    flatten.triggered.connect(self._get_flatten_trap(item))
-                    menu.addAction(flatten)
-
-                elif isinstance(item.cubeable.node, AnyNode):
-                    flatten = menu.addMenu('Flatten')
-
-                    for child in item.cubeable.node.children:
-                        _flatten = QtWidgets.QAction(str(child), flatten)
-                        _flatten.triggered.connect(self._get_select_or(item, child, item.cubeable.node))
-                        flatten.addAction(_flatten)
-
-            elif isinstance(item.cubeable, Printing):
-
-                if item.cubeable.cardboard.back_cards:
-                    transform = QtWidgets.QAction('Transform', menu)
-                    transform.triggered.connect(self.flip)
-                    menu.addAction(transform)
 
             menu.addSeparator()
 
@@ -385,7 +322,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
         pass
 
     def dropEvent(self, drop_event: QtGui.QDropEvent):
-        print('drop', self._floating, drop_event.source())
         if drop_event.source() == self:
             if self._floating:
                 self._undo_stack.push(
@@ -490,7 +426,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 #         card.show()
                 #     self._dragging[:] = []
                 #
-                print('drag returning', exec_value)
 
     def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
         if self._last_move_event_pos:

@@ -11,7 +11,7 @@ from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.sorting.sort import SortProperty
 
 
-class AlignmentPickUp(ABC):
+class AlignmentCommand(ABC):
 
     @abstractmethod
     def redo(self):
@@ -22,26 +22,16 @@ class AlignmentPickUp(ABC):
         pass
 
 
-class AlignmentDrop(ABC):
-
-    @abstractmethod
-    def redo(self):
-        pass
-
-    @abstractmethod
-    def undo(self):
-        pass
+class AlignmentPickUp(AlignmentCommand):
+    pass
 
 
-class AlignmentMultiDrop(ABC):
+class AlignmentDrop(AlignmentCommand):
+    pass
 
-    @abstractmethod
-    def redo(self):
-        pass
 
-    @abstractmethod
-    def undo(self):
-        pass
+class AlignmentMultiDrop(AlignmentCommand):
+    pass
 
 
 class Aligner(ABC):
@@ -63,8 +53,8 @@ class Aligner(ABC):
 
     @abstractmethod
     def sort(
-            self,
-            sort_property: SortProperty,
-            orientation: int,
+        self,
+        sort_property: SortProperty,
+        orientation: int,
     ) -> QUndoCommand:
         pass

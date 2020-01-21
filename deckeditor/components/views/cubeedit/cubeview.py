@@ -113,8 +113,9 @@ class SelectionIndicator(QtWidgets.QLabel):
         self._reset_text()
 
         self._scene.selectionChanged.connect(self._reset_text)
+        self._scene.changed.connect(self._reset_text)
 
-    def _reset_text(self) -> None:
+    def _reset_text(self, *args, **kwargs) -> None:
         self.setText(
             '{}/{}'.format(
                 len(self._scene.selectedItems()),
@@ -175,6 +176,22 @@ class CubeView(QtWidgets.QWidget):
         self.setLayout(box)
 
         self.layout_changed.connect(self._on_layout_change)
+
+        self._create_action('View Images', lambda : self.layout_changed.emit(CubeViewLayout.IMAGE), 'Ctrl+Alt+Shift+I')
+        self._create_action('View Table', lambda : self.layout_changed.emit(CubeViewLayout.TABLE), 'Ctrl+Alt+Shift+T')
+        self._create_action('View Mixed', lambda : self.layout_changed.emit(CubeViewLayout.MIXED), 'Ctrl+Alt+Shift+M')
+
+    def _create_action(self, name: str, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QAction:
+        action = QtWidgets.QAction(name, self)
+        action.triggered.connect(result)
+
+        if shortcut:
+            action.setShortcut(shortcut)
+            action.setShortcutContext(QtCore.Qt.WidgetWithChildrenShortcut)
+
+        self.addAction(action)
+
+        return action
 
     @property
     def view_layout(self) -> CubeViewLayout:

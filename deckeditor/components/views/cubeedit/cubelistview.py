@@ -58,7 +58,6 @@ class CubeListView(QTableWidget):
         modifiers = key_event.modifiers()
 
         if pressed_key == QtCore.Qt.Key_Delete:
-            print(self.selectedItems())
             self._undo_stack.push(
                 self._cube_scene.get_cube_modification(
                     CubeDeltaOperation(
@@ -158,6 +157,7 @@ class CubeListView(QTableWidget):
             )
 
         self.setSortingEnabled(True)
+        self.resizeColumnsToContents()
         self.blockSignals(False)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:

@@ -179,6 +179,7 @@ class CubeScene(SelectionScene):
         return self._aligner
 
     def _on_aligner_changed(self, aligner: Aligner) -> None:
+        print('aligner changed for {}, setting aligner to {} from {}'.format(self, aligner, self._aligner))
         self._aligner = aligner
 
     def get_set_aligner(self, aligner_type: t.Type[Aligner]):
@@ -228,7 +229,7 @@ class CubeScene(SelectionScene):
         if isinstance(modification, CubeDeltaOperation):
             new_physical_cards = list(
                 itertools.chain.from_iterable(
-                    (PhysicalCard(cubeable) for _ in range(multiplicity))
+                    (PhysicalCard.from_cubeable(cubeable) for _ in range(multiplicity))
                     for cubeable, multiplicity in
                     modification.new_cubeables
                 )
@@ -273,7 +274,7 @@ class CubeScene(SelectionScene):
 
     def add_cubeables(self, *cubeables: Cubeable) -> None:
         for cubeable in cubeables:
-            physical_card = PhysicalCard(cubeable)
+            physical_card = PhysicalCard.from_cubeable(cubeable)
             self._item_map[cubeable].append(physical_card)
             self.addItem(physical_card)
 

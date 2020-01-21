@@ -44,7 +44,7 @@ class QueryEditor(QtWidgets.QLineEdit):
             Context.db.cardboards.keys()
         )
         completer.setCaseSensitivity(Qt.CaseInsensitive)
-        completer.setFilterMode(Qt.MatchContains)
+        completer.setFilterMode(Qt.MatchStartsWith)
         completer.setCompletionMode(QCompleter.InlineCompletion)
         self.setCompleter(completer)
 

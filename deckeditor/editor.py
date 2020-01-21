@@ -252,6 +252,7 @@ class MainView(QWidget):
                                 (
                                     Context.db.cardboards['Birds of Paradise'].from_expansion('LEA'),
                                     Context.db.cardboards['Lightning Bolt'].from_expansion('LEA'),
+                                    Context.db.cards['Delver of Secrets'].cardboard.printing,
                                 )
                             )
                         )
@@ -542,8 +543,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._card_adder.query_edit.setFocus()
 
     def _test(self):
-        print(self._main_view.active_deck, type(self._main_view.active_deck), dir(self._main_view.active_deck))
-        print(self._main_view.active_deck.deck)
+        pass
+        # print(self._main_view.active_deck, type(self._main_view.active_deck), dir(self._main_view.active_deck))
+        # print(self._main_view.active_deck.deck)
 
     def resizeEvent(self, resize_event: QtGui.QResizeEvent):
         if hasattr(self, '_notification_frame'):

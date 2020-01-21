@@ -5,25 +5,24 @@ from collections import defaultdict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoStack, QUndoCommand
+from PyQt5.QtWidgets import QUndoStack
 
-from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
-from deckeditor.utils.undo import CommandPackage
 from magiccube.laps.lap import Lap
 from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import AnyNode, BorderedNode, AllNode
+from magiccube.laps.traps.tree.printingtree import AnyNode, AllNode
 
 from mtgimg.interface import ImageRequest
 
-from magiccube.collections import cubeable as Cubeable
 from mtgorp.models.interfaces import Printing
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
+from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
+from deckeditor.utils.undo import CommandPackage
 from deckeditor.context.context import Context
 
+
 C = t.TypeVar('C', bound = t.Union[Printing, Lap])
-# C = t.TypeVar('C')
 
 
 class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
@@ -32,7 +31,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
 
     DEFAULT_PIXMAP: QtGui.QPixmap = None
 
-    def __init__(self, cubeable: C):
+    def __init__(self, cubeable: C, node_parent: t.Optional[PhysicalCard] = None):
         super().__init__(Context.pixmap_loader.get_default_pixmap())
 
         self._selection_highlight_pen = QtGui.QPen(
@@ -41,6 +40,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
         )
 
         self._cubeable = cubeable
+        self.node_parent = node_parent
         self._back = False
 
         self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable)
@@ -50,18 +50,18 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
         self._update_image()
 
     @classmethod
-    def from_cubeable(cls, cubeable: C) -> PhysicalCard[C]:
+    def from_cubeable(cls, cubeable: C, node_parent: t.Optional[PhysicalCard] = None) -> PhysicalCard[C]:
         if isinstance(cubeable, Printing):
-            return PhysicalCard(cubeable)
+            return PhysicalPrinting(cubeable, node_parent)
         elif isinstance(cubeable, Trap):
             if isinstance(cubeable.node, AllNode):
-                pass
-            elif isinstance(cubeable, AnyNode):
-                pass
+                return PhysicalAllCard(cubeable, node_parent)
+            elif isinstance(cubeable.node, AnyNode):
+                return PhysicalOrCard(cubeable, node_parent)
             else:
                 raise ValueError('unknown node type')
         else:
-            return PhysicalCard(cubeable)
+            return PhysicalCard(cubeable, node_parent)
 
     @property
     def cubeable(self) -> C:
@@ -94,50 +94,67 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
             self.cubeable,
         )
 
-    # def _change_printing(self, printing: Printing) -> None:
-    #     self._cubeable = printing
-    #     self._set_pixmap(self.DEFAULT_PIXMAP)
-    #     self._update_image()
-    #
-    # class _PrintingChanger(object):
-    #
-    #     def __init__(self, card: PhysicalCard, printing: Printing):
-    #         self._card = card
-    #         self._printing = printing
-    #
-    #     def __call__(self):
-    #         self._card._change_printing(self._printing)
-    #
+    def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+        if self.node_parent is not None:
+            self.node_parent.context_menu(menu, undo_stack)
+
+    def context_menu(self, context_menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+        if self.node_parent is not None:
+            self.node_parent.context_child_menu(self, context_menu, undo_stack)
+
+
+class PhysicalPrinting(PhysicalCard[Printing]):
 
     def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
-        pass
-        # if isinstance(self.cubeable, Trap):
-        #
-
-        # other_printings = self.cubeable.cardboard.printings - {self.cubeable}
-        #
-        # if other_printings:
-        #     change_printing_menu = menu.addMenu('Change Printing')
-        #
-        #     for printing in sorted(other_printings, key = lambda _printing: _printing.expansion.name):
-        #         action = QtWidgets.QAction(printing.expansion.name, change_printing_menu)
-        #         action.triggered.connect(self._PrintingChanger(self, printing))
-        #         change_printing_menu.addAction(action)
-        #
-        # if self._cubeable.cardboard.back_cards:
-        #     transform = QtWidgets.QAction('Transform', menu)
-        #     transform.triggered.connect(self._transform)
-        #
-        #     menu.addAction(transform)
+        super().context_menu(menu, undo_stack)
+        if self.cubeable.cardboard.back_cards:
+            transform = QtWidgets.QAction('Transform', menu)
+            transform.triggered.connect(self.flip)
+            menu.addAction(transform)
 
 
-class PhysicalTrap(PhysicalCard):
-    node_children: t.Sequence[PhysicalTrap]
+class PhysicalTrap(PhysicalCard[Trap]):
 
-    def __init__(self, cubeable: C, node_parent: PhysicalCard):
-        super().__init__(cubeable)
-        self.node_children = []
-        self.node_parent: PhysicalCard = node_parent
+    def __init__(self, cubeable: C, node_parent: t.Optional[PhysicalTrap]):
+        super().__init__(cubeable, node_parent)
+        self.node_children: t.Sequence[PhysicalTrap] = []
+
+    def _generate_children(self) -> None:
+        self.node_children = [
+            PhysicalCard.from_cubeable(
+                child
+                if isinstance(child, Printing) else
+                Trap(child),
+                self,
+            )
+            for child in
+            self.cubeable.node.children
+        ]
+
+    def _compress(self, child: PhysicalCard, undo_stack: QUndoStack):
+        scene_remove_map = defaultdict(list)
+
+        for card in self.node_children:
+            scene_remove_map[card.scene()].append(card)
+
+        undo_stack.push(
+            CommandPackage(
+                [
+                    scene.get_cube_modification(
+                        (
+                            (self,),
+                            cards,
+                        ),
+                        child.pos() + QPoint(1, 1),
+                    )
+                    if scene == child.scene() else
+                    scene.get_cube_scene_remove(cards)
+                    for scene, cards in
+                    scene_remove_map.items()
+                    if scene is not None
+                ]
+            )
+        )
 
     @property
     def iter_node_children(self) -> t.Iterator[PhysicalTrap]:
@@ -148,180 +165,89 @@ class PhysicalTrap(PhysicalCard):
                 yield child
 
 
-class PhysicalAllNodeTrap(PhysicalTrap):
-    _node: AllNode
+class PhysicalAllCard(PhysicalTrap):
 
-    @property
-    def siblings(self) -> t.Sequence[PhysicalAllNodeTrap]:
-        return self._siblings
-
-    @property
-    def node(self) -> AllNode:
-        return self._node
-
-    @classmethod
-    def from_node(cls, card: PhysicalTrap, node: AllNode) -> t.Sequence[PhysicalAllNodeTrap]:
-        cards = [
-            PhysicalAllNodeTrap(
-                child
-                if isinstance(child, Printing) else
-                Trap(child),
-                card,
+    def _flatten(self, undo_stack: QUndoStack) -> None:
+        if not self.node_children:
+            self._generate_children()
+        undo_stack.push(
+            self.scene().get_cube_modification(
+                (
+                    self.node_children,
+                    (self,),
+                ),
+                self.pos() + QPoint(1, 1),
             )
-            for child in
-            node.children
-        ]
+        )
 
-        card.node_children = cards
-
-        for card in cards:
-            card._node = node
-
-        return cards
-
-    def _get_compress_action(
-        self,
-        undo_stack: QUndoStack,
-    ):
-        def _compress():
-            scene_remove_map = defaultdict(list)
-
-            for card in self.node_parent.iter_node_children:
-                scene_remove_map[card.scene()].append(card)
-
-            undo_stack.push(
-                CommandPackage(
-                    [
-                        scene.get_cube_modification(
-                            (
-                                (PhysicalCard(Trap(self._node)),),
-                                cards,
-                            ),
-                            self.pos() + QPoint(1, 1),
-                        )
-                        if scene == self.scene() else
-                        scene.get_cube_scene_remove(cards)
-                        for scene, cards in
-                        scene_remove_map.items()
-                    ]
-                )
-            )
-
-        return _compress
-
-    def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+    def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         compress = QtWidgets.QAction('Compress', menu)
-        compress.triggered.connect(self._get_compress_action(undo_stack))
+        compress.triggered.connect(lambda : self._compress(child, undo_stack))
         menu.addAction(compress)
 
-
-class PhysicalOrCardOption(object):
-
-    def __init__(
-        self,
-        cards: t.Sequence[PhysicalOrCard],
-        node: AnyNode,
-        chosen_child: t.Union[Printing, BorderedNode],
-    ):
-        self._cards = cards
-        self._node = node
-        self._chosen_child = chosen_child
-
-    @property
-    def cards(self) -> t.Sequence[PhysicalOrCard]:
-        return self._cards
-
-    @property
-    def node(self) -> AnyNode:
-        return self._node
-
-    @property
-    def chosen_child(self) -> t.Union[Printing, BorderedNode]:
-        return self._chosen_child
-
-    @property
-    def siblings(self) -> t.Iterator[t.Union[Printing, BorderedNode]]:
-        return (
-            child
-            for child in
-            self._node.children
-            if child != self._chosen_child
-        )
-
-    @classmethod
-    def from_or_selection(
-        cls,
-        node: AnyNode,
-        selection: t.Union[Printing, BorderedNode],
-    ) -> PhysicalOrCardOption:
-        option = cls(
-            list(
-                map(
-                    PhysicalOrCard,
-                    (selection,)
-                    if isinstance(selection, Printing) else
-                    (
-                        _child if isinstance(_child, Printing) else Trap(_child)
-                        for _child in
-                        selection.flattened
-                    )
-                )
-            ),
-            node,
-            selection,
-        )
-
-        for card in option._cards:
-            card._option = option
-
-        return option
+    def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+        super().context_menu(menu, undo_stack)
+        flatten = QtWidgets.QAction('Flatten', menu)
+        flatten.triggered.connect(lambda : self._flatten(undo_stack))
+        menu.addAction(flatten)
 
 
-class PhysicalOrCard(PhysicalCard[C]):
-    _option: PhysicalOrCardOption
-
-    @property
-    def option(self) -> PhysicalOrCardOption:
-        return self._option
+class PhysicalOrCard(PhysicalTrap):
 
     def _get_re_select_action(
         self,
-        sibling: t.Union[Printing, BorderedNode],
+        previous_child: PhysicalCard,
+        new_child: PhysicalCard,
         undo_stack: QUndoStack,
     ):
         def _re_select():
-            scene_remove_map = defaultdict(list)
-
-            for card in self._option.cards:
-                scene_remove_map[card.scene()].append(card)
-
             undo_stack.push(
-                CommandPackage(
-                    [
-                        scene.get_cube_modification(
-                            (
-                                PhysicalOrCardOption.from_or_selection(
-                                    self._option.node,
-                                    sibling,
-                                ).cards,
-                                cards,
-                            ),
-                            self.pos() + QPoint(1, 1),
-                        )
-                        if scene == self.scene() else
-                        scene.get_cube_scene_remove(cards)
-                        for scene, cards in
-                        scene_remove_map.items()
-                    ]
+                previous_child.scene().get_cube_modification(
+                    (
+                        (new_child,),
+                        (previous_child,),
+                    ),
+                    previous_child.pos() + QPoint(1, 1),
                 )
             )
 
         return _re_select
 
-    def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+    def _get_select_or(self, child: PhysicalCard, undo_stack: QUndoStack):
+        def _select_or():
+            undo_stack.push(
+                self.scene().get_cube_modification(
+                    (
+                        (child,),
+                        (self,),
+                    ),
+                    self.pos() + QPoint(1, 1),
+                )
+            )
+
+        return _select_or
+
+    def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+        compress = QtWidgets.QAction('Compress', menu)
+        compress.triggered.connect(lambda : self._compress(child, undo_stack))
+        menu.addAction(compress)
+
         reselection_menu = menu.addMenu('Reselect')
 
-        for sibling in self._option.siblings:
-            re_select = QtWidgets.QAction(str(sibling), reselection_menu)
-            re_select.triggered.connect(self._get_re_select_action(sibling, undo_stack))
-            reselection_menu.addAction(re_select)
+        for _child in self.node_children:
+            if _child.cubeable != child.cubeable:
+                re_select = QtWidgets.QAction(str(_child.cubeable), reselection_menu)
+                re_select.triggered.connect(self._get_re_select_action(child, _child, undo_stack))
+                reselection_menu.addAction(re_select)
+
+    def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+        super().context_menu(menu, undo_stack)
+        flatten = menu.addMenu('Select')
+
+        if not self.node_children:
+            self._generate_children()
+
+        for child in self.node_children:
+            _flatten = QtWidgets.QAction(str(child.cubeable), flatten)
+            _flatten.triggered.connect(self._get_select_or(child, undo_stack))
+            flatten.addAction(_flatten)

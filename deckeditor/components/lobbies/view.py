@@ -280,7 +280,6 @@ class LobbyView(QWidget):
         if lobby:
             game_type = lobby.options.get('game_type')
             self._game_type_selector.currentTextChanged.disconnect(self._select_game_type)
-            print(game_type)
             if game_type is not None:
                 self._game_type_selector.setCurrentText(game_type)
             self._game_type_selector.currentTextChanged.connect(self._select_game_type)
@@ -438,7 +437,6 @@ class LobbiesView(QWidget):
 
         self._create_lobby_button = QtWidgets.QPushButton('Create lobby')
         self._create_lobby_button.clicked.connect(self._create_lobby)
-        print('lobbies connected?', self._lobby_model.is_connected)
         if not self._lobby_model.is_connected:
             self._create_lobby_button.setEnabled(False)
         self._lobby_model.connected.connect(self._connection_status_change)
@@ -454,7 +452,6 @@ class LobbiesView(QWidget):
         self.setLayout(layout)
 
     def _connection_status_change(self, connected: bool) -> None:
-        print('connected status change', connected)
         self._create_lobby_button.setEnabled(connected)
 
     @property
