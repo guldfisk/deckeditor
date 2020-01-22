@@ -6,15 +6,14 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem
 
+from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from magiccube.collections.delta import CubeDeltaOperation
-from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import AllNode, AnyNode, BorderedNode
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
 
-from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
+from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting.sort import SortProperty
@@ -63,18 +62,14 @@ class SearchSelectionDialog(QtWidgets.QDialog):
 
 
 class CubeImageView(QtWidgets.QGraphicsView):
-    # serialization_strategy = JsonId(MtgDb.db)
     search_select = QtCore.pyqtSignal(Criteria)
 
-    def __init__(
-        self,
-        undo_stack: QUndoStack,
-        # aligner: t.Type[Aligner] = StaticStackingGrid,
-        scene: CubeScene,
-    ):
-        self._scene = scene
+    def __init__(self, undo_stack: QUndoStack, scene: CubeScene, mode: CubeEditMode = CubeEditMode.OPEN):
         super().__init__(scene)
+
+        self._scene = scene
         self._undo_stack = undo_stack
+        self._mode = mode
 
         self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
 
@@ -94,8 +89,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._dragging_move: bool = False
         self._last_move_event_pos = None
 
-        self.scale(.3, .3)
-
         # self._card_scene.cursor_moved.connect(lambda pos: self.centerOn(pos))
         #
         self._sort_actions: t.List[QtWidgets.QAction] = []
@@ -109,7 +102,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._create_sort_action_pair(SortProperty.COLLECTOR_NUMBER)
         #
         self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+I')
-        self._select_all_cards_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
+        self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
         self._deselect_all_action = self._create_action(
             'Deselect All',
             lambda: self._scene.clear_selection(),
@@ -151,6 +144,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self.setTransformationAnchor(QtWidgets.QGraphicsView.NoAnchor)
         self.search_select.connect(self._on_search_select)
 
+        self.scale(.3, .3)
+        # TODO this does not move view completely to the left for some reason and sucks in general.
+        self.translate(self.scene().width(), self.scene().height())
+
     def _search_select(self) -> None:
         dialog = SearchSelectionDialog(self)
         dialog.exec()
@@ -184,6 +181,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 lambda: self._undo_stack.push(
                     self._scene.aligner.sort(
                         sort_property,
+                        self._scene.items() if not self._scene.selectedItems() else self._scene.selectedItems(),
                         orientation,
                     )
                 ),
@@ -265,14 +263,35 @@ class CubeImageView(QtWidgets.QGraphicsView):
         # elif pressed_key == QtCore.Qt.Key_Minus:
         #     self.scale(.9, .9)
 
-        if pressed_key == QtCore.Qt.Key_Delete:
+        if pressed_key == QtCore.Qt.Key_Delete and self._mode == CubeEditMode.OPEN:
             cards = self._scene.selectedItems()
             if cards:
-                Context.undo_group.activeStack().push(
+                self._undo_stack.push(
                     self._scene.get_cube_scene_remove(
                         cards
                     )
                 )
+
+        elif (
+            pressed_key == QtCore.Qt.Key_J
+            and modifiers & QtCore.Qt.ControlModifier
+            and self._mode == CubeEditMode.OPEN
+        ):
+            cards = self._scene.selectedItems()
+            if cards:
+                self._undo_stack.push(
+                    self._scene.get_cube_modification(
+                        CubeDeltaOperation(
+                            Multiset(
+                                card.cubeable
+                                for card in
+                                cards
+                            ).elements()
+                        ),
+                        cards[0].pos() + QPoint(1, 1),
+                    )
+                )
+
 
         # elif pressed_key == QtCore.Qt.Key_Period:
         #     pos = self.mapFromScene(self.card_scene.cursor.pos())
@@ -298,6 +317,15 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         for action in self._sort_actions:
             sort_menu.addAction(action)
+
+        select_menu = menu.addMenu('Select')
+
+        for action in (
+            self._select_all_action,
+            self._selection_search_action,
+            self._deselect_all_action,
+        ):
+            select_menu.addAction(action)
 
         menu.addSeparator()
 

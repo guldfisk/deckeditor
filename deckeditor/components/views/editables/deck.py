@@ -8,6 +8,7 @@ from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel
+from deckeditor.serialization.deckserializer import DeckSerializer
 from deckeditor.values import SUPPORTED_EXTENSIONS
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 
@@ -22,7 +23,7 @@ class DeckView(Editable):
         super().__init__(parent)
 
         self._undo_stack = QUndoStack(Context.undo_group)
-        Context.undo_group.setActiveStack(self._undo_stack)
+        # Context.undo_group.setActiveStack(self._undo_stack)
 
         self._deck_model = deck_model
 
@@ -75,15 +76,9 @@ class DeckView(Editable):
 
         file_name = file_names[0]
 
-        # try:
-        #     s = Context.soft_serialization.serialize(
-        #         self._main_view.active_deck.deck,
-        #         os.path.splitext(file_name)[1][1:],
-        #     )
-        # except SerializationException:
-        #     return
+        extension = file_name.split('.')[1]
 
         with open(file_name, 'w') as f:
             f.write(
-                JsonId.serialize(self._deck_model.as_deck())
+                DeckSerializer.extension_to_serializer[extension].serialize(self._deck_model.as_deck())
             )

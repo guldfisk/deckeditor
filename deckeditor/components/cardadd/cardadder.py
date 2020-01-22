@@ -6,14 +6,11 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCompleter
 
-# from deckeditor.undo.command.commands import ModifyCubeModel
-from magiccube.collections.delta import CubeDeltaOperation
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
 from mtgorp.tools.parsing.exceptions import ParseException
-from mtgorp.tools.parsing.search.parse import SearchPatternParseException
 
-from mtgimg.interface import ImageRequest
+from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.context.context import Context
 from deckeditor.notifications.notifyable import Notifyable
@@ -65,15 +62,14 @@ class PrintingList(QtWidgets.QListWidget):
     def __init__(
         self,
         card_adder: CardAdder,
-        addable: CardAddable,
         target_selector: TargetSelector,
-        amounter: QtWidgets.QLineEdit,
+        # amounter: QtWidgets.QLineEdit,
     ):
         super().__init__()
         self._card_adder = card_adder
-        self._addable = addable
         self._target_selector = target_selector
-        self._amounter = amounter
+        # self._amounter = amounter
+        self.itemDoubleClicked.connect(self._on_item_double_clicked)
 
     def currentChanged(self, index, _index):
         current = self.currentItem()
@@ -84,18 +80,30 @@ class PrintingList(QtWidgets.QListWidget):
             )
             self.scrollTo(self.currentIndex())
 
-    def _add_printings(self) -> None:
+    def _add_printings(self, amount: int) -> None:
         self._card_adder.add_printings.emit(
             CubeDeltaOperation(
                 {
-                    self.currentItem().printing: int(self._amounter.text())
+                    self.currentItem().printing: amount
+                }
+            )
+        )
+
+    def _on_item_double_clicked(self, item: PrintingItem) -> None:
+        print('double')
+        self._card_adder.add_printings.emit(
+            CubeDeltaOperation(
+                {
+                    item.printing: 1,
                 }
             )
         )
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
+        modifiers = key_event.modifiers()
+
         if key_event.key() == QtCore.Qt.Key_Enter or key_event.key() == QtCore.Qt.Key_Return:
-            self._add_printings()
+            self._add_printings(4 if modifiers & QtCore.Qt.ShiftModifier else 1)
         else:
             super().keyPressEvent(key_event)
 
@@ -108,7 +116,7 @@ class PrintingList(QtWidgets.QListWidget):
             )
 
 
-class CardboardList(QtWidgets.QListView):
+class CardboardList(QtWidgets.QListWidget):
 
     def __init__(
         self,
@@ -119,15 +127,18 @@ class CardboardList(QtWidgets.QListView):
         self._printing_list = printing_list
 
         self._item_model = QtGui.QStandardItemModel(parent)
-        self.setModel(self._item_model)
+        # self.setModel(self._item_model)
 
     def currentChanged(self, index, _index):
-        current = self.model().item(self.currentIndex().row())
+        current = self.currentItem()
 
         if current is not None:
             self._printing_list.set_printings(current.cardboard.printings)
             self._printing_list.setCurrentIndex(self._printing_list.model().index(0, 0))
             self.scrollTo(self.currentIndex())
+            Context.focus_card_changed.emit(
+                current.cardboard.latest_printing
+            )
 
     def _select_cardboard(self):
         self._printing_list.setFocus()
@@ -140,13 +151,14 @@ class CardboardList(QtWidgets.QListView):
 
     def set_cardboards(self, cardboards: t.Iterable[Cardboard]):
         _cardboards = sorted(cardboards, key = lambda _cardboard: _cardboard.name)
-        self.model().clear()
+        self.clear()
         for cardboard in _cardboards:
-            item = CardboardItem(cardboard)
-            self.model().appendRow(item)
+            self.addItem(
+                CardboardItem(cardboard)
+            )
 
 
-class CardboardItem(QtGui.QStandardItem):
+class CardboardItem(QtWidgets.QListWidgetItem):
 
     def __init__(self, cardboard: Cardboard):
         super().__init__()
@@ -158,8 +170,7 @@ class CardboardItem(QtGui.QStandardItem):
         return self._cardboard
 
 
-class PrintingItem(QtWidgets.QListWidgetItem
-                   ):
+class PrintingItem(QtWidgets.QListWidgetItem):
 
     def __init__(self, printing: Printing):
         super().__init__()
@@ -176,26 +187,21 @@ class CardAdder(QtWidgets.QWidget):
 
     def __init__(
         self,
-        addable: CardAddable,
         notifyable: Notifyable,
-        card_view: CardViewWidget,
         parent: QtWidgets.QWidget,
     ):
         super().__init__(parent)
 
-        self._addable = addable
         self._notifyable = notifyable
-        self._card_view = card_view
 
         self._search_button = QtWidgets.QPushButton(self)
         self._target_selector = TargetSelector(self)
-        self._amounter = QtWidgets.QLineEdit(self)
-        self._amount_label = QtWidgets.QLabel(self)
+        # self._amounter = QtWidgets.QLineEdit(self)
+        # self._amount_label = QtWidgets.QLabel(self)
         self._printing_list = PrintingList(
             card_adder = self,
-            addable = self._addable,
             target_selector = self._target_selector,
-            amounter = self._amounter,
+            # amounter = self._amounter,
         )
         self._cardboard_list = CardboardList(
             self._printing_list,
@@ -203,32 +209,32 @@ class CardAdder(QtWidgets.QWidget):
         )
         self._query_edit = QueryEditor(self)
 
-        self.setTabOrder(self._printing_list, self._cardboard_list)
+        # self.setTabOrder(self._printing_list, self)
 
-        self._amount_label.setText('Amount:')
-
-        self._amounter.setValidator(QtGui.QIntValidator(1, 99, self))
-        self._amounter.setMaximumWidth(50)
-        self._amounter.setText('1')
+        # self._amount_label.setText('Amount:')
+        #
+        # self._amounter.setValidator(QtGui.QIntValidator(1, 99, self))
+        # self._amounter.setMaximumWidth(50)
+        # self._amounter.setText('1')
 
         self._search_button.setText('Search')
 
         self._top_bar = QtWidgets.QHBoxLayout()
         self._bottom_bar = QtWidgets.QHBoxLayout()
         self._right_panel = QtWidgets.QVBoxLayout()
-        self._amount_bar = QtWidgets.QHBoxLayout()
+        # self._amount_bar = QtWidgets.QHBoxLayout()
         self._layout = QtWidgets.QVBoxLayout()
 
         self._top_bar.addWidget(self._query_edit)
         self._top_bar.addWidget(self._search_button)
 
-        self._amount_bar.addWidget(self._amount_label, alignment = QtCore.Qt.AlignLeft)
-        self._amount_bar.addWidget(self._amounter, alignment = QtCore.Qt.AlignLeft)
-        self._amount_bar.addStretch(1)
+        # self._amount_bar.addWidget(self._amount_label, alignment = QtCore.Qt.AlignLeft)
+        # self._amount_bar.addWidget(self._amounter, alignment = QtCore.Qt.AlignLeft)
+        # self._amount_bar.addStretch(1)
 
         self._right_panel.addWidget(self._target_selector)
         self._right_panel.addWidget(self._printing_list)
-        self._right_panel.addLayout(self._amount_bar)
+        # self._right_panel.addLayout(self._amount_bar)
 
         self._bottom_bar.addWidget(self._cardboard_list)
         self._bottom_bar.addLayout(self._right_panel)
@@ -239,6 +245,8 @@ class CardAdder(QtWidgets.QWidget):
         self._search_button.clicked.connect(self.initiate_search)
 
         self.setLayout(self._layout)
+
+        self.setTabOrder(self._printing_list, self._cardboard_list)
 
     @property
     def query_edit(self) -> QueryEditor:

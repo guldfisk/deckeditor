@@ -130,17 +130,24 @@ class GridMultiDrop(GridAlignmentCommandMixin, AlignmentDrop):
 
 class GridSort(QUndoCommand):
 
-    def __init__(self, grid: GridAligner, sort_property: SortProperty, original_order: t.List[PhysicalCard]):
+    def __init__(
+        self,
+        grid: GridAligner,
+        sort_property: SortProperty,
+        cards: t.Sequence[PhysicalCard],
+        original_order: t.List[PhysicalCard],
+    ):
         self._grid = grid
+        self._cards = cards
         self._sort_property = sort_property
         self._original_order = original_order
         super().__init__('grid sort')
 
     def redo(self) -> None:
         self._grid.cards[:] = sorted(
-            self._original_order,
+            self._cards,
             key = lambda card: extract_sort_value(card.cubeable, self._sort_property),
-        )
+        ) + [card for card in self._original_order if not card in self._cards]
         self._grid.realign()
 
     def undo(self) -> None:
@@ -218,9 +225,10 @@ class GridAligner(Aligner):
             drops,
         )
 
-    def sort(self, sort_property: SortProperty, orientation: int) -> QUndoCommand:
+    def sort(self, sort_property: SortProperty, cards: t.Sequence[PhysicalCard], orientation: int) -> QUndoCommand:
         return GridSort(
             self,
             sort_property,
+            cards,
             copy.copy(self._cards),
         )

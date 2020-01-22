@@ -18,6 +18,7 @@ from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingG
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.notifications.notifyable import Notifyable
+from deckeditor.serialization.deckserializer import DeckSerializer
 from deckeditor.values import SUPPORTED_EXTENSIONS
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import AllNode, AnyNode
@@ -318,7 +319,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._card_view_dock.setWidget(self._card_view)
         self._card_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
-        self._card_adder = CardAdder(self, self, self._card_view, self)
+        self._card_adder = CardAdder(self, self)
         self._card_adder.add_printings.connect(self._on_add_printings)
 
         self._card_adder_dock = QtWidgets.QDockWidget('Card Adder', self)
@@ -345,23 +346,23 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             | QtCore.Qt.BottomDockWidgetArea
         )
 
-        self._deck_list_widget = DeckListWidget(self)
-        self._deck_list_widget.set_deck.emit((), ())
-        Context.deck_list_view = self._deck_list_widget
-
-        self._deck_list_docker = QtWidgets.QDockWidget('Deck List', self)
-        self._deck_list_docker.setObjectName('deck_list_dock')
-        self._deck_list_docker.setWidget(self._deck_list_widget)
-        self._deck_list_docker.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        # self._deck_list_widget = DeckListWidget(self)
+        # self._deck_list_widget.set_deck.emit((), ())
+        # Context.deck_list_view = self._deck_list_widget
+        #
+        # self._deck_list_docker = QtWidgets.QDockWidget('Deck List', self)
+        # self._deck_list_docker.setObjectName('deck_list_dock')
+        # self._deck_list_docker.setWidget(self._deck_list_widget)
+        # self._deck_list_docker.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._card_adder_dock)
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._deck_list_docker)
+        # self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._deck_list_docker)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
 
         self._card_adder_dock.hide()
-        self._deck_list_docker.hide()
+        # self._deck_list_docker.hide()
         # self._card_view_dock.hide()
         self._undo_view_dock.hide()
 
@@ -410,7 +411,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             menu_bar.addMenu('View'): (
                 ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
                 ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
-                ('Deck List View', 'Meta+3', lambda: self._toggle_dock_view(self._deck_list_docker)),
+                # ('Deck List View', 'Meta+3', lambda: self._toggle_dock_view(self._deck_list_docker)),
                 ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
             ),
@@ -519,16 +520,6 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
         self._last_focused_card_container.cube_scene.add_select_if(lambda card: pattern.match(card.cubeable))
 
-    def _search_select(self):
-        if (
-            not self._main_view.active_deck
-            or not self._last_focused_card_container in self._main_view.active_deck.card_containers
-        ):
-            return
-
-        dialog = SearchSelectionDialog(self)
-        dialog.exec()
-
     def _add_cards(self):
         self._card_adder_dock.activateWindow()
         if self._card_adder_dock.isHidden():
@@ -619,7 +610,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         extension = extension[1:]
 
         with open(file_names[0], 'r') as f:
-            deck = JsonId(Context.db).deserialize(Deck, f.read())
+            # deck = JsonId(Context.db).deserialize(Deck, f.read())
+            print(DeckSerializer.extension_to_serializer)
+            deck = DeckSerializer.extension_to_serializer[extension].deserialize(f.read())
 
         self._main_view.deck_tabs.setCurrentWidget(
             self._main_view.deck_tabs.new_deck(

@@ -1,18 +1,18 @@
-import typing
 import typing as t
 
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import QObject, Qt, QVariant, QSortFilterProxyModel
+from PyQt5.QtCore import QObject, Qt
 from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QTableView, QUndoStack
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QUndoStack
+
+from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
+from mtgorp.models.persistent.printing import Printing
+
+from magiccube.collections.cubeable import Cubeable
+from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.cubescene import CubeScene
-# from deckeditor.undo.command.commands import ModifyCubeModel
-from magiccube.collections.cubeable import Cubeable
-from magiccube.collections.delta import CubeDeltaOperation
-from magiccube.laps.lap import Lap
-from mtgorp.models.persistent.printing import Printing
 
 
 class CubeableTableItem(QTableWidgetItem):
@@ -40,10 +40,28 @@ class NonEditableItem(QTableWidgetItem):
 
 class CubeListView(QTableWidget):
 
-    def __init__(self, cube_model: CubeScene, undo_stack: QUndoStack, parent: t.Optional[QObject] = None):
+    def __init__(
+        self,
+        cube_model: CubeScene,
+        undo_stack: QUndoStack,
+        mode: CubeEditMode = CubeEditMode.OPEN,
+        parent: t.Optional[QObject] = None,
+    ):
         super().__init__(0, 6, parent)
         self._cube_scene = cube_model
         self._undo_stack = undo_stack
+        self._mode = mode
+
+        self.setHorizontalHeaderLabels(
+            (
+                'Qty',
+                'Name',
+                'Set',
+                'Mana Cost',
+                'Typeline',
+                'p/t/l',
+            )
+        )
 
         self.itemChanged.connect(self._handle_item_edit)
         self._update_content()
@@ -57,7 +75,7 @@ class CubeListView(QTableWidget):
         pressed_key = key_event.key()
         modifiers = key_event.modifiers()
 
-        if pressed_key == QtCore.Qt.Key_Delete:
+        if pressed_key == QtCore.Qt.Key_Delete and self._mode == CubeEditMode.OPEN:
             self._undo_stack.push(
                 self._cube_scene.get_cube_modification(
                     CubeDeltaOperation(
@@ -105,9 +123,14 @@ class CubeListView(QTableWidget):
                     key=lambda vs: str(vs[0].id),
                 )
         ):
-            item = QTableWidgetItem()
-            item.setData(0, multiplicity)
-            self.setItem(index, 0, item)
+            if self._mode == CubeEditMode.OPEN:
+                item = QTableWidgetItem()
+                item.setData(0, multiplicity)
+                self.setItem(index, 0, item)
+            else:
+                self.setItem(
+                    index, 0, NonEditableItem(str(multiplicity))
+                )
 
             self.setItem(index, 1, CubeableTableItem(cubeable))
 

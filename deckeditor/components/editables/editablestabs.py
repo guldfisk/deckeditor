@@ -20,9 +20,14 @@ class EditablesTabs(QtWidgets.QTabWidget):
 
         self.tabCloseRequested.connect(self._tab_close_requested)
         Context.new_pool.connect(self._new_pool)
-        # self.currentChanged.connect(self._current_changed)
+        self.currentChanged.connect(self._on_current_changed)
 
-    def _new_pool(self, pool: Cube):
+    def _on_current_changed(self, idx: int) -> None:
+        Context.undo_group.setActiveStack(
+            self.widget(idx).undo_stack
+        )
+
+    def _new_pool(self, pool: Cube) -> None:
         self.addTab(
             PoolView(
                 PoolModel(

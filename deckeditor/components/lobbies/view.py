@@ -335,7 +335,7 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 
         self._ok_button.clicked.connect(self._create)
 
-        self.setTabOrder(self._lobby_name_selector, self._ok_button)
+        # self.setTabOrder(self._lobby_name_selector, self._ok_button)
 
     def _create(self) -> None:
         self._lobby_view.lobby_model.create_lobby(

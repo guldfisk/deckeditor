@@ -153,7 +153,7 @@ class CardStacker(ABC):
         self.update()
 
     def remove_cards(self, cards: t.Iterable[PhysicalCard]):
-        cards = list(cards)
+        # cards = list(cards)
 
         # cursor_info = self._aligner.get_card_info(self._aligner.cursor_position)
 
@@ -182,10 +182,18 @@ class CardStacker(ABC):
         #         else:
         #             self._aligner.link_cursor(None)
 
+    def remove_cards_no_restack(self, cards: t.Iterable[PhysicalCard]) -> None:
+        for card in cards:
+            self._remove_card_no_restack(card)
+
     def add_cards(self, cards: t.Iterable[PhysicalCard]):
         for card in cards:
             self.add_card_no_restack(card)
         self.update()
+
+    def add_cards_no_restack(self, cards: t.Iterable[PhysicalCard]):
+        for card in cards:
+            self.add_card_no_restack(card)
 
     def insert_cards(self, indexes: t.Iterable[int], cards: t.Iterable[PhysicalCard]):
         for index, card in zip(indexes, cards):
@@ -286,19 +294,25 @@ class StackingPickUp(AlignmentDrop):
 
 
 class _StackingSort(QUndoCommand):
-    # EXCESS_LEFT: bool = True
     sort_property_extractor: t.Callable[[Cubeable], t.Union[str, int]] = None
 
-    def __init__(self, grid: StackingGrid, orientation: int):
+    def __init__(self, grid: StackingGrid, cards: t.Sequence[PhysicalCard], orientation: int):
         self._grid = grid
+        self._cards = cards
         self._orientation = orientation
 
         self._card_infos: t.Dict[PhysicalCard, t.Tuple[CardStacker, int]] = {}
         self._stackers: t.MutableMapping[CardStacker, t.List[t.Tuple[int, PhysicalCard]]] = defaultdict(list)
+        self._sorted_stackers: t.MutableMapping[CardStacker, t.List[PhysicalCard]] = defaultdict(list)
 
-        for card, info in self._grid.stacked_cards.items():
+        for card in self._cards:
+            info = self._grid.get_card_info(card)
             self._stackers[info.card_stacker].append((info.position, card))
             self._card_infos[card] = (info.card_stacker, info.position)
+
+        # for card, info in self._grid.stacked_cards.items():
+        #     self._stackers[info.card_stacker].append((info.position, card))
+        #     self._card_infos[card] = (info.card_stacker, info.position)
 
         super().__init__('Sort')
 
@@ -339,27 +353,41 @@ class _StackingSort(QUndoCommand):
         for card, i in self._cards_separated:
             yield (card, *info_extractor(i, self._card_infos[card]))
 
-    def redo(self) -> None:
-        for stacker in self._grid.stacker_map.stackers:
-            stacker.clear_no_restack()
-
+    def _make_sorted_stackers(self) -> None:
         for card, x, y in self._card_sorted_indexes():
-            (
-                self
-                    ._grid
-                    .get_card_stacker_at_index(x, y)
-                    .add_card_no_restack(card)
-            )
+            self._sorted_stackers[self._grid.get_card_stacker_at_index(x, y)].append(card)
 
-        for stacker in self._grid.stacker_map.stackers:
+    def redo(self) -> None:
+        # for stacker in self._grid.stacker_map.stackers:
+        #     stacker.clear_no_restack()
+
+        for stacker, cards in self._stackers.items():
+            stacker.remove_cards_no_restack((card for _, card in cards))
+
+        if not self._sorted_stackers:
+            self._make_sorted_stackers()
+
+        # for card, x, y in self._card_sorted_indexes():
+        #     self._grid.get_card_stacker_at_index(x, y).add_card_no_restack(card)
+
+        for stacker, cards in self._sorted_stackers.items():
+            stacker.add_cards_no_restack(cards)
+
+        for stacker in self._stackers.keys() | self._sorted_stackers.keys():
             stacker.update()
 
     def undo(self) -> None:
-        for stacker in self._grid.stacker_map.stackers:
-            stacker.clear_no_restack()
+        # for stacker in self._grid.stacker_map.stackers:
+        #     stacker.clear_no_restack()
+
+        for stacker, cards in self._sorted_stackers.items():
+            stacker.remove_cards_no_restack(cards)
 
         for stacker, infos in self._stackers.items():
             stacker.add_cards(card for index, card in infos)
+
+        for stacker in self._stackers.keys() | self._sorted_stackers.keys():
+            stacker.update()
 
 
 class _ValueToPositionSort(_StackingSort):
@@ -935,5 +963,5 @@ class StackingGrid(Aligner):
         SortProperty.COLLECTOR_NUMBER: CollectorsNumberSort,
     }
 
-    def sort(self, sort_property: SortProperty, orientation: int) -> QUndoCommand:
-        return self.SORT_PROPERTY_MAP[sort_property](self, orientation)
+    def sort(self, sort_property: SortProperty, cards: t.Sequence[PhysicalCard], orientation: int) -> QUndoCommand:
+        return self.SORT_PROPERTY_MAP[sort_property](self, cards, orientation)

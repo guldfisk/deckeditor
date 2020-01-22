@@ -55,6 +55,7 @@ class Aligner(ABC):
     def sort(
         self,
         sort_property: SortProperty,
+        cards: t.Sequence[PhysicalCard],
         orientation: int,
     ) -> QUndoCommand:
         pass
