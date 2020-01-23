@@ -23,7 +23,6 @@ class _DeckSerializerMeta(ABCMeta):
 
     def __new__(mcs, classname, base_classes, attributes):
         klass = type.__new__(mcs, classname, base_classes, attributes)
-        print('deck serializer meta', classname, base_classes, attributes)
 
         if 'extensions' in attributes:
             for extension in attributes['extensions']:

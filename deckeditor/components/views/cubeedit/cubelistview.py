@@ -148,7 +148,7 @@ class CubeListView(QTableWidget):
                 3,
                 NonEditableItem(
                     str(cubeable.cardboard.front_card.mana_cost)
-                    if isinstance(cubeable, Printing) else
+                    if isinstance(cubeable, Printing) and cubeable.cardboard.front_card.mana_cost is not None else
                     ''
                 ),
             )

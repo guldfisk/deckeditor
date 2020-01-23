@@ -6,10 +6,7 @@ from PyQt5 import QtCore
 
 from deckeditor.models.cubes.alignment.stackinggrid import CardStacker, StackingGrid, StackerMap
 from deckeditor.models.cubes.selection import SelectionScene
-from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
-
-
-IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]
+from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 
 
 class StaticCardStacker(CardStacker):

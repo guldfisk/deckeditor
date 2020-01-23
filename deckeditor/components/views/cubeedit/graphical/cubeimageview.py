@@ -3,17 +3,19 @@ from __future__ import annotations
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem
+from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
+from deckeditor.utils.undo import CommandPackage
 from magiccube.collections.delta import CubeDeltaOperation
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
 
-from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalTrap, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting.sort import SortProperty
@@ -90,17 +92,18 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._last_move_event_pos = None
 
         # self._card_scene.cursor_moved.connect(lambda pos: self.centerOn(pos))
-        #
+
         self._sort_actions: t.List[QtWidgets.QAction] = []
 
         self._create_sort_action_pair(SortProperty.CMC, 'm')
         self._create_sort_action_pair(SortProperty.COLOR, 'l')
+        self._create_sort_action_pair(SortProperty.Color_IDENTIRY, 'i')
         self._create_sort_action_pair(SortProperty.RARITY, 'r')
         self._create_sort_action_pair(SortProperty.TYPE, 't')
         self._create_sort_action_pair(SortProperty.NAME, 'n')
         self._create_sort_action_pair(SortProperty.EXPANSION)
         self._create_sort_action_pair(SortProperty.COLLECTOR_NUMBER)
-        #
+
         self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+I')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
         self._deselect_all_action = self._create_action(
@@ -145,7 +148,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self.search_select.connect(self._on_search_select)
 
         self.scale(.3, .3)
-        # TODO this does not move view completely to the left for some reason and sucks in general.
         self.translate(self.scene().width(), self.scene().height())
 
     def _search_select(self) -> None:
@@ -177,7 +179,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self._sort_actions.append(
             self._create_action(
-                f'Sort {sort_property.value} {"Horizontally" if orientation == QtCore.Qt.Horizontal else "Vertically"}',
+                f'{sort_property.value} {"Horizontally" if orientation == QtCore.Qt.Horizontal else "Vertically"}',
                 lambda: self._undo_stack.push(
                     self._scene.aligner.sort(
                         sort_property,
@@ -308,6 +310,17 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def _fit_all_cards(self) -> None:
         self.fitInView(self._scene.itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
 
+    def _flatten_all_traps(self) -> None:
+        self._undo_stack.push(
+            CommandPackage(
+                [
+                    card.get_flatten_command()
+                    for card in self.items()
+                    if isinstance(card, PhysicalAllCard)
+                ]
+            )
+        )
+
     def _context_menu_event(self, position: QtCore.QPoint):
         menu = QtWidgets.QMenu(self)
 
@@ -332,10 +345,15 @@ class CubeImageView(QtWidgets.QGraphicsView):
         item: QGraphicsItem = self.itemAt(position)
 
         if item and isinstance(item, PhysicalCard):
-
             menu.addSeparator()
 
             item.context_menu(menu, self._undo_stack)
+
+        self._scene.aligner.context_menu(menu, self.mapToScene(position), self._undo_stack)
+
+        flatten_all = QAction('Flatten All', menu)
+        flatten_all.triggered.connect(self._flatten_all_traps)
+        menu.addAction(flatten_all)
 
         menu.exec_(self.mapToGlobal(position))
 

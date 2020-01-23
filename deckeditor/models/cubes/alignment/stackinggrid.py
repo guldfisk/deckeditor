@@ -7,12 +7,12 @@ from collections import defaultdict
 from itertools import chain
 from abc import abstractmethod, ABC
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoCommand
+from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.sorting.sort import SortProperty, extract_cmc, extract_type, extract_rarity, extract_color, \
-    extract_name, extract_expansion, extract_collector_number
+    extract_name, extract_expansion, extract_collector_number, extract_sort_value, extract_color_identity
 from mtgorp.models.persistent.attributes import typeline, colors
 
 from mtgorp.models.persistent.printing import Printing
@@ -293,6 +293,30 @@ class StackingPickUp(AlignmentDrop):
             stacker.insert_cards(*zip(*adjusted_indexes))
 
 
+class SortStacker(QUndoCommand):
+
+    def __init__(self, stacker: CardStacker, sort_property: SortProperty):
+        self._stacker = stacker
+        self._sort_property = sort_property
+        super().__init__('Sort stacker')
+
+        self._original_order: t.List[PhysicalCard] = []
+
+    def redo(self) -> None:
+        if not self._original_order:
+            self._original_order[:] = self._stacker.cards
+
+        self._stacker.cards[:] = sorted(
+            self._stacker.cards,
+            key = lambda card: extract_sort_value(card.cubeable, self._sort_property),
+        )
+        self._stacker.update()
+
+    def undo(self) -> None:
+        self._stacker.cards[:] = self._original_order
+        self._stacker.update()
+
+
 class _StackingSort(QUndoCommand):
     sort_property_extractor: t.Callable[[Cubeable], t.Union[str, int]] = None
 
@@ -437,6 +461,10 @@ class RaritySort(_ValueToPositionSort):
 
 class ColorSort(_ValueToPositionSort):
     sort_property_extractor = staticmethod(extract_color)
+
+
+class ColorIdentitySort(_ValueToPositionSort):
+    sort_property_extractor = staticmethod(extract_color_identity)
 
 
 class NameSort(_StackingSort):
@@ -585,7 +613,7 @@ class StackingGrid(Aligner):
 
         self._stacked_cards: t.Dict[PhysicalCard, _CardInfo] = {}
 
-        self._margin_pixel_size = margin * IMAGE_WIDTH / 2.5
+        self._margin_pixel_size = margin * IMAGE_WIDTH
 
         self._stacker_map = self.create_stacker_map()
 
@@ -649,7 +677,7 @@ class StackingGrid(Aligner):
         # cards = list(items)
         x, y = position.x(), position.y()
         stacker = self.get_card_stacker(x, y)
-        index = stacker.map_position_to_index(x, y - stacker.y)
+        index = stacker.map_position_to_index(x - stacker.x, y - stacker.y)
         # stacker.insert_cards(
         #     (index,) * len(cards),
         #     cards,
@@ -666,7 +694,7 @@ class StackingGrid(Aligner):
         for cards, position in drops:
             x, y = position.x(), position.y()
             stacker = self.get_card_stacker(x, y)
-            index = stacker.map_position_to_index(x, y - stacker.y)
+            index = stacker.map_position_to_index(x - stacker.x, y - stacker.y)
             _drops.append(
                 (
                     cards,
@@ -957,6 +985,7 @@ class StackingGrid(Aligner):
         SortProperty.NAME: NameSort,
         SortProperty.CMC: CmcSort,
         SortProperty.COLOR: ColorSort,
+        SortProperty.Color_IDENTIRY: ColorIdentitySort,
         SortProperty.RARITY: RaritySort,
         SortProperty.TYPE: TypeSort,
         SortProperty.EXPANSION: ExpansionSort,
@@ -965,3 +994,29 @@ class StackingGrid(Aligner):
 
     def sort(self, sort_property: SortProperty, cards: t.Sequence[PhysicalCard], orientation: int) -> QUndoCommand:
         return self.SORT_PROPERTY_MAP[sort_property](self, cards, orientation)
+
+    @classmethod
+    def _get_sort_stack(
+        cls,
+        stacker: CardStacker,
+        sort_property: SortProperty,
+        undo_stack: QUndoStack,
+    ) -> t.Callable[[], None]:
+        def _sort_stack() -> None:
+            undo_stack.push(
+                SortStacker(
+                    stacker,
+                    sort_property,
+                )
+            )
+        return _sort_stack
+
+    def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
+        stacker = self.get_card_stacker(position.x(), position.y())
+
+        stacker_sort_menu = menu.addMenu('Sort Stack')
+
+        for sort_property in SortProperty:
+            sort_action = QtWidgets.QAction(sort_property.value, stacker_sort_menu)
+            sort_action.triggered.connect(self._get_sort_stack(stacker, sort_property, undo_stack))
+            stacker_sort_menu.addAction(sort_action)

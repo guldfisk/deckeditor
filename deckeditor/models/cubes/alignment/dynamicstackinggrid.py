@@ -3,9 +3,10 @@ from __future__ import annotations
 import typing as t
 
 from deckeditor import values
-from deckeditor.models.cubes.alignment import CardStacker, StackingGrid
+from deckeditor.models.cubes.alignment.stackinggrid import CardStacker, StackingGrid
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
+from deckeditor.values import IMAGE_HEIGHT
 
 
 class DynamicCardStacker(CardStacker):
@@ -48,11 +49,13 @@ class DynamicCardStacker(CardStacker):
         )
 
     def _stack(self):
+        x, y = self.x, self.y
+
         for i in range(len(self._cards)):
             self._cards[i].setPos(
-                self._geometry[0],
-                self._geometry[1] + i * self._real_offset,
-                )
+                x,
+                y + i * self._real_offset,
+            )
 
 
 class DynamicStackingGrid(StackingGrid):

@@ -4,8 +4,9 @@ import copy
 import typing as t
 from abc import abstractmethod
 
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoCommand
+from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop, AlignmentCommand
 from deckeditor.models.cubes.selection import SelectionScene
@@ -232,3 +233,6 @@ class GridAligner(Aligner):
             cards,
             copy.copy(self._cards),
         )
+
+    def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
+        pass

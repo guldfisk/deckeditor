@@ -11,9 +11,10 @@ from mtgorp.models.persistent.printing import Printing
 
 class SortProperty(Enum):
     NAME = 'Name'
+    COLOR = 'Color'
+    Color_IDENTIRY = 'Color Identity'
     CMC = 'Cmc'
     RARITY = 'Rarity'
-    COLOR = 'Color'
     TYPE = 'Type'
     EXPANSION = 'Expansion'
     COLLECTOR_NUMBER = 'Collector Number'
@@ -48,11 +49,18 @@ def extract_color(cubeable: Cubeable) -> int:
         cubeable.cardboard.front_card.color
     )
 
+def extract_color_identity(cubeable: Cubeable) -> int:
+    if not isinstance(cubeable, Printing):
+        return -1
+    return colors.color_set_sort_value_len_first(
+        cubeable.cardboard.front_card.color_identity
+    )
+
 
 def extract_type(cubeable: Cubeable) -> int:
     if not isinstance(cubeable, Printing):
         return -1
-    return int(not typeline.CREATURE in cubeable.cardboard.front_card.type_line)
+    return int(typeline.CREATURE in cubeable.cardboard.front_card.type_line)
 
 
 def extract_expansion(cubeable: Cubeable) -> str:
@@ -75,6 +83,7 @@ EXTRACTOR_MAP: t.Mapping[SortProperty, t.Callable[[t.Union[Printing, Lap]], t.Un
     SortProperty.NAME: extract_name,
     SortProperty.CMC: extract_cmc,
     SortProperty.COLOR: extract_color,
+    SortProperty.Color_IDENTIRY: extract_color_identity,
     SortProperty.RARITY: extract_rarity,
     SortProperty.TYPE: extract_type,
     SortProperty.EXPANSION: extract_expansion,

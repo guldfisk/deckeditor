@@ -7,13 +7,14 @@ from enum import Enum
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor import paths
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
 from deckeditor.models.cubes.alignment.aligner import Aligner
+from deckeditor.models.cubes.alignment.bunchingstackinggrid import BunchingStackingGrid
 from deckeditor.models.cubes.alignment.grid import GridAligner
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
@@ -24,6 +25,7 @@ ALIGNER_TYPE_MAP = OrderedDict(
     (
         ('Static Stacking Grid', StaticStackingGrid),
         ('Grid', GridAligner),
+        ('Bunch', BunchingStackingGrid),
         # 'Dynamic Stacking Grid': DynamicStackingGrid,
     )
 )
@@ -131,7 +133,8 @@ class CubeView(QtWidgets.QWidget):
 
         self._cube_image_view = CubeImageView(
             undo_stack,
-            self._cube_scene
+            self._cube_scene,
+            self._mode,
         )
 
         self._cube_list_view = CubeListView(
@@ -147,7 +150,6 @@ class CubeView(QtWidgets.QWidget):
 
         self._layout_selector = LayoutSelector(self)
         self._layout_selector.setFixedSize(QSize(20, 20))
-
 
         box = QtWidgets.QVBoxLayout(self)
 
@@ -170,30 +172,35 @@ class CubeView(QtWidgets.QWidget):
 
         self.layout_changed.connect(self._on_layout_change)
 
-        self._create_action('View Images', lambda : self.layout_changed.emit(CubeViewLayout.IMAGE), 'Ctrl+Alt+Shift+I')
-        self._create_action('View Table', lambda : self.layout_changed.emit(CubeViewLayout.TABLE), 'Ctrl+Alt+Shift+T')
-        self._create_action('View Mixed', lambda : self.layout_changed.emit(CubeViewLayout.MIXED), 'Ctrl+Alt+Shift+M')
+        self._create_action('View Images', lambda: self.layout_changed.emit(CubeViewLayout.IMAGE), 'Ctrl+Alt+Shift+I')
+        self._create_action('View Table', lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'Ctrl+Alt+Shift+T')
+        self._create_action('View Mixed', lambda: self.layout_changed.emit(CubeViewLayout.MIXED), 'Ctrl+Alt+Shift+M')
 
         self._create_action(
             'Grid',
-            lambda : self._undo_stack.push(
+            lambda: self._undo_stack.push(
                 self._cube_scene.get_set_aligner(
                     GridAligner
                 )
             ),
-            'AltGr+O',
+            'Œ', # Some real garbage, prob doesn't work on windows (or other keymaps idk) supposed to be AltGr+O
         )
         self._create_action(
             'Static Stacking Grid',
-            lambda : self._undo_stack.push(
+            lambda: self._undo_stack.push(
                 self._cube_scene.get_set_aligner(
                     StaticStackingGrid
                 )
             ),
-            'AltGr+L',
+            'Ł', # AltGr+L
         )
 
-    def _create_action(self, name: str, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QAction:
+    def _create_action(
+        self,
+        name: str,
+        result: t.Callable,
+        shortcut: t.Union[None, str, QKeySequence] = None
+    ) -> QtWidgets.QAction:
         action = QtWidgets.QAction(name, self)
         action.triggered.connect(result)
 

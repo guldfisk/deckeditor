@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoStack
+from PyQt5.QtWidgets import QUndoStack, QUndoCommand
 
 from magiccube.laps.lap import Lap
 from magiccube.laps.traps.trap import Trap
@@ -20,7 +20,6 @@ from mtgqt.pixmapload.pixmaploader import PixmapLoader
 from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
 from deckeditor.utils.undo import CommandPackage
 from deckeditor.context.context import Context
-
 
 C = t.TypeVar('C', bound = t.Union[Printing, Lap])
 
@@ -167,28 +166,31 @@ class PhysicalTrap(PhysicalCard[Trap]):
 
 class PhysicalAllCard(PhysicalTrap):
 
-    def _flatten(self, undo_stack: QUndoStack) -> None:
+    def get_flatten_command(self) -> QUndoCommand:
         if not self.node_children:
             self._generate_children()
+        return self.scene().get_cube_modification(
+            (
+                self.node_children,
+                (self,),
+            ),
+            self.pos() + QPoint(1, 1),
+        )
+
+    def _flatten(self, undo_stack: QUndoStack) -> None:
         undo_stack.push(
-            self.scene().get_cube_modification(
-                (
-                    self.node_children,
-                    (self,),
-                ),
-                self.pos() + QPoint(1, 1),
-            )
+            self.get_flatten_command()
         )
 
     def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         compress = QtWidgets.QAction('Compress', menu)
-        compress.triggered.connect(lambda : self._compress(child, undo_stack))
+        compress.triggered.connect(lambda: self._compress(child, undo_stack))
         menu.addAction(compress)
 
     def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         super().context_menu(menu, undo_stack)
         flatten = QtWidgets.QAction('Flatten', menu)
-        flatten.triggered.connect(lambda : self._flatten(undo_stack))
+        flatten.triggered.connect(lambda: self._flatten(undo_stack))
         menu.addAction(flatten)
 
 
@@ -229,7 +231,7 @@ class PhysicalOrCard(PhysicalTrap):
 
     def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         compress = QtWidgets.QAction('Compress', menu)
-        compress.triggered.connect(lambda : self._compress(child, undo_stack))
+        compress.triggered.connect(lambda: self._compress(child, undo_stack))
         menu.addAction(compress)
 
         reselection_menu = menu.addMenu('Reselect')

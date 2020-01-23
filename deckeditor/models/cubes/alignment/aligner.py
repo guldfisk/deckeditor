@@ -2,9 +2,9 @@ import typing as t
 
 from abc import ABC, abstractmethod
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoCommand
+from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
@@ -49,6 +49,10 @@ class Aligner(ABC):
 
     @abstractmethod
     def multi_drop(self, drops: t.Iterable[t.Tuple[t.Sequence[PhysicalCard], QPoint]]) -> AlignmentMultiDrop:
+        pass
+
+    @abstractmethod
+    def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
         pass
 
     @abstractmethod
