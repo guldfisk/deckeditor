@@ -24,7 +24,7 @@ setup(
         'mtgimg @ https://github.com/guldfisk/mtgimg/tarball/master#egg=mtgimg-1.0',
         'mtgqt @ https://github.com/guldfisk/mtgqt/tarball/master#egg=mtgqt-1.0',
         'orp @ https://github.com/guldfisk/orp/tarball/master#egg=orp-1.0',
-        'draft @ https://github.com/guldfisk/mtgorp/tarball/master#egg=draft-1.0',
+        'draft @ https://github.com/guldfisk/draft/tarball/master#egg=draft-1.0',
         'lobbyclient @ https://github.com/guldfisk/lobbyclient/tarball/master#egg=lobbyclient-1.0',
         'pillow',
         'promise',
