@@ -56,7 +56,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
             if isinstance(cubeable.node, AllNode):
                 return PhysicalAllCard(cubeable, node_parent)
             elif isinstance(cubeable.node, AnyNode):
-                return PhysicalOrCard(cubeable, node_parent)
+                return PhysicalAnyCard(cubeable, node_parent)
             else:
                 raise ValueError('unknown node type')
         else:
@@ -194,7 +194,7 @@ class PhysicalAllCard(PhysicalTrap):
         menu.addAction(flatten)
 
 
-class PhysicalOrCard(PhysicalTrap):
+class PhysicalAnyCard(PhysicalTrap):
 
     def _get_re_select_action(
         self,
@@ -238,7 +238,12 @@ class PhysicalOrCard(PhysicalTrap):
 
         for _child in self.node_children:
             if _child.cubeable != child.cubeable:
-                re_select = QtWidgets.QAction(str(_child.cubeable), reselection_menu)
+                re_select = QtWidgets.QAction(
+                    child.cubeable.cardboard.name
+                    if isinstance(child.cubeable, Printing) else
+                    child.cubeable.node.get_minimal_string(),
+                    reselection_menu,
+                )
                 re_select.triggered.connect(self._get_re_select_action(child, _child, undo_stack))
                 reselection_menu.addAction(re_select)
 
@@ -250,6 +255,11 @@ class PhysicalOrCard(PhysicalTrap):
             self._generate_children()
 
         for child in self.node_children:
-            _flatten = QtWidgets.QAction(str(child.cubeable), flatten)
+            _flatten = QtWidgets.QAction(
+                child.cubeable.cardboard.name
+                if isinstance(child.cubeable, Printing) else
+                child.cubeable.node.get_minimal_string(),
+                flatten,
+            )
             _flatten.triggered.connect(self._get_select_or(child, undo_stack))
             flatten.addAction(_flatten)

@@ -1,0 +1,46 @@
+sort pile alphabetically (or group by cardboard) on sort?
+sub sort on name when sorting on other property
+option to sort keeping back card in position. maybe always do this when cards are selected?
+move cards retaining structure in stacking grid option
+jesus you cant see the cards as long as there is more then like 6 of them in a pile.
+    make dynamic grid work
+    alternate card image? (cropped + name?)
+align specific context actions?
+    ssg
+group all cards by cardboard feature
+    how works with aligners?
+proper undo command names
+aligner cursor meme?
+tie file to decktab (cant open same file multiple times, save auto overrides existing file, show path og file)
+save deck file including physical card information (mostly position, i guess node_parent / child relationships)
+should flatten all be recursive? should it be an option? (or maybe just in general)
+tickets
+double click card to move it (ie from pool to main, main to pool, side to main i guess)
+drag and drop from table
+color identity in table
+filtering in table
+focus card details (swap between picture and/or info)
+flatten etc from table
+intention type in table?
+customize enabled columns in table
+customize hotkeys
+settings editor in general
+some sort of groupes list view. doesnt necessarily have to be editable, but hoverable at least.
+dont show info only related to image view when in table mode only in cubeview
+visual indicator of logged in status
+ability to log out
+find out what to do with the notification system meme
+error handling of disconnects
+drafting
+uploading of deckelists when done with draft / sealed pool
+save layout of stretches / status of views / last selected aligner
+instead of just "select matching", full search dialog, with option to exit and select matching
+copy/paste (especially relevant when using method of selecting that does not involve having the cursor there, i.e. search-select)
+auto-focus name column when selecting table view to easier look op names
+rubberband only select intersection with non-covered parts of cards?
+rubberband update selection / show preview shile dragging?
+ctrl / alt / ctrl + alt modifiers for selecting (something like add, remove, intersect (and negative intersect?))
+dont let table view steal control tabbing priority
+change printing option (for this, all of this printing, all of this cardboard)
+filtering ability for printings in card adder (maybe option to filter on only printings matching for printing specifi searches)
+image view in card adder?

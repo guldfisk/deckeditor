@@ -65,6 +65,7 @@ class SearchSelectionDialog(QtWidgets.QDialog):
 
 class CubeImageView(QtWidgets.QGraphicsView):
     search_select = QtCore.pyqtSignal(Criteria)
+    card_double_clicked = QtCore.pyqtSignal(PhysicalCard)
 
     def __init__(self, undo_stack: QUndoStack, scene: CubeScene, mode: CubeEditMode = CubeEditMode.OPEN):
         super().__init__(scene)
@@ -90,6 +91,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self._dragging_move: bool = False
         self._last_move_event_pos = None
+        self._last_press_on_card = False
 
         # self._card_scene.cursor_moved.connect(lambda pos: self.centerOn(pos))
 
@@ -225,6 +227,13 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def cube_scene(self) -> CubeScene:
         return self._scene
 
+    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent) -> None:
+        # super().mouseDoubleClickEvent(event)
+        item = self.itemAt(event.pos())
+        print('double clicked', item)
+        if isinstance(item, PhysicalCard):
+            self.card_double_clicked.emit(item)
+
     # def set_zones(self, zones: t.Dict[DeckZoneType, 'CardContainer']):
     #     self._zones = zones
 
@@ -242,7 +251,9 @@ class CubeImageView(QtWidgets.QGraphicsView):
     #     target.undo_stack.push(
     #         target._card_scene.aligner.attach_cards(cards)
     #     )
-    #
+
+
+
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         pressed_key = key_event.key()
         modifiers = key_event.modifiers()
@@ -448,13 +459,19 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
             if item is None:
                 self._scene.clear_selection()
+                self._last_press_on_card = False
 
             else:
                 if not item.isSelected():
                     self._scene.set_selection((item,))
 
+                self._last_press_on_card = True
+
+
+    def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
+        if self._last_press_on_card:
+            if mouse_event.buttons() & Qt.LeftButton:
                 self._floating = self.scene().selectedItems()
-                # self._scene.pick_up(self._floating)
 
                 drag = QtGui.QDrag(self)
                 mime = QtCore.QMimeData()
@@ -465,15 +482,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
 
                 exec_value = drag.exec_()
+                return
+            else:
+                self._last_press_on_card = False
 
-                # if exec_value != QtCore.Qt.MoveAction:
-                #     self._scene.drop(self._dragging, mouse_event.pos())
-                #     for card in self._dragging:
-                #         card.show()
-                #     self._dragging[:] = []
-                #
-
-    def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
         if self._last_move_event_pos:
             delta = mouse_event.globalPos() - self._last_move_event_pos
         else:

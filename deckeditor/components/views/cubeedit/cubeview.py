@@ -195,6 +195,14 @@ class CubeView(QtWidgets.QWidget):
             'Ł', # AltGr+L
         )
 
+    @property
+    def cube_scene(self) -> CubeScene:
+        return self._cube_scene
+
+    @property
+    def cube_image_view(self) -> CubeImageView:
+        return self._cube_image_view
+
     def _create_action(
         self,
         name: str,

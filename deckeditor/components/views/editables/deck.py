@@ -1,6 +1,7 @@
 import typing
 
 from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QUndoStack
 
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
@@ -31,24 +32,42 @@ class DeckView(Editable):
 
         horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 
-        horizontal_splitter.addWidget(
-            CubeView(
-                self._deck_model.maindeck,
-                self._undo_stack,
-            )
+        self._maindeck_cube_view = CubeView(
+            self._deck_model.maindeck,
+            self._undo_stack,
         )
-        horizontal_splitter.addWidget(
-            CubeView(
-                self._deck_model.sideboard,
-                self._undo_stack,
-            )
 
+        self._sideboard_cube_view = CubeView(
+            self._deck_model.sideboard,
+            self._undo_stack,
         )
+
+        horizontal_splitter.addWidget(self._maindeck_cube_view)
+        horizontal_splitter.addWidget(self._sideboard_cube_view)
         layout.addWidget(
-           horizontal_splitter
+            horizontal_splitter
         )
 
         self.setLayout(layout)
+
+        self._maindeck_cube_view.cube_image_view.card_double_clicked.connect(
+            lambda card: self._undo_stack.push(
+                self._maindeck_cube_view.cube_scene.get_inter_move(
+                    [card],
+                    self._sideboard_cube_view.cube_scene,
+                    QPoint(),
+                )
+            )
+        )
+        self._sideboard_cube_view.cube_image_view.card_double_clicked.connect(
+            lambda card: self._undo_stack.push(
+                self._sideboard_cube_view.cube_scene.get_inter_move(
+                    [card],
+                    self._maindeck_cube_view.cube_scene,
+                    QPoint(),
+                )
+            )
+        )
 
     @property
     def deck_model(self) -> DeckModel:
