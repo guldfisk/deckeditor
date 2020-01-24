@@ -87,6 +87,33 @@ class CubeListView(QTableWidget):
                     ),
                 )
             )
+
+        elif pressed_key == QtCore.Qt.Key_Plus and self._mode == CubeEditMode.OPEN:
+            self._undo_stack.push(
+                self._cube_scene.get_cube_modification(
+                    CubeDeltaOperation(
+                        {
+                            self.item(item.row(), 1).cubeable: 1
+                            for item in
+                            self.selectedItems()
+                        }
+                    ),
+                )
+            )
+
+        elif pressed_key == QtCore.Qt.Key_Minus and self._mode == CubeEditMode.OPEN:
+            self._undo_stack.push(
+                self._cube_scene.get_cube_modification(
+                    CubeDeltaOperation(
+                        {
+                            self.item(item.row(), 1).cubeable: -1
+                            for item in
+                            self.selectedItems()
+                        }
+                    ),
+                )
+            )
+
         else:
             super().keyPressEvent(key_event)
 

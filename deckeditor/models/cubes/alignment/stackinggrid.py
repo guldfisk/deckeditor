@@ -27,16 +27,15 @@ from deckeditor.values import Direction
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner
 from deckeditor.models.cubes.selection import SelectionScene
 
-
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.ORIGINAL, False))]
 
 
 class CardStacker(ABC):
 
     def __init__(
-            self,
-            aligner: StackingGrid,
-            index: t.Sequence[int],
+        self,
+        aligner: StackingGrid,
+        index: t.Sequence[int],
     ):
         self._aligner: StackingGrid = aligner
         self._index: t.List[int] = list(index)
@@ -209,11 +208,11 @@ class CardStacker(ABC):
 class StackingDrop(AlignmentPickUp):
 
     def __init__(
-            self,
-            grid: StackingGrid,
-            stacker: CardStacker,
-            index: int,
-            cards: t.Tuple[PhysicalCard, ...],
+        self,
+        grid: StackingGrid,
+        stacker: CardStacker,
+        index: int,
+        cards: t.Tuple[PhysicalCard, ...],
     ):
         self._grid = grid
         self._stacker = stacker
@@ -255,9 +254,9 @@ class StackingMultiDrop(AlignmentPickUp):
 class StackingPickUp(AlignmentDrop):
 
     def __init__(
-            self,
-            grid: StackingGrid,
-            cards: t.Iterable[PhysicalCard],
+        self,
+        grid: StackingGrid,
+        cards: t.Iterable[PhysicalCard],
     ):
         self._grid = grid
         self._stacker_map: t.MutableMapping[CardStacker, t.List[t.Tuple[int, PhysicalCard]]] = defaultdict(list)
@@ -281,7 +280,7 @@ class StackingPickUp(AlignmentDrop):
 
     def undo(self):
         for stacker, infos in self._stacker_map.items():
-            _infos = sorted(infos, key=lambda info: info[0])
+            _infos = sorted(infos, key = lambda info: info[0])
 
             adjusted_indexes = []
             passed = 0
@@ -334,16 +333,15 @@ class _StackingSort(QUndoCommand):
             self._stackers[info.card_stacker].append((info.position, card))
             self._card_infos[card] = (info.card_stacker, info.position)
 
-        # for card, info in self._grid.stacked_cards.items():
-        #     self._stackers[info.card_stacker].append((info.position, card))
-        #     self._card_infos[card] = (info.card_stacker, info.position)
-
         super().__init__('Sort')
 
     def _sorted_cards(self) -> t.List[PhysicalCard]:
         return sorted(
-            self._card_infos.keys(),
-            key=lambda card: self.sort_property_extractor(card.cubeable),
+            sorted(
+                self._card_infos.keys(),
+                key = lambda card: extract_name(card.cubeable),
+            ),
+            key = lambda card: self.sort_property_extractor(card.cubeable),
         )
 
     @property
@@ -382,17 +380,11 @@ class _StackingSort(QUndoCommand):
             self._sorted_stackers[self._grid.get_card_stacker_at_index(x, y)].append(card)
 
     def redo(self) -> None:
-        # for stacker in self._grid.stacker_map.stackers:
-        #     stacker.clear_no_restack()
-
         for stacker, cards in self._stackers.items():
             stacker.remove_cards_no_restack((card for _, card in cards))
 
         if not self._sorted_stackers:
             self._make_sorted_stackers()
-
-        # for card, x, y in self._card_sorted_indexes():
-        #     self._grid.get_card_stacker_at_index(x, y).add_card_no_restack(card)
 
         for stacker, cards in self._sorted_stackers.items():
             stacker.add_cards_no_restack(cards)
@@ -401,9 +393,6 @@ class _StackingSort(QUndoCommand):
             stacker.update()
 
     def undo(self) -> None:
-        # for stacker in self._grid.stacker_map.stackers:
-        #     stacker.clear_no_restack()
-
         for stacker, cards in self._sorted_stackers.items():
             stacker.remove_cards_no_restack(cards)
 
@@ -431,6 +420,12 @@ class _ValueToPositionSort(_StackingSort):
 
         for card in self._card_infos.keys():
             value_map[self._sort_value(card)].append(card)
+
+        for key, cards, in value_map.items():
+            value_map[key] = sorted(
+                cards,
+                key = lambda c: extract_name(c.cubeable),
+            )
 
         values = sorted(value_map.keys()).__iter__()
 
@@ -468,7 +463,12 @@ class ColorIdentitySort(_ValueToPositionSort):
 
 
 class NameSort(_StackingSort):
-    sort_property_extractor = staticmethod(extract_name)
+
+    def _sorted_cards(self) -> t.List[PhysicalCard]:
+        return sorted(
+            self._card_infos.keys(),
+            key = lambda card: extract_name(card.cubeable),
+        )
 
 
 class ExpansionSort(_ValueToPositionSort):
@@ -492,12 +492,12 @@ class _CardInfo(object):
 class StackerMap(object):
 
     def __init__(
-            self,
-            aligner: StackingGrid,
-            row_amount: int,
-            column_amount: int,
-            default_column_width: float = 1.,
-            default_row_height: float = 1.,
+        self,
+        aligner: StackingGrid,
+        row_amount: int,
+        column_amount: int,
+        default_column_width: float = 1.,
+        default_row_height: float = 1.,
     ):
         self._aligner = aligner
 
@@ -725,8 +725,8 @@ class StackingGrid(Aligner):
 
         if direction == Direction.UP:
             for _x in chain(
-                    range(x, self.stacker_map.row_length),
-                    reversed(range(0, x)),
+                range(x, self.stacker_map.row_length),
+                reversed(range(0, x)),
             ):
                 for _y in reversed(range(0, y + 1)):
                     if _x == x and _y == y:
@@ -736,8 +736,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _x in chain(
-                    range(x, self.stacker_map.row_length),
-                    reversed(range(0, x)),
+                range(x, self.stacker_map.row_length),
+                reversed(range(0, x)),
             ):
                 for _y in reversed(range(y + 1, self.stacker_map.column_height)):
                     if _x == x and _y == y:
@@ -748,8 +748,8 @@ class StackingGrid(Aligner):
 
         elif direction == Direction.RIGHT:
             for _y in chain(
-                    range(y, self.stacker_map.column_height),
-                    reversed(range(0, y)),
+                range(y, self.stacker_map.column_height),
+                reversed(range(0, y)),
             ):
                 for _x in range(x, self.stacker_map.row_length):
                     if _x == x and _y == y:
@@ -759,8 +759,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _y in chain(
-                    range(y, self.stacker_map.column_height),
-                    reversed(range(0, y)),
+                range(y, self.stacker_map.column_height),
+                reversed(range(0, y)),
             ):
                 for _x in range(0, x):
                     if _x == x and _y == y:
@@ -771,8 +771,8 @@ class StackingGrid(Aligner):
 
         elif direction == Direction.DOWN:
             for _x in chain(
-                    reversed(range(0, x + 1)),
-                    range(x + 1, self.stacker_map.row_length),
+                reversed(range(0, x + 1)),
+                range(x + 1, self.stacker_map.row_length),
             ):
                 for _y in range(y + 1, self.stacker_map.column_height):
                     if _x == x and _y == y:
@@ -782,8 +782,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _x in chain(
-                    reversed(range(0, x + 1)),
-                    range(x + 1, self.stacker_map.row_length),
+                reversed(range(0, x + 1)),
+                range(x + 1, self.stacker_map.row_length),
             ):
                 for _y in range(0, y + 1):
                     if _x == x and _y == y:
@@ -794,8 +794,8 @@ class StackingGrid(Aligner):
 
         elif direction == Direction.LEFT:
             for _y in chain(
-                    reversed(range(0, y + 1)),
-                    range(y + 1, self.stacker_map.column_height),
+                reversed(range(0, y + 1)),
+                range(y + 1, self.stacker_map.column_height),
             ):
                 for _x in reversed(range(0, x + 1)):
                     if _x == x and _y == y:
@@ -805,8 +805,8 @@ class StackingGrid(Aligner):
                         return stacker
 
             for _y in chain(
-                    reversed(range(0, y + 1)),
-                    range(y + 1, self.stacker_map.column_height),
+                reversed(range(0, y + 1)),
+                range(y + 1, self.stacker_map.column_height),
             ):
                 for _x in reversed(range(x + 1, self.stacker_map.row_length)):
                     if _x == x and _y == y:
@@ -863,7 +863,7 @@ class StackingGrid(Aligner):
             selected_items = self._scene.selectedItems()
 
             if modifiers & QtCore.Qt.ControlModifier:
-                stacker = self.find_stacker(*info.card_stacker.index, direction=direction)
+                stacker = self.find_stacker(*info.card_stacker.index, direction = direction)
 
                 if stacker is None:
                     return
@@ -883,7 +883,7 @@ class StackingGrid(Aligner):
             position = info.position - 1
 
             if position < 0:
-                next_stacker = self.find_stacker(*stacker.index, direction=direction)
+                next_stacker = self.find_stacker(*stacker.index, direction = direction)
 
                 if next_stacker is not None:
                     stacker = next_stacker
@@ -896,7 +896,7 @@ class StackingGrid(Aligner):
             position = info.position + 1
 
             if position >= len(stacker.cards):
-                next_stacker = self.find_stacker(*stacker.index, direction=direction)
+                next_stacker = self.find_stacker(*stacker.index, direction = direction)
 
                 if next_stacker is not None:
                     stacker = next_stacker
@@ -1009,6 +1009,7 @@ class StackingGrid(Aligner):
                     sort_property,
                 )
             )
+
         return _sort_stack
 
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:

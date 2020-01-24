@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtCore import QPoint, Qt, QRect, QRectF
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
@@ -319,7 +319,21 @@ class CubeImageView(QtWidgets.QGraphicsView):
             super().keyPressEvent(key_event)
 
     def _fit_all_cards(self) -> None:
-        self.fitInView(self._scene.itemsBoundingRect(), QtCore.Qt.KeepAspectRatio)
+        selected = self._scene.selectedItems()
+        if selected:
+            rect = QRectF(selected[0].pos(), selected[0].boundingRect().size())
+            if len(selected) > 1:
+                for item in selected[1:]:
+                    rect |= QRectF(item.pos(), item.boundingRect().size())
+            self.fitInView(
+                rect,
+                QtCore.Qt.KeepAspectRatio,
+            )
+        else:
+            self.fitInView(
+                self._scene.itemsBoundingRect(),
+                QtCore.Qt.KeepAspectRatio,
+            )
 
     def _flatten_all_traps(self) -> None:
         self._undo_stack.push(

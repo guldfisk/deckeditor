@@ -12,10 +12,11 @@ group all cards by cardboard feature
 proper undo command names
 aligner cursor meme?
 tie file to decktab (cant open same file multiple times, save auto overrides existing file, show path og file)
-save deck file including physical card information (mostly position, i guess node_parent / child relationships)
+save deck / pool file including physical card information (mostly position, i guess node_parent / child relationships)
 should flatten all be recursive? should it be an option? (or maybe just in general)
 tickets
-double click card to move it (ie from pool to main, main to pool, side to main i guess)
+right click -> move to -> (maindeck etc.) on physical card
+right click -> move to -> (maindeck etc.) on table view row
 drag and drop from table
 color identity in table
 filtering in table
