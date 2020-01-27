@@ -4,7 +4,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QPoint, Qt, QRect, QRectF
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QKeySequence, QPainter
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
@@ -75,6 +75,9 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._mode = mode
 
         self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        # self.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        self.setRenderHints(QPainter.SmoothPixmapTransform)
+        print(bool(self.renderHints() & QPainter.SmoothPixmapTransform))
 
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
@@ -336,11 +339,12 @@ class CubeImageView(QtWidgets.QGraphicsView):
             )
 
     def _flatten_all_traps(self) -> None:
+        selected = self._scene.selectedItems()
         self._undo_stack.push(
             CommandPackage(
                 [
                     card.get_flatten_command()
-                    for card in self.items()
+                    for card in (selected if selected else self._scene.items())
                     if isinstance(card, PhysicalAllCard)
                 ]
             )

@@ -14,7 +14,7 @@ from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.context.context import Context
 from deckeditor.notifications.notifyable import Notifyable
-from deckeditor.components.cardview.widget import CardViewWidget
+from deckeditor.components.cardview.cubeableview import CubeableView
 from deckeditor.values import DeckZoneType
 
 

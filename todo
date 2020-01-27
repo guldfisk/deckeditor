@@ -45,3 +45,9 @@ dont let table view steal control tabbing priority
 change printing option (for this, all of this printing, all of this cardboard)
 filtering ability for printings in card adder (maybe option to filter on only printings matching for printing specifi searches)
 image view in card adder?
+fix bunchview drop card on last card in first column puts it in first in second.
+merge contextmenu overlap when multiple physical cards selected
+fix image memory garbage
+image sometimes not loading when download is required?
+what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged?
+add basics to pool (and remove)

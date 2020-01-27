@@ -16,7 +16,7 @@ class StaticCardStacker(CardStacker):
         aligner: StackingGrid,
         index: t.Tuple[int, int],
         size: t.Tuple[float, float],
-        max_spacing: float = 100,
+        max_spacing: float = 50.,
     ):
         super().__init__(aligner, index)
         self._max_spacing: float = max_spacing

@@ -4,12 +4,15 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoGroup
 
-from cubeclient.models import ApiClient
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader, DBLoadException
 from mtgorp.managejson.update import update
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools.parsing.search.parse import SearchParser
+
+from mtgimg.load import Loader as ImageLoader
+
+from cubeclient.models import ApiClient
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
@@ -18,7 +21,6 @@ from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
 
 
 class _Context(QObject):
-
     settings: QtCore.QSettings
     pixmap_loader: PixmapLoader
     db: CardDatabase
@@ -50,8 +52,11 @@ class _Context(QObject):
 
         cls.pixmap_loader = PixmapLoader(
             pixmap_executor = 30,
-            printing_executor = 30,
-            imageable_executor = 30,
+            image_loader = ImageLoader(
+                printing_executor = 20,
+                imageable_executor = 10,
+                image_cache_size = None,
+            ),
         )
 
         try:

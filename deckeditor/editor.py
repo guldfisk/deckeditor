@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import linecache
 import typing
 import typing as t
 
 import sys
 import random
 import os
+import tracemalloc
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
@@ -46,9 +48,35 @@ from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 # from deckeditor.notifications.frame import NotificationFrame
 # from deckeditor.notifications.notifyable import Notifyable
 # from deckeditor.values import DeckZoneType
-from deckeditor.components.cardview.widget import CardViewWidget
+from deckeditor.components.cardview.cubeableview import CubeableView
 from deckeditor.context.context import Context
 from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
+
+
+def display_top(snapshot, key_type='lineno', limit=10):
+    snapshot = snapshot.filter_traces((
+        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+        tracemalloc.Filter(False, "<unknown>"),
+    ))
+    top_stats = snapshot.statistics(key_type)
+
+    print("Top %s lines" % limit)
+    for index, stat in enumerate(top_stats[:limit], 1):
+        frame = stat.traceback[0]
+        # replace "/path/to/module/file.py" with "module/file.py"
+        filename = os.sep.join(frame.filename.split(os.sep)[-2:])
+        print("#%s: %s:%s: %.1f KiB"
+              % (index, filename, frame.lineno, stat.size / 1024))
+        line = linecache.getline(frame.filename, frame.lineno).strip()
+        if line:
+            print('    %s' % line)
+
+    other = top_stats[limit:]
+    if other:
+        size = sum(stat.size for stat in other)
+        print("%s other: %.1f KiB" % (len(other), size / 1024))
+    total = sum(stat.size for stat in top_stats)
+    print("Total allocated size: %.1f KiB" % (total / 1024))
 
 
 # class DeckWidget(QWidget):
@@ -311,12 +339,12 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
         self.setWindowTitle('Embargo Edit')
 
-        self._card_view = CardViewWidget(self)
-        Context.focus_card_changed.connect(self._card_view.set_image)
+        self._printing_view = CubeableView(self)
+        Context.focus_card_changed.connect(self._printing_view.new_cubeable)
 
         self._card_view_dock = QtWidgets.QDockWidget('Card View', self)
         self._card_view_dock.setObjectName('card_view_dock')
-        self._card_view_dock.setWidget(self._card_view)
+        self._card_view_dock.setWidget(self._printing_view)
         self._card_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
         self._card_adder = CardAdder(self, self)
@@ -416,7 +444,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
             ),
             menu_bar.addMenu('Test'): (
-                ('Test', 'Ctrl+T', self._test_add),
+                ('Test', 'Ctrl+T', self._test),
             ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', self._login),
@@ -534,7 +562,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._card_adder.query_edit.setFocus()
 
     def _test(self):
-        pass
+        display_top(tracemalloc.take_snapshot())
         # print(self._main_view.active_deck, type(self._main_view.active_deck), dir(self._main_view.active_deck))
         # print(self._main_view.active_deck.deck)
 
@@ -573,8 +601,8 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
     #         )
     #     )
 
-    def _test_add(self):
-        self._add_card(Context.db)
+    # def _test_add(self):
+    #     self._add_card(Context.db)
 
     # def add_printings(self, target: DeckZoneType, printings: t.Iterable[Printing]):
     #     self._main_view.active_deck.undo_stack.push(
@@ -685,6 +713,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
 
 def run():
+    # tracemalloc.start()
     app = EmbargoApp(sys.argv)
     app.setQuitOnLastWindowClosed(True)
 

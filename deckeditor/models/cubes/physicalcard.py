@@ -11,7 +11,7 @@ from magiccube.laps.lap import Lap
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import AnyNode, AllNode
 
-from mtgimg.interface import ImageRequest
+from mtgimg.interface import ImageRequest, SizeSlug
 
 from mtgorp.models.interfaces import Printing
 
@@ -20,6 +20,7 @@ from mtgqt.pixmapload.pixmaploader import PixmapLoader
 from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
 from deckeditor.utils.undo import CommandPackage
 from deckeditor.context.context import Context
+
 
 C = t.TypeVar('C', bound = t.Union[Printing, Lap])
 
@@ -31,7 +32,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
     DEFAULT_PIXMAP: QtGui.QPixmap = None
 
     def __init__(self, cubeable: C, node_parent: t.Optional[PhysicalCard] = None):
-        super().__init__(Context.pixmap_loader.get_default_pixmap())
+        super().__init__(Context.pixmap_loader.get_default_pixmap(SizeSlug.MEDIUM))
 
         self._selection_highlight_pen = QtGui.QPen(
             QtGui.QColor(255, 0, 0),
@@ -67,7 +68,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
         return self._cubeable
 
     def image_request(self) -> ImageRequest:
-        return ImageRequest(self._cubeable, back = self._back)
+        return ImageRequest(self._cubeable, back = self._back, size_slug = SizeSlug.MEDIUM)
 
     def _update_image(self):
         image_request = self.image_request()
