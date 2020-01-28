@@ -80,6 +80,7 @@ class AlignSelector(QtWidgets.QComboBox):
 
         self._cube_scene.aligner_changed.connect(self._on_aligner_change)
         self.activated.connect(self._on_index_change)
+        self.setFocusPolicy(QtCore.Qt.NoFocus)
 
     def _on_index_change(self, idx: int) -> None:
         aligner_type = self.itemData(idx)

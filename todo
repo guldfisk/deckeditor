@@ -1,6 +1,4 @@
-sort pile alphabetically (or group by cardboard) on sort?
-sub sort on name when sorting on other property
-option to sort keeping back card in position. maybe always do this when cards are selected?
+
 move cards retaining structure in stacking grid option
 jesus you cant see the cards as long as there is more then like 6 of them in a pile.
     make dynamic grid work
@@ -23,11 +21,12 @@ filtering in table
 focus card details (swap between picture and/or info)
 flatten etc from table
 intention type in table?
+sort by intention_type?
 customize enabled columns in table
 customize hotkeys
 settings editor in general
 some sort of groupes list view. doesnt necessarily have to be editable, but hoverable at least.
-dont show info only related to image view when in table mode only in cubeview
+dont show info only related to image view when in table mode only in cubeview (align selector etc)
 visual indicator of logged in status
 ability to log out
 find out what to do with the notification system meme
@@ -37,17 +36,21 @@ uploading of deckelists when done with draft / sealed pool
 save layout of stretches / status of views / last selected aligner
 instead of just "select matching", full search dialog, with option to exit and select matching
 copy/paste (especially relevant when using method of selecting that does not involve having the cursor there, i.e. search-select)
-auto-focus name column when selecting table view to easier look op names
+auto-focus name column when selecting table view to easier look up names
 rubberband only select intersection with non-covered parts of cards?
 rubberband update selection / show preview shile dragging?
-ctrl / alt / ctrl + alt modifiers for selecting (something like add, remove, intersect (and negative intersect?))
+ctrl / alt / ctrl + alt modifiers for selecting in cubeimageview (something like add, remove, intersect (and negative intersect?))
 dont let table view steal control tabbing priority
-change printing option (for this, all of this printing, all of this cardboard)
 filtering ability for printings in card adder (maybe option to filter on only printings matching for printing specifi searches)
 image view in card adder?
 fix bunchview drop card on last card in first column puts it in first in second.
 merge contextmenu overlap when multiple physical cards selected
-fix image memory garbage
-image sometimes not loading when download is required?
 what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged?
 add basics to pool (and remove)
+initial load of file should not be undoable (to an empty scene)
+disable change printing for pool except for basics
+option for visual menu when selecting printing (also for cardboards with many printing)
+sort macroes
+save / load .cod
+more split on sorts like type (land/non-land, mono-color/misc, lap/non-lap)
+sort menu

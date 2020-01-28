@@ -2,13 +2,13 @@ import typing as t
 
 from abc import ABC, abstractmethod
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
-from deckeditor.sorting.sort import SortProperty
+from deckeditor.sorting.sorting import SortProperty
 
 
 class AlignmentCommand(ABC):
@@ -58,8 +58,9 @@ class Aligner(ABC):
     @abstractmethod
     def sort(
         self,
-        sort_property: SortProperty,
+        sort_property: t.Type[SortProperty],
         cards: t.Sequence[PhysicalCard],
         orientation: int,
+        in_place: bool = False,
     ) -> QUndoCommand:
         pass

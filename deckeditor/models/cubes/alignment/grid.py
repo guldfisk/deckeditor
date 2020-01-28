@@ -8,9 +8,9 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
-from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop, AlignmentCommand
+from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.sorting.sort import SortProperty, extract_sort_value
+from deckeditor.sorting.sorting import SortProperty
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from mtgimg.interface import SizeSlug
 
@@ -134,21 +134,30 @@ class GridSort(QUndoCommand):
     def __init__(
         self,
         grid: GridAligner,
-        sort_property: SortProperty,
+        sort_property: t.Type[SortProperty],
         cards: t.Sequence[PhysicalCard],
         original_order: t.List[PhysicalCard],
+        in_place: bool,
     ):
         self._grid = grid
         self._cards = cards
         self._sort_property = sort_property
         self._original_order = original_order
+        self._in_place = in_place
         super().__init__('grid sort')
 
     def redo(self) -> None:
-        self._grid.cards[:] = sorted(
+        sorted_cards = sorted(
             self._cards,
-            key = lambda card: extract_sort_value(card.cubeable, self._sort_property),
-        ) + [card for card in self._original_order if not card in self._cards]
+            key = lambda card: self._sort_property.extract(card.cubeable),
+        )
+        unsorted_cards = [card for card in self._original_order if not card in self._cards]
+        if not self._in_place:
+            self._grid.cards[:] = sorted_cards + unsorted_cards
+        else:
+            self._grid.cards[:] = unsorted_cards
+            idx = next(idx for idx, card in enumerate(self._original_order) if card in self._cards)
+            self._grid.cards[idx:idx] = sorted_cards
         self._grid.realign()
 
     def undo(self) -> None:
@@ -226,12 +235,19 @@ class GridAligner(Aligner):
             drops,
         )
 
-    def sort(self, sort_property: SortProperty, cards: t.Sequence[PhysicalCard], orientation: int) -> QUndoCommand:
+    def sort(
+        self,
+        sort_property: t.Type[SortProperty],
+        cards: t.Sequence[PhysicalCard],
+        orientation: int,
+        in_place: bool = False,
+    ) -> QUndoCommand:
         return GridSort(
             self,
             sort_property,
             cards,
             copy.copy(self._cards),
+            in_place,
         )
 
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:

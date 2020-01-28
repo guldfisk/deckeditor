@@ -18,7 +18,7 @@ from mtgorp.tools.search.pattern import Criteria
 from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalTrap, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
-from deckeditor.sorting.sort import SortProperty
+from deckeditor.sorting import sorting
 from yeetlong.multiset import Multiset
 
 
@@ -100,14 +100,18 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self._sort_actions: t.List[QtWidgets.QAction] = []
 
-        self._create_sort_action_pair(SortProperty.CMC, 'm')
-        self._create_sort_action_pair(SortProperty.COLOR, 'l')
-        self._create_sort_action_pair(SortProperty.Color_IDENTIRY, 'i')
-        self._create_sort_action_pair(SortProperty.RARITY, 'r')
-        self._create_sort_action_pair(SortProperty.TYPE, 't')
-        self._create_sort_action_pair(SortProperty.NAME, 'n')
-        self._create_sort_action_pair(SortProperty.EXPANSION)
-        self._create_sort_action_pair(SortProperty.COLLECTOR_NUMBER)
+        self._create_sort_action_pair(sorting.ColorExtractor, 'o')
+        self._create_sort_action_pair(sorting.ColorIdentityExtractor, 'i')
+        self._create_sort_action_pair(sorting.CMCExtractor, 'm')
+        self._create_sort_action_pair(sorting.NameExtractor, 'n')
+        self._create_sort_action_pair(sorting.IsLandExtractor, 'l')
+        self._create_sort_action_pair(sorting.IsCreatureExtractor, 't')
+        self._create_sort_action_pair(sorting.CubeableTypeExtractor)
+        self._create_sort_action_pair(sorting.CubeableTypeExtractor)
+        self._create_sort_action_pair(sorting.IsMonoExtractor)
+        self._create_sort_action_pair(sorting.RarityExtractor)
+        self._create_sort_action_pair(sorting.ExpansionExtractor)
+        self._create_sort_action_pair(sorting.CollectorNumberExtractor)
 
         self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+I')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
@@ -169,7 +173,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
     def _create_sort_action_pair(
         self,
-        sort_property: SortProperty,
+        sort_property: t.Type[sorting.SortProperty],
         short_cut_letter: t.Optional[str] = None,
     ) -> None:
         self._create_sort_action(sort_property, QtCore.Qt.Horizontal, short_cut_letter)
@@ -177,19 +181,20 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
     def _create_sort_action(
         self,
-        sort_property: SortProperty,
+        sort_property: t.Type[sorting.SortProperty],
         orientation: int,
         short_cut_letter: t.Optional[str] = None,
     ) -> None:
 
         self._sort_actions.append(
             self._create_action(
-                f'{sort_property.value} {"Horizontally" if orientation == QtCore.Qt.Horizontal else "Vertically"}',
+                f'{sort_property.name} {"Horizontally" if orientation == QtCore.Qt.Horizontal else "Vertically"}',
                 lambda: self._undo_stack.push(
                     self._scene.aligner.sort(
                         sort_property,
                         self._scene.items() if not self._scene.selectedItems() else self._scene.selectedItems(),
                         orientation,
+                        bool(self._scene.selectedItems()),
                     )
                 ),
                 None
