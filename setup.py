@@ -26,6 +26,7 @@ setup(
         'orp @ https://github.com/guldfisk/orp/tarball/master#egg=orp-1.0',
         'draft @ https://github.com/guldfisk/draft/tarball/master#egg=draft-1.0',
         'lobbyclient @ https://github.com/guldfisk/lobbyclient/tarball/master#egg=lobbyclient-1.0',
+        'cubeclient @ https://github.com/guldfisk/cubeclient/tarball/master#egg=cubeclient-1.0',
         'pillow',
         'promise',
         'PyQt5',
