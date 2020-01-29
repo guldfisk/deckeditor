@@ -1,17 +1,19 @@
-import typing
+from __future__ import annotations
+
+import typing as t
+import uuid
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QUndoStack
+from PyQt5.QtWidgets import QVBoxLayout, QUndoStack
 
-from deckeditor.components.views.cubeedit.cubelistview import CubeListView
+from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel
 from deckeditor.serialization.deckserializer import DeckSerializer
 from deckeditor.values import SUPPORTED_EXTENSIONS
-from mtgorp.models.serilization.strategies.jsonid import JsonId
 
 
 class DeckView(Editable):
@@ -19,12 +21,17 @@ class DeckView(Editable):
     def __init__(
         self,
         deck_model: DeckModel,
-        parent: typing.Optional[QWidget] = None,
+        file_path: t.Optional[str] = None,
+        *,
+        maindeck_cube_view: t.Optional[CubeView] = None,
+        sideboard_cube_view: t.Optional[CubeView] = None,
+        undo_stack: t.Optional[QUndoStack] = None
     ) -> None:
-        super().__init__(parent)
+        super().__init__()
+        self._file_path = file_path
+        self._uuid = str(uuid.uuid4())
 
-        self._undo_stack = QUndoStack(Context.undo_group)
-        # Context.undo_group.setActiveStack(self._undo_stack)
+        self._undo_stack = undo_stack if undo_stack is not None else QUndoStack(Context.undo_group)
 
         self._deck_model = deck_model
 
@@ -32,14 +39,22 @@ class DeckView(Editable):
 
         horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 
-        self._maindeck_cube_view = CubeView(
-            self._deck_model.maindeck,
-            self._undo_stack,
+        self._maindeck_cube_view = (
+            maindeck_cube_view
+            if maindeck_cube_view is not None else
+            CubeView(
+                self._deck_model.maindeck,
+                self._undo_stack,
+            )
         )
 
-        self._sideboard_cube_view = CubeView(
-            self._deck_model.sideboard,
-            self._undo_stack,
+        self._sideboard_cube_view = (
+            sideboard_cube_view
+            if sideboard_cube_view is not None else
+            CubeView(
+                self._deck_model.sideboard,
+                self._undo_stack,
+            )
         )
 
         horizontal_splitter.addWidget(self._maindeck_cube_view)
@@ -69,6 +84,43 @@ class DeckView(Editable):
             )
         )
 
+    def persist(self) -> t.Any:
+        return {
+            'maindeck_view': self._maindeck_cube_view.persist(),
+            'sideboard_view': self._sideboard_cube_view.persist(),
+            'deck_model': self._deck_model.persist()
+        }
+
+    @classmethod
+    def load(cls, state: t.Any) -> DeckView:
+        deck_model = DeckModel.load(state['deck_model'])
+        undo_stack = QUndoStack(Context.undo_group)
+        return DeckView(
+            deck_model,
+            maindeck_cube_view = CubeView.load(
+                state['maindeck_view'],
+                deck_model.maindeck,
+                CubeEditMode.OPEN,
+                undo_stack = undo_stack,
+            ),
+            sideboard_cube_view = CubeView.load(
+                state['sideboard_view'],
+                deck_model.sideboard,
+                CubeEditMode.OPEN,
+                undo_stack = undo_stack,
+            ),
+            undo_stack = undo_stack,
+        )
+
+    @property
+    def file_path(self) -> t.Optional[str]:
+        return self._file_path
+
+    def get_key(self) -> str:
+        if self._file_path is not None:
+            return self._file_path
+        return self._uuid
+
     @property
     def deck_model(self) -> DeckModel:
         return self._deck_model
@@ -83,7 +135,6 @@ class DeckView(Editable):
         dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
         dialog.setNameFilter(SUPPORTED_EXTENSIONS)
         dialog.setDefaultSuffix('json')
-        # dialog.selectFile('u suck lol')
 
         if not dialog.exec_():
             return

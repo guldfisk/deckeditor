@@ -5,4 +5,7 @@ from PyQt5.QtWidgets import QWidget
 
 
 class Editable(QWidget):
-    pass
+
+    def get_key(self) -> str:
+        pass
+

@@ -2,7 +2,7 @@ import typing as t
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QUndoGroup
+from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene
 
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader, DBLoadException
@@ -24,9 +24,9 @@ class _Context(QObject):
     settings: QtCore.QSettings
     pixmap_loader: PixmapLoader
     db: CardDatabase
-    soft_serialization: SoftSerialization
+    # soft_serialization: SoftSerialization
     search_pattern_parser: SearchParser
-    deck_list_view: DeckListWidget
+    # deck_list_view: DeckListWidget
     undo_group: QUndoGroup
 
     host: str
@@ -37,6 +37,7 @@ class _Context(QObject):
     cube_api_client: ApiClient
 
     focus_card_changed = pyqtSignal(object)
+    focus_scene_changed = pyqtSignal(QGraphicsScene)
 
     draft_started = pyqtSignal(object)
 
@@ -65,14 +66,14 @@ class _Context(QObject):
             update()
             cls.db = Loader.load()
 
-        json_id = JsonId(cls.db)
-
-        cls.soft_serialization = SoftSerialization(
-            [json_id],
-            {
-                'emb': json_id,
-            },
-        )
+        # json_id = JsonId(cls.db)
+        #
+        # cls.soft_serialization = SoftSerialization(
+        #     [json_id],
+        #     {
+        #         'emb': json_id,
+        #     },
+        # )
 
         cls.search_pattern_parser = SearchParser(cls.db)
         cls.undo_group = QUndoGroup()

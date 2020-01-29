@@ -20,7 +20,6 @@ from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingG
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.models.cubes.cubescene import CubeScene
 
-
 ALIGNER_TYPE_MAP = OrderedDict(
     (
         ('Static Stacking Grid', StaticStackingGrid),
@@ -122,15 +121,22 @@ class SelectionIndicator(QtWidgets.QLabel):
 class CubeView(QtWidgets.QWidget):
     layout_changed = QtCore.pyqtSignal(CubeViewLayout)
 
-    def __init__(self, scene: CubeScene, undo_stack: QUndoStack, mode: CubeEditMode = CubeEditMode.OPEN, parent = None):
-        super().__init__(parent = parent)
+    def __init__(
+        self,
+        scene: CubeScene,
+        undo_stack: QUndoStack,
+        mode: CubeEditMode = CubeEditMode.OPEN,
+        *,
+        cube_view_layout: CubeViewLayout = CubeViewLayout.IMAGE,
+    ):
+        super().__init__()
 
         self._mode = mode
         self._cube_scene = scene
         self._undo_stack = undo_stack
 
         self._current_aligner_type = StaticStackingGrid
-        self._view_layout = CubeViewLayout.IMAGE
+        self._view_layout = cube_view_layout
 
         self._cube_image_view = CubeImageView(
             undo_stack,
@@ -184,7 +190,7 @@ class CubeView(QtWidgets.QWidget):
                     GridAligner
                 )
             ),
-            'Œ', # Some real garbage, prob doesn't work on windows (or other keymaps idk) supposed to be AltGr+O
+            'Œ',  # Some real garbage, prob doesn't work on windows (or other keymaps idk) supposed to be AltGr+O
         )
         self._create_action(
             'Static Stacking Grid',
@@ -193,7 +199,7 @@ class CubeView(QtWidgets.QWidget):
                     StaticStackingGrid
                 )
             ),
-            'Ł', # AltGr+L
+            'Ł',  # AltGr+L
         )
 
     @property
@@ -203,6 +209,22 @@ class CubeView(QtWidgets.QWidget):
     @property
     def cube_image_view(self) -> CubeImageView:
         return self._cube_image_view
+
+    def persist(self) -> t.Any:
+        return {
+            # 'aligner': self._cube_scene.aligner.persist(),
+            # 'aligner_type': self._cube_scene.aligner.__class__.__name__,
+            'layout': self._view_layout.name,
+        }
+
+    @classmethod
+    def load(cls, state: t.Any, cube_scene: CubeScene, mode: CubeEditMode, undo_stack: QUndoStack) -> CubeView:
+        return CubeView(
+            cube_scene,
+            undo_stack,
+            mode,
+            cube_view_layout = CubeViewLayout[state['layout']],
+        )
 
     def _create_action(
         self,

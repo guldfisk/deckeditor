@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import pickle
 import typing as t
 from collections import defaultdict
 
@@ -8,6 +9,7 @@ from PyQt5.QtCore import QPoint, pyqtSignal
 from PyQt5.QtWidgets import QGraphicsItem, QUndoCommand
 
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, AlignmentMultiDrop
+from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from magiccube.collections import cubeable as Cubeable
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
@@ -146,16 +148,20 @@ class ChangeAligner(QUndoCommand):
 class CubeScene(SelectionScene):
     aligner_changed = pyqtSignal(Aligner)
 
-    def __init__(self, aligner_type: t.Optional[t.Type[Aligner]], cube: t.Optional[Cube] = None):
+    def __init__(
+        self,
+        aligner_type: t.Optional[t.Type[Aligner]] = None,
+        cube: t.Optional[Cube] = None,
+    ):
         super().__init__()
 
         self.setSceneRect(0, 0, values.IMAGE_WIDTH * 12, values.IMAGE_HEIGHT * 8)
 
-        self._aligner = aligner_type(self)
+        self._aligner = None if aligner_type is None else aligner_type(self)
 
         self._item_map: t.MutableMapping[Cubeable, t.List[PhysicalCard]] = defaultdict(list)
 
-        if cube is not None:
+        if cube is not None and self._aligner is not None:
             for cubeable in cube:
                 self.add_cubeables(cubeable)
             self._aligner.drop(
@@ -179,7 +185,6 @@ class CubeScene(SelectionScene):
         return self._aligner
 
     def _on_aligner_changed(self, aligner: Aligner) -> None:
-        print('aligner changed for {}, setting aligner to {} from {}'.format(self, aligner, self._aligner))
         self._aligner = aligner
 
     def get_set_aligner(self, aligner_type: t.Type[Aligner]):
@@ -200,6 +205,20 @@ class CubeScene(SelectionScene):
             ),
         )
 
+    def persist(self) -> t.Any:
+        return {
+            'aligner': self._aligner,
+        }
+
+    @classmethod
+    def load(cls, state: t.Any) -> CubeScene:
+        cube_scene = CubeScene()
+        aligner: Aligner = state['aligner']
+        aligner._scene = cube_scene
+        cube_scene._aligner = aligner
+        cube_scene.add_physical_cards(*aligner.cards)
+        aligner.realign()
+        return cube_scene
 
     def get_intra_move(self, items: t.Sequence[PhysicalCard], position: QPoint) -> IntraCubeSceneMove:
         return IntraCubeSceneMove(

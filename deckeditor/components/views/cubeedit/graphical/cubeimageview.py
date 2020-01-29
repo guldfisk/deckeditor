@@ -492,6 +492,8 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
 
     def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
+        Context.focus_scene_changed.emit(self._scene)
+
         if self._last_press_on_card:
             if mouse_event.buttons() & Qt.LeftButton:
                 self._floating = self.scene().selectedItems()

@@ -1,18 +1,37 @@
+fix rubberband on windows
+fix style on windows
+propper mtgorp db builder menu
+tickets
+visual indicator of logged in status
+ability to log out
+error handling of disconnects
+instead of just "select matching", full search dialog, with option to exit and select matching
+search dialog searching entire tab (all views in pool or deck or whatever)
+fix bunchview drop card on last card in first column puts it in first in second.
+what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged? They should always be rearranged to the current column moves down, so you dont have to move cursor when clicking multiple cards in a row.
+add basics to pool (and remove)
+disable change printing for pool except for basics
+option for visual menu when selecting printing (also for cardboards with many printing)
+sort menu
+save session info for pools (how does this work. pool need to be able to be worked in unattached offline mode or something)
+fix cardboards without printings (and the snot thing?)
+persist session for unsaved files
+
+uploading of deckelists when done with draft / sealed pool
+drafting
 
 move cards retaining structure in stacking grid option
 jesus you cant see the cards as long as there is more then like 6 of them in a pile.
     make dynamic grid work
     alternate card image? (cropped + name?)
+    merge view sorta like arena, two rows dynamic height, keep cards sorted in stackers, merge multiples into "nX"
 align specific context actions?
     ssg
 group all cards by cardboard feature
     how works with aligners?
 proper undo command names
 aligner cursor meme?
-tie file to decktab (cant open same file multiple times, save auto overrides existing file, show path og file)
-save deck / pool file including physical card information (mostly position, i guess node_parent / child relationships)
 should flatten all be recursive? should it be an option? (or maybe just in general)
-tickets
 right click -> move to -> (maindeck etc.) on physical card
 right click -> move to -> (maindeck etc.) on table view row
 drag and drop from table
@@ -21,20 +40,13 @@ filtering in table
 focus card details (swap between picture and/or info)
 flatten etc from table
 intention type in table?
-sort by intention_type?
 customize enabled columns in table
 customize hotkeys
 settings editor in general
 some sort of groupes list view. doesnt necessarily have to be editable, but hoverable at least.
 dont show info only related to image view when in table mode only in cubeview (align selector etc)
-visual indicator of logged in status
-ability to log out
 find out what to do with the notification system meme
-error handling of disconnects
-drafting
-uploading of deckelists when done with draft / sealed pool
 save layout of stretches / status of views / last selected aligner
-instead of just "select matching", full search dialog, with option to exit and select matching
 copy/paste (especially relevant when using method of selecting that does not involve having the cursor there, i.e. search-select)
 auto-focus name column when selecting table view to easier look up names
 rubberband only select intersection with non-covered parts of cards?
@@ -43,14 +55,10 @@ ctrl / alt / ctrl + alt modifiers for selecting in cubeimageview (something like
 dont let table view steal control tabbing priority
 filtering ability for printings in card adder (maybe option to filter on only printings matching for printing specifi searches)
 image view in card adder?
-fix bunchview drop card on last card in first column puts it in first in second.
 merge contextmenu overlap when multiple physical cards selected
-what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged?
-add basics to pool (and remove)
 initial load of file should not be undoable (to an empty scene)
-disable change printing for pool except for basics
-option for visual menu when selecting printing (also for cardboards with many printing)
 sort macroes
 save / load .cod
-more split on sorts like type (land/non-land, mono-color/misc, lap/non-lap)
-sort menu
+save session on qt error, or at elast periodically
+ability to resize graphicsscenes
+draw viewport indicator on minimap? lmao

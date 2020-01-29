@@ -15,6 +15,7 @@ from mtgimg.interface import ImageRequest, SizeSlug
 
 from mtgorp.models.interfaces import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
+from mtgorp.models.serilization.strategies.jsonid import JsonId
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
@@ -101,6 +102,41 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
     def context_menu(self, context_menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         if self.node_parent is not None:
             self.node_parent.context_child_menu(self, context_menu, undo_stack)
+
+    @staticmethod
+    def _inflate(
+        card_type: t.Type[PhysicalCard],
+        cubeable: t.Any,
+        cubeable_type: t.Optional[t.Type],
+        node_parent: t.Optional[PhysicalCard],
+        additional_values: t.Optional[t.Dict[str, t.Any]],
+    ) -> PhysicalCard:
+        card = card_type(
+            (
+                Context.db.printings[cubeable]
+                if isinstance(cubeable, int) else
+                JsonId(Context.db).deserialize(cubeable_type, cubeable)
+            ),
+            node_parent,
+        )
+        if additional_values:
+            card.__dict__.update(additional_values)
+        return card
+
+    def _get_additional_reduce(self) -> t.Optional[t.Dict[str, t.Any]]:
+        return None
+
+    def __reduce__(self):
+        return (
+            self._inflate,
+            (
+                self.__class__,
+                self.cubeable.id if isinstance(self.cubeable, Printing) else JsonId.serialize(self.cubeable),
+                type(self.cubeable),
+                self.node_parent,
+                self._get_additional_reduce(),
+            )
+        )
 
 
 class PhysicalPrinting(PhysicalCard[Printing]):
@@ -231,6 +267,11 @@ class PhysicalTrap(PhysicalCard[Trap]):
     def __init__(self, cubeable: C, node_parent: t.Optional[PhysicalTrap]):
         super().__init__(cubeable, node_parent)
         self.node_children: t.Sequence[PhysicalTrap] = []
+
+    def _get_additional_reduce(self) -> t.Dict[str, t.Any]:
+        return {
+            'node_children': self.node_children,
+        }
 
     def _generate_children(self) -> None:
         self.node_children = [

@@ -74,6 +74,19 @@ class DeckModel(QObject):
             self._sideboard.cube,
         )
 
+    def persist(self) -> t.Any:
+        return {
+            'maindeck': self._maindeck.persist(),
+            'sideboard': self._sideboard.persist(),
+        }
+
+    @classmethod
+    def load(cls, state: t.Any) -> DeckModel:
+        return DeckModel(
+            CubeScene.load(state['maindeck']),
+            CubeScene.load(state['sideboard']),
+        )
+
 
 class PoolModel(DeckModel):
 

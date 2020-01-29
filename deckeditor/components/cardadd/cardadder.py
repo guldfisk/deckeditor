@@ -4,7 +4,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QCompleter
+from PyQt5.QtWidgets import QCompleter, QInputDialog
 
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
@@ -57,18 +57,47 @@ class QueryEditor(QtWidgets.QLineEdit):
             super().keyPressEvent(key_event)
 
 
+# class QuantitySelectDialog(QtWidgets.QDialog):
+#
+#     def __init__(self, parent: PrintingList):
+#         super().__init__(parent)
+#
+#         self._query_edit = QueryEdit(self)
+#
+#         self._error_label = QtWidgets.QLabel()
+#         self._error_label.hide()
+#
+#         self._box = QtWidgets.QVBoxLayout()
+#
+#         self._box.addWidget(self._query_edit)
+#         self._box.addWidget(self._error_label)
+#
+#         self.setLayout(self._box)
+#
+#     def compile(self):
+#         try:
+#             self.parent().search_select.emit(
+#                 Context.search_pattern_parser.parse_criteria(
+#                     self._query_edit.text()
+#                 )
+#             )
+#             self.accept()
+#         except ParseException as e:
+#             self._error_label.setText(str(e))
+#             self._error_label.show()
+#             return
+
+
 class PrintingList(QtWidgets.QListWidget):
 
     def __init__(
         self,
         card_adder: CardAdder,
         target_selector: TargetSelector,
-        # amounter: QtWidgets.QLineEdit,
     ):
         super().__init__()
         self._card_adder = card_adder
         self._target_selector = target_selector
-        # self._amounter = amounter
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
 
     def currentChanged(self, index, _index):
@@ -90,7 +119,6 @@ class PrintingList(QtWidgets.QListWidget):
         )
 
     def _on_item_double_clicked(self, item: PrintingItem) -> None:
-        print('double')
         self._card_adder.add_printings.emit(
             CubeDeltaOperation(
                 {
@@ -103,7 +131,22 @@ class PrintingList(QtWidgets.QListWidget):
         modifiers = key_event.modifiers()
 
         if key_event.key() == QtCore.Qt.Key_Enter or key_event.key() == QtCore.Qt.Key_Return:
-            self._add_printings(4 if modifiers & QtCore.Qt.ShiftModifier else 1)
+            if modifiers & QtCore.Qt.ControlModifier:
+                amount, ok = QInputDialog.getInt(
+                    self,
+                    'Choose printing amount',
+                    '',
+                    4,
+                    1,
+                    99,
+                )
+                if not ok:
+                    amount = 0
+            else:
+                amount = 4 if modifiers & QtCore.Qt.ShiftModifier else 1
+            if amount:
+                self._add_printings(amount)
+
         else:
             super().keyPressEvent(key_event)
 
@@ -127,7 +170,6 @@ class CardboardList(QtWidgets.QListWidget):
         self._printing_list = printing_list
 
         self._item_model = QtGui.QStandardItemModel(parent)
-        # self.setModel(self._item_model)
 
     def currentChanged(self, index, _index):
         current = self.currentItem()
@@ -196,12 +238,9 @@ class CardAdder(QtWidgets.QWidget):
 
         self._search_button = QtWidgets.QPushButton(self)
         self._target_selector = TargetSelector(self)
-        # self._amounter = QtWidgets.QLineEdit(self)
-        # self._amount_label = QtWidgets.QLabel(self)
         self._printing_list = PrintingList(
             card_adder = self,
             target_selector = self._target_selector,
-            # amounter = self._amounter,
         )
         self._cardboard_list = CardboardList(
             self._printing_list,
@@ -209,32 +248,18 @@ class CardAdder(QtWidgets.QWidget):
         )
         self._query_edit = QueryEditor(self)
 
-        # self.setTabOrder(self._printing_list, self)
-
-        # self._amount_label.setText('Amount:')
-        #
-        # self._amounter.setValidator(QtGui.QIntValidator(1, 99, self))
-        # self._amounter.setMaximumWidth(50)
-        # self._amounter.setText('1')
-
         self._search_button.setText('Search')
 
         self._top_bar = QtWidgets.QHBoxLayout()
         self._bottom_bar = QtWidgets.QHBoxLayout()
         self._right_panel = QtWidgets.QVBoxLayout()
-        # self._amount_bar = QtWidgets.QHBoxLayout()
         self._layout = QtWidgets.QVBoxLayout()
 
         self._top_bar.addWidget(self._query_edit)
         self._top_bar.addWidget(self._search_button)
 
-        # self._amount_bar.addWidget(self._amount_label, alignment = QtCore.Qt.AlignLeft)
-        # self._amount_bar.addWidget(self._amounter, alignment = QtCore.Qt.AlignLeft)
-        # self._amount_bar.addStretch(1)
-
         self._right_panel.addWidget(self._target_selector)
         self._right_panel.addWidget(self._printing_list)
-        # self._right_panel.addLayout(self._amount_bar)
 
         self._bottom_bar.addWidget(self._cardboard_list)
         self._bottom_bar.addLayout(self._right_panel)

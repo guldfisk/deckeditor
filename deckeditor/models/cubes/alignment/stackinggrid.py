@@ -203,6 +203,18 @@ class CardStacker(ABC):
             self._aligner.remove_card(card)
         self._cards.clear()
 
+    # def persist(self) -> t.Any:
+    #     return [
+    #         card.persist()
+    #         for card in
+    #         self._cards
+    #     ]
+    #
+    # def load(self, state: t.Any):
+    #     self._cards = [
+    #         PhysicalCard
+    #     ]
+
 
 class StackingDrop(AlignmentPickUp):
 
@@ -521,28 +533,34 @@ class StackerMap(object):
     def __init__(
         self,
         aligner: StackingGrid,
-        row_amount: int,
-        column_amount: int,
+        row_amount: t.Optional[int] = None,
+        column_amount: t.Optional[int] = None,
         default_column_width: float = 1.,
         default_row_height: float = 1.,
+        *,
+        grid: t.Optional[t.List[t.List[CardStacker]]] = None,
     ):
         self._aligner = aligner
 
         self._row_amount = row_amount
         self._column_amount = column_amount
 
-        self._grid = [
+        self._grid = (
+            grid
+            if grid is not None else
             [
-                self._aligner.create_stacker(
-                    row,
-                    column,
-                )
-                for column in
-                range(row_amount)
+                [
+                    self._aligner.create_stacker(
+                        row,
+                        column,
+                    )
+                    for column in
+                    range(row_amount)
+                ]
+                for row in
+                range(column_amount)
             ]
-            for row in
-            range(column_amount)
-        ]
+        )
 
         self._row_heights = [
             default_row_height
@@ -618,6 +636,51 @@ class StackerMap(object):
             for stacker in column:
                 yield stacker
 
+    # @classmethod
+    # def _inflate(
+    #     cls,
+    #     aligner: StackingGrid,
+    #     row_amount: int,
+    #     column_amount: int,
+    #     row_heights: t.List[float],
+    #     column_widths: t.List[float],
+    #     grid: t.
+    # ):
+    #     stacker_map = cls.__new__(cls)
+    #
+    #
+    # def __reduce__(self):
+
+
+    # def persist(self) -> t.Any:
+    #     return [
+    #         [
+    #             stacker.persist()
+    #             for stacker in
+    #             row
+    #         ]
+    #         for row in
+    #         self._grid
+    #     ]
+    #
+    # def _load_stacker(self, x: int, y: int, state: t.Any):
+    #
+    # @classmethod
+    # def load(cls, state: t.Any, aligner: StackingGrid) -> StackerMap:
+    #     # create_stacker: t.Callable[[int, int], CardStacker]
+    #     return StackerMap(
+    #         aligner,
+    #         grid = [
+    #             [
+    #                 aligner.create_stacker(x, y)
+    #                 for x, stacker in
+    #                 enumerate(row)
+    #             ]
+    #             for y, row in
+    #             enumerate(state)
+    #         ]
+    #     )
+
     def __iter__(self) -> t.Iterator[CardStacker]:
         return self.stackers
 
@@ -644,8 +707,26 @@ class StackingGrid(Aligner):
 
         self._stacker_map = self.create_stacker_map()
 
-        self._cursor_position: t.Optional[PhysicalCard] = None
-        self._cursor_index = 0
+        # self._cursor_position: t.Optional[PhysicalCard] = None
+        # self._cursor_index = 0
+
+    # @classmethod
+    # def _inflate(
+    #     cls,
+    #     margin: float,
+    #     stacker_map: StackerMap,
+    #     stacked_cards: t.Dict[PhysicalCard, _CardInfo],
+    # ) -> StackingGrid:
+    #     stacking_grid = cls.__new__(cls)
+    #
+    #     stacking_grid._stacked_cards = stacked_cards
+    #     stacking_grid._margin_pixel_size = margin
+    #     stacking_grid._stacker_map = stacker_map
+    #
+    #     return stacking_grid
+    #
+    # def __reduce__(self):
+    #     return self._inflate, (self._margin_pixel_size, self._stacker_map, self._stacked_cards)
 
     @abstractmethod
     def create_stacker_map(self) -> StackerMap:
@@ -667,9 +748,18 @@ class StackingGrid(Aligner):
     def stacked_cards(self) -> t.Dict[PhysicalCard, _CardInfo]:
         return self._stacked_cards
 
+    # @property
+    # def cursor_position(self) -> t.Optional[PhysicalCard]:
+    #     return self._cursor_position
+
     @property
-    def cursor_position(self) -> t.Optional[PhysicalCard]:
-        return self._cursor_position
+    def cards(self) -> t.Iterable[PhysicalCard]:
+        for stacker in self._stacker_map.stackers:
+            yield from stacker.cards
+
+    def realign(self) -> None:
+        for stacker in self._stacker_map:
+            stacker.update()
 
     def get_card_info(self, card: PhysicalCard) -> _CardInfo:
         try:
@@ -685,30 +775,15 @@ class StackingGrid(Aligner):
             pass
 
     def pick_up(self, items: t.Iterable[PhysicalCard]) -> StackingPickUp:
-        # stacker_map: t.MutableMapping[CardStacker, t.List[PhysicalCard]] = defaultdict(list)
-        #
-        # for card in items:
-        #     stacker_map[self.get_card_info(card).card_stacker].append(card)
-        #     card.setZValue(0)
-        #
-        # for stacker, cards in stacker_map.items():
-        #     if stacker:
-        #         stacker.remove_cards(cards)
-        #
         return StackingPickUp(
             self,
             items,
         )
 
     def drop(self, items: t.Iterable[PhysicalCard], position: QPoint) -> StackingDrop:
-        # cards = list(items)
         x, y = position.x(), position.y()
         stacker = self.get_card_stacker(x, y)
         index = stacker.map_position_to_index(x - stacker.x, y - stacker.y)
-        # stacker.insert_cards(
-        #     (index,) * len(cards),
-        #     cards,
-        # )
         return StackingDrop(
             self,
             stacker,
@@ -743,104 +818,104 @@ class StackingGrid(Aligner):
     #     self._scene.cursor.setPos(card.pos())
     #     self.cursor_moved.emit(self._cursor_position.pos())
 
-    def find_stacker(self, x: int, y: int, direction: Direction) -> t.Optional[CardStacker]:
-
-        if not self._stacked_cards:
-            return None
-
-        x, y = int(x), int(y)
-
-        if direction == Direction.UP:
-            for _x in chain(
-                range(x, self.stacker_map.row_length),
-                reversed(range(0, x)),
-            ):
-                for _y in reversed(range(0, y + 1)):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
-
-            for _x in chain(
-                range(x, self.stacker_map.row_length),
-                reversed(range(0, x)),
-            ):
-                for _y in reversed(range(y + 1, self.stacker_map.column_height)):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
-
-        elif direction == Direction.RIGHT:
-            for _y in chain(
-                range(y, self.stacker_map.column_height),
-                reversed(range(0, y)),
-            ):
-                for _x in range(x, self.stacker_map.row_length):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
-
-            for _y in chain(
-                range(y, self.stacker_map.column_height),
-                reversed(range(0, y)),
-            ):
-                for _x in range(0, x):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
-
-        elif direction == Direction.DOWN:
-            for _x in chain(
-                reversed(range(0, x + 1)),
-                range(x + 1, self.stacker_map.row_length),
-            ):
-                for _y in range(y + 1, self.stacker_map.column_height):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
-
-            for _x in chain(
-                reversed(range(0, x + 1)),
-                range(x + 1, self.stacker_map.row_length),
-            ):
-                for _y in range(0, y + 1):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
-
-        elif direction == Direction.LEFT:
-            for _y in chain(
-                reversed(range(0, y + 1)),
-                range(y + 1, self.stacker_map.column_height),
-            ):
-                for _x in reversed(range(0, x + 1)):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
-
-            for _y in chain(
-                reversed(range(0, y + 1)),
-                range(y + 1, self.stacker_map.column_height),
-            ):
-                for _x in reversed(range(x + 1, self.stacker_map.row_length)):
-                    if _x == x and _y == y:
-                        continue
-                    stacker = self.get_card_stacker_at_index(_x, _y)
-                    if stacker.cards:
-                        return stacker
+    # def find_stacker(self, x: int, y: int, direction: Direction) -> t.Optional[CardStacker]:
+    #
+    #     if not self._stacked_cards:
+    #         return None
+    #
+    #     x, y = int(x), int(y)
+    #
+    #     if direction == Direction.UP:
+    #         for _x in chain(
+    #             range(x, self.stacker_map.row_length),
+    #             reversed(range(0, x)),
+    #         ):
+    #             for _y in reversed(range(0, y + 1)):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
+    #
+    #         for _x in chain(
+    #             range(x, self.stacker_map.row_length),
+    #             reversed(range(0, x)),
+    #         ):
+    #             for _y in reversed(range(y + 1, self.stacker_map.column_height)):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
+    #
+    #     elif direction == Direction.RIGHT:
+    #         for _y in chain(
+    #             range(y, self.stacker_map.column_height),
+    #             reversed(range(0, y)),
+    #         ):
+    #             for _x in range(x, self.stacker_map.row_length):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
+    #
+    #         for _y in chain(
+    #             range(y, self.stacker_map.column_height),
+    #             reversed(range(0, y)),
+    #         ):
+    #             for _x in range(0, x):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
+    #
+    #     elif direction == Direction.DOWN:
+    #         for _x in chain(
+    #             reversed(range(0, x + 1)),
+    #             range(x + 1, self.stacker_map.row_length),
+    #         ):
+    #             for _y in range(y + 1, self.stacker_map.column_height):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
+    #
+    #         for _x in chain(
+    #             reversed(range(0, x + 1)),
+    #             range(x + 1, self.stacker_map.row_length),
+    #         ):
+    #             for _y in range(0, y + 1):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
+    #
+    #     elif direction == Direction.LEFT:
+    #         for _y in chain(
+    #             reversed(range(0, y + 1)),
+    #             range(y + 1, self.stacker_map.column_height),
+    #         ):
+    #             for _x in reversed(range(0, x + 1)):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
+    #
+    #         for _y in chain(
+    #             reversed(range(0, y + 1)),
+    #             range(y + 1, self.stacker_map.column_height),
+    #         ):
+    #             for _x in reversed(range(x + 1, self.stacker_map.row_length)):
+    #                 if _x == x and _y == y:
+    #                     continue
+    #                 stacker = self.get_card_stacker_at_index(_x, _y)
+    #                 if stacker.cards:
+    #                     return stacker
 
     # def find_stacker_spiraled(self, x: int, y: int, direction: Direction) -> t.Optional[CardStacker]:
     # 	if not self._stacked_cards:
@@ -880,58 +955,58 @@ class StackingGrid(Aligner):
         #
         # self.link_cursor(cards[-1])
 
-    def move_cursor(self, direction: Direction, modifiers: int = 0):
-        if self._cursor_position is None:
-            return
-
-        info = self._stacked_cards[self.cursor_position]
-
-        if modifiers & QtCore.Qt.ShiftModifier:
-            selected_items = self._scene.selectedItems()
-
-            if modifiers & QtCore.Qt.ControlModifier:
-                stacker = self.find_stacker(*info.card_stacker.index, direction = direction)
-
-                if stacker is None:
-                    return
-
-            else:
-
-                stacker = self.get_card_stacker_at_index(
-                    info.card_stacker.index[0] + direction.value[0],
-                    info.card_stacker.index[1] + direction.value[1],
-                )
-
-            self._move_cards(selected_items, stacker)
-            return
-
-        if direction == Direction.UP:
-            stacker = info.card_stacker
-            position = info.position - 1
-
-            if position < 0:
-                next_stacker = self.find_stacker(*stacker.index, direction = direction)
-
-                if next_stacker is not None:
-                    stacker = next_stacker
-
-            # self.link_cursor(stacker.cards[position])
-            self._cursor_index = position
-
-        elif direction == Direction.DOWN:
-            stacker = info.card_stacker
-            position = info.position + 1
-
-            if position >= len(stacker.cards):
-                next_stacker = self.find_stacker(*stacker.index, direction = direction)
-
-                if next_stacker is not None:
-                    stacker = next_stacker
-
-                position = 0
-
-            # self.link_cursor(stacker.cards[position])
-            self._cursor_index = position
+    # def move_cursor(self, direction: Direction, modifiers: int = 0):
+    #     if self._cursor_position is None:
+    #         return
+    #
+    #     info = self._stacked_cards[self.cursor_position]
+    #
+    #     if modifiers & QtCore.Qt.ShiftModifier:
+    #         selected_items = self._scene.selectedItems()
+    #
+    #         if modifiers & QtCore.Qt.ControlModifier:
+    #             stacker = self.find_stacker(*info.card_stacker.index, direction = direction)
+    #
+    #             if stacker is None:
+    #                 return
+    #
+    #         else:
+    #
+    #             stacker = self.get_card_stacker_at_index(
+    #                 info.card_stacker.index[0] + direction.value[0],
+    #                 info.card_stacker.index[1] + direction.value[1],
+    #             )
+    #
+    #         self._move_cards(selected_items, stacker)
+    #         return
+    #
+    #     if direction == Direction.UP:
+    #         stacker = info.card_stacker
+    #         position = info.position - 1
+    #
+    #         if position < 0:
+    #             next_stacker = self.find_stacker(*stacker.index, direction = direction)
+    #
+    #             if next_stacker is not None:
+    #                 stacker = next_stacker
+    #
+    #         # self.link_cursor(stacker.cards[position])
+    #         self._cursor_index = position
+    #
+    #     elif direction == Direction.DOWN:
+    #         stacker = info.card_stacker
+    #         position = info.position + 1
+    #
+    #         if position >= len(stacker.cards):
+    #             next_stacker = self.find_stacker(*stacker.index, direction = direction)
+    #
+    #             if next_stacker is not None:
+    #                 stacker = next_stacker
+    #
+    #             position = 0
+    #
+    #         # self.link_cursor(stacker.cards[position])
+    #         self._cursor_index = position
 
         # else:
         #     stacker = info.card_stacker
@@ -953,16 +1028,16 @@ class StackingGrid(Aligner):
         #     ]
         # )
 
-        if modifiers & QtCore.Qt.ControlModifier:
-            self._scene.add_selection((self._cursor_position,))
-
-        elif modifiers & QtCore.Qt.AltModifier:
-            self._scene.remove_selected((self._cursor_position,))
-
-        else:
-            self._scene.set_selection((self._cursor_position,))
-
-        Context.card_view.set_image.emit(self._cursor_position.image_request())
+        # if modifiers & QtCore.Qt.ControlModifier:
+        #     self._scene.add_selection((self._cursor_position,))
+        #
+        # elif modifiers & QtCore.Qt.AltModifier:
+        #     self._scene.remove_selected((self._cursor_position,))
+        #
+        # else:
+        #     self._scene.set_selection((self._cursor_position,))
+        #
+        # Context.card_view.set_image.emit(self._cursor_position.image_request())
 
     # @abstractmethod
     # def _can_create_rows(self, amount: int) -> bool:
@@ -1057,3 +1132,12 @@ class StackingGrid(Aligner):
             sort_action = QtWidgets.QAction(sort_property.name, stacker_sort_menu)
             sort_action.triggered.connect(self._get_sort_stack(stacker, sort_property, undo_stack))
             stacker_sort_menu.addAction(sort_action)
+
+    # def persist(self) -> t.Any:
+    #     return {
+    #         'stacker_map': self._stacker_map.persist(),
+    #     }
+    #
+    # @classmethod
+    # def load(cls, state: t.Any) -> StackingGrid:
+    #     pass

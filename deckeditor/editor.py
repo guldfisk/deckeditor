@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import io
+import traceback
+
 import linecache
+import time
 import typing
 import typing as t
 
@@ -10,11 +14,13 @@ import os
 import tracemalloc
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView
+from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox
 
+from deckeditor import paths
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.draft.view import DraftTabs
 from deckeditor.components.lobbies.view import LobbiesView, CreateLobbyDialog, LobbyModelClientConnection
+from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
 from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.models.cubes.cubescene import CubeScene
@@ -374,6 +380,14 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             | QtCore.Qt.BottomDockWidgetArea
         )
 
+        self._cube_view_minimap = GraphicsMiniView()
+        Context.focus_scene_changed.connect(lambda scene: self._cube_view_minimap.set_scene(scene))
+
+        self._cube_view_minimap_dock = QtWidgets.QDockWidget('Minimap', self)
+        self._cube_view_minimap_dock.setObjectName('minimap')
+        self._cube_view_minimap_dock.setWidget(self._cube_view_minimap)
+        self._cube_view_minimap_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+
         # self._deck_list_widget = DeckListWidget(self)
         # self._deck_list_widget.set_deck.emit((), ())
         # Context.deck_list_view = self._deck_list_widget
@@ -388,6 +402,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._cube_view_minimap_dock)
 
         self._card_adder_dock.hide()
         # self._deck_list_docker.hide()
@@ -442,6 +457,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 # ('Deck List View', 'Meta+3', lambda: self._toggle_dock_view(self._deck_list_docker)),
                 ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
+                ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
             ),
             menu_bar.addMenu('Test'): (
                 ('Test', 'Ctrl+T', self._test),
@@ -562,7 +578,8 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._card_adder.query_edit.setFocus()
 
     def _test(self):
-        display_top(tracemalloc.take_snapshot())
+        raise Exception('test')
+        # display_top(tracemalloc.take_snapshot())
         # print(self._main_view.active_deck, type(self._main_view.active_deck), dir(self._main_view.active_deck))
         # print(self._main_view.active_deck.deck)
 
@@ -629,27 +646,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         if not file_names:
             return
 
-        print(file_names)
-
         file_path = file_names[0]
 
-        name, extension = os.path.splitext(os.path.split(file_path)[1])
-
-        extension = extension[1:]
-
-        with open(file_names[0], 'r') as f:
-            # deck = JsonId(Context.db).deserialize(Deck, f.read())
-            print(DeckSerializer.extension_to_serializer)
-            deck = DeckSerializer.extension_to_serializer[extension].deserialize(f.read())
-
-        self._main_view.deck_tabs.setCurrentWidget(
-            self._main_view.deck_tabs.new_deck(
-                DeckModel(
-                    CubeScene(StaticStackingGrid, deck.maindeck),
-                    CubeScene(StaticStackingGrid, deck.sideboard),
-                )
-            )
-        )
+        self._main_view.deck_tabs.open_file(file_path)
 
     def _save(self):
         pass
@@ -678,6 +677,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
     def _save_state(self):
         Context.settings.setValue('geometry', self.saveGeometry())
         Context.settings.setValue('window_state', self.saveState(0))
+        self._main_view.deck_tabs.save()
         # Context.settings.beginGroup('main_window')
         # Context.settings.setValue('size', self.size())
         # Context.settings.setValue('position', self.pos())
@@ -691,6 +691,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         state = Context.settings.value('window_state')
         if state is not None:
             self.restoreState(state, 0)
+        self._main_view.deck_tabs.load()
         # Context.settings.beginGroup('main_window')
         #
         # saved_size = Context.settings.value('size', None)
@@ -712,6 +713,52 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         super().closeEvent(close_event)
 
 
+
+
+def _get_exception_hook(main_window: MainWindow) -> t.Callable[[t.Any, t.Any, t.Any], None]:
+    def exception_hook(exception_type, exception_value, _traceback):
+        separator = '-' * 80
+        time_string = time.strftime("%Y-%m-%d, %H:%M:%S")
+
+        traceback_info_file = io.StringIO()
+        traceback.print_tb(_traceback, None, traceback_info_file)
+        traceback_info_file.seek(0)
+        traceback_info = traceback_info_file.read()
+
+        errmsg = '{} {}'.format(
+            str(exception_type),
+            str(exception_value),
+        )
+
+        msg = '\n'.join(
+            (separator, time_string, traceback_info, errmsg, '\n')
+        )
+
+        try:
+            if not os.path.exists(paths.APP_DATA_PATH):
+                os.makedirs(paths.APP_DATA_PATH)
+
+            with open(paths.LOGS_PATH, 'a') as log_file:
+                log_file.write(msg)
+        except IOError:
+            pass
+
+        print(traceback_info)
+        print(errmsg)
+
+        errorbox = QMessageBox()
+        errorbox.setText(
+            'OH NO :O\n{}\n{}'.format(
+                traceback_info,
+                errmsg,
+            )
+        )
+        errorbox.exec_()
+        main_window.close()
+
+    return exception_hook
+
+
 def run():
     # tracemalloc.start()
     app = EmbargoApp(sys.argv)
@@ -728,13 +775,15 @@ def run():
 
     Context.init()
 
-    w = MainWindow()
+    main_window = MainWindow()
+
+    sys.excepthook = _get_exception_hook(main_window)
 
     # app.focusChanged.connect(w.focus_changed)
 
     # app.aboutToQuit.connect(Context.settings.)
 
-    w.showMaximized()
+    main_window.showMaximized()
 
     # splash.finish(w)
 
