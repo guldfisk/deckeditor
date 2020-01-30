@@ -14,7 +14,8 @@ import os
 import tracemalloc
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox
+from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QInputDialog, QDialog, QStatusBar
+from mtgorp.db import create
 
 from deckeditor import paths
 from deckeditor.components.authentication.login import LoginDialog
@@ -30,6 +31,9 @@ from deckeditor.serialization.deckserializer import DeckSerializer
 from deckeditor.values import SUPPORTED_EXTENSIONS
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import AllNode, AnyNode
+from mtgorp.db.load import DBLoadException
+from mtgorp.managejson import download
+from mtgorp.managejson.update import check, update_last_updated
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools.parsing.exceptions import ParseException
 from yeetlong.multiset import Multiset
@@ -269,35 +273,35 @@ class MainView(QWidget):
     def __init__(self, parent: typing.Optional[QWidget] = None) -> None:
         super().__init__(parent)
         # cube = CubeLoader(Context.db).load()
-        import random
-        printings = list(Context.db.printings.values())
+        # import random
+        # printings = list(Context.db.printings.values())
         # cube = Cube(random.sample(printings, 10 ** 1))
-        cube = Cube(
-            (
-                Trap(
-                    AnyNode(
-                        (
-                            AllNode(
-                                (
-                                    Context.db.cardboards['Through the Breach'].from_expansion('UMA'),
-                                    Context.db.cardboards['Reach Through Mists'].from_expansion('CHK'),
-                                )
-                            ),
-                            AllNode(
-                                (
-                                    Context.db.cardboards['Birds of Paradise'].from_expansion('LEA'),
-                                    Context.db.cardboards['Lightning Bolt'].from_expansion('LEA'),
-                                    Context.db.cards['Delver of Secrets'].cardboard.printing,
-                                )
-                            )
-                        )
-                    )
-                ),
-            )
-        )
-
+        # cube = Cube(
+        #     (
+        #         Trap(
+        #             AnyNode(
+        #                 (
+        #                     AllNode(
+        #                         (
+        #                             Context.db.cardboards['Through the Breach'].from_expansion('UMA'),
+        #                             Context.db.cardboards['Reach Through Mists'].from_expansion('CHK'),
+        #                         )
+        #                     ),
+        #                     AllNode(
+        #                         (
+        #                             Context.db.cardboards['Birds of Paradise'].from_expansion('LEA'),
+        #                             Context.db.cardboards['Lightning Bolt'].from_expansion('LEA'),
+        #                             Context.db.cards['Delver of Secrets'].cardboard.printing,
+        #                         )
+        #                     )
+        #                 )
+        #             )
+        #         ),
+        #     )
+        # )
+        #
         self.deck_tabs = EditablesTabs()
-        self.deck_tabs.new_deck(DeckModel(CubeScene(StaticStackingGrid, cube)))
+        # self.deck_tabs.new_deck(DeckModel(CubeScene(StaticStackingGrid, cube)))
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -330,8 +334,8 @@ class MainView(QWidget):
         #
         # self.setLayout(self._layout)
 
-    def _button_clicked(self) -> None:
-        self._cube_model.modify(CubeDeltaOperation({Context.db.cardboards['Abrade'].from_expansion('HOU'): 10}))
+    # def _button_clicked(self) -> None:
+    #     self._cube_model.modify(CubeDeltaOperation({Context.db.cardboards['Abrade'].from_expansion('HOU'): 10}))
 
 
 class MainWindow(QMainWindow, CardAddable, Notifyable):
@@ -465,6 +469,8 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', self._login),
             ),
+            menu_bar.addMenu('DB'): (
+            ),
         }
 
         for menu in all_menus:
@@ -484,6 +490,12 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
         self.search_select.connect(self._search_selected)
         # self.pool_generated.connect(self._pool_generated)
+
+        self._status_bar = QStatusBar()
+
+        self.setStatusBar(self._status_bar)
+
+        self._status_bar.showMessage('LMAO LETS GO BOIS')
 
         self._load_state()
 
@@ -654,7 +666,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         pass
 
     def _save_as(self):
-        self._main_view.deck_tabs.currentWidget().save()
+        self._main_view.deck_tabs.save_tab()
 
     # def _pool_generated(self, key: Multiset[Expansion]):
     #     deck_widget = DeckWidget('Generated Pool')
@@ -715,7 +727,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
 
 
-def _get_exception_hook(main_window: MainWindow) -> t.Callable[[t.Any, t.Any, t.Any], None]:
+def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callable[[t.Any, t.Any, t.Any], None]:
     def exception_hook(exception_type, exception_value, _traceback):
         separator = '-' * 80
         time_string = time.strftime("%Y-%m-%d, %H:%M:%S")
@@ -754,38 +766,73 @@ def _get_exception_hook(main_window: MainWindow) -> t.Callable[[t.Any, t.Any, t.
             )
         )
         errorbox.exec_()
-        main_window.close()
+        if main_window is not None:
+            main_window.close()
 
     return exception_hook
 
 
+class MtgOrpDialog(QDialog):
+
+    def __init__(self):
+        super().__init__()
+        self._info_label = QtWidgets.QLabel('Can\'t load db, gotta rebuild')
+
+        self._log_value = ''
+        self._log_view = QtWidgets.QTextEdit()
+        self._log_view.setReadOnly(True)
+
+        self._run_button = QtWidgets.QPushButton('Download and generate')
+        self._run_button.clicked.connect(self._download_and_generate)
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        layout.addWidget(self._info_label)
+        layout.addWidget(self._log_view)
+        layout.addWidget(self._run_button)
+
+    def _log(self, text: str) -> None:
+        self._log_value += text + '\n'
+        self._log_view.setText(self._log_value)
+        self._log_view.repaint()
+
+    def _download_and_generate(self):
+        self._run_button.setDisabled(True)
+        self._log('Checking db')
+        last_updates = check()
+        if last_updates is not None:
+            self._log('New magic json')
+            download.re_download()
+            self._log('New magic json downloaded')
+            create.update_database()
+            self._log('Database updated')
+            update_last_updated(last_updates)
+        else:
+            self._log('Magic db up to date')
+        self.accept()
+
+
 def run():
-    # tracemalloc.start()
     app = EmbargoApp(sys.argv)
+
+    sys.excepthook = _get_exception_hook()
+
     app.setQuitOnLastWindowClosed(True)
 
-    # splash_image = QtGui.QPixmap(os.path.join(paths.RESOURCE_PATH, 'splash.png'))
-    #
-    # splash = QtWidgets.QSplashScreen(splash_image)
-    #
-    # splash.show()
-    #
-    # time.sleep(0.2)
-    # app.processEvents()
-
-    Context.init()
+    try:
+        Context.init()
+    except DBLoadException:
+        if not MtgOrpDialog().exec_() == QDialog.Accepted:
+            return
+        Context.init()
 
     main_window = MainWindow()
 
     sys.excepthook = _get_exception_hook(main_window)
 
-    # app.focusChanged.connect(w.focus_changed)
-
     # app.aboutToQuit.connect(Context.settings.)
 
     main_window.showMaximized()
-
-    # splash.finish(w)
 
     sys.exit(app.exec_())
 

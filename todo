@@ -1,6 +1,5 @@
 fix rubberband on windows
 fix style on windows
-propper mtgorp db builder menu
 tickets
 visual indicator of logged in status
 ability to log out
@@ -12,14 +11,19 @@ what is natural when going through a bunched pile? when you double click a card,
 add basics to pool (and remove)
 disable change printing for pool except for basics
 option for visual menu when selecting printing (also for cardboards with many printing)
-sort menu
 save session info for pools (how does this work. pool need to be able to be worked in unattached offline mode or something)
 fix cardboards without printings (and the snot thing?)
-persist session for unsaved files
 
 uploading of deckelists when done with draft / sealed pool
 drafting
 
+on cubeable view thing, set image to card back when loading instead of using previous image?
+ability to point dbbuilder at exising db/json / download db directly
+db info view (checksum, latest expansion etc)
+only ask about saving when closing tab when changes has actually modified it (not just a bunch of intra scene moves)
+auto sorted mode in cubeimage view (cant move cards in view, sort selected for both directions, auto updated)
+improve sort menu ()
+save cubeimageview transform state in session
 move cards retaining structure in stacking grid option
 jesus you cant see the cards as long as there is more then like 6 of them in a pile.
     make dynamic grid work

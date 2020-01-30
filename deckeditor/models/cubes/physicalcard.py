@@ -8,6 +8,8 @@ from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu
 
 from magiccube.laps.lap import Lap
+from magiccube.laps.purples.purple import Purple
+from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import AnyNode, AllNode
 
@@ -54,6 +56,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
     def from_cubeable(cls, cubeable: C, node_parent: t.Optional[PhysicalCard] = None) -> PhysicalCard[C]:
         if isinstance(cubeable, Printing):
             return PhysicalPrinting(cubeable, node_parent)
+
         elif isinstance(cubeable, Trap):
             if isinstance(cubeable.node, AllNode):
                 return PhysicalAllCard(cubeable, node_parent)
@@ -61,6 +64,13 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
                 return PhysicalAnyCard(cubeable, node_parent)
             else:
                 raise ValueError('unknown node type')
+
+        elif isinstance(cubeable, Ticket):
+            return PhysicalTicket(cubeable, node_parent)
+
+        elif isinstance(cubeable, Purple):
+            return PhysicalPurple(cubeable, node_parent)
+
         else:
             return PhysicalCard(cubeable, node_parent)
 
@@ -418,3 +428,11 @@ class PhysicalAnyCard(PhysicalTrap):
             )
             _flatten.triggered.connect(self._get_select_or(child, undo_stack))
             flatten.addAction(_flatten)
+
+
+class PhysicalTicket(PhysicalCard[Ticket]):
+    pass
+
+
+class PhysicalPurple(PhysicalCard[Purple]):
+    pass

@@ -37,11 +37,10 @@ class QueryEditor(QtWidgets.QLineEdit):
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
-        completer = QCompleter(
-            Context.db.cardboards.keys()
-        )
+        completer = QCompleter(Context.cardboard_names)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchStartsWith)
+        completer.setModelSorting(QCompleter.CaseInsensitivelySortedModel)
         completer.setCompletionMode(QCompleter.InlineCompletion)
         self.setCompleter(completer)
 

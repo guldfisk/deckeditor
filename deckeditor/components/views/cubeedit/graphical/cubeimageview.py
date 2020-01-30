@@ -8,6 +8,7 @@ from PyQt5.QtGui import QKeySequence, QPainter
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
+from deckeditor.components.views.cubeedit.graphical.sortdialog import SortDialog
 from deckeditor.utils.undo import CommandPackage
 from magiccube.collections.delta import CubeDeltaOperation
 from mtgorp.models.persistent.printing import Printing
@@ -115,6 +116,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+I')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
+        self._sort_action = self._create_action('Sort', self._sort, 'Alt+S')
         self._deselect_all_action = self._create_action(
             'Deselect All',
             lambda: self._scene.clear_selection(),
@@ -159,6 +161,21 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self.scale(.3, .3)
         self.translate(self.scene().width(), self.scene().height())
 
+    def _on_sort_selected(self, sort_property: t.Type[sorting.SortProperty], orientation: int) -> None:
+        self._undo_stack.push(
+            self._scene.aligner.sort(
+                sort_property,
+                self._scene.items() if not self._scene.selectedItems() else self._scene.selectedItems(),
+                orientation,
+                bool(self._scene.selectedItems()),
+            )
+        )
+
+    def _sort(self) -> None:
+        dialog = SortDialog()
+        dialog.selection_done.connect(self._on_sort_selected)
+        dialog.exec_()
+
     def _search_select(self) -> None:
         dialog = SearchSelectionDialog(self)
         dialog.exec()
@@ -185,18 +202,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
         orientation: int,
         short_cut_letter: t.Optional[str] = None,
     ) -> None:
-
         self._sort_actions.append(
             self._create_action(
                 f'{sort_property.name} {"Horizontally" if orientation == QtCore.Qt.Horizontal else "Vertically"}',
-                lambda: self._undo_stack.push(
-                    self._scene.aligner.sort(
-                        sort_property,
-                        self._scene.items() if not self._scene.selectedItems() else self._scene.selectedItems(),
-                        orientation,
-                        bool(self._scene.selectedItems()),
-                    )
-                ),
+                lambda: self._on_sort_selected(sort_property, orientation),
                 None
                 if short_cut_letter is None else
                 f'Ctrl+{"Shift" if orientation == QtCore.Qt.Vertical else "Alt"}+{short_cut_letter}'
@@ -235,12 +244,17 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def cube_scene(self) -> CubeScene:
         return self._scene
 
-    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent) -> None:
-        # super().mouseDoubleClickEvent(event)
-        item = self.itemAt(event.pos())
-        print('double clicked', item)
+    def mouseDoubleClickEvent(self, click_event: QtGui.QMouseEvent) -> None:
+        modifiers = click_event.modifiers()
+
+        item = self.itemAt(click_event.pos())
         if isinstance(item, PhysicalCard):
-            self.card_double_clicked.emit(item)
+            if modifiers & QtCore.Qt.ControlModifier:
+                for card in self._scene.items():
+                    if card.cubeable == item.cubeable:
+                        card.setSelected(True)
+            else:
+                self.card_double_clicked.emit(item)
 
     # def set_zones(self, zones: t.Dict[DeckZoneType, 'CardContainer']):
     #     self._zones = zones

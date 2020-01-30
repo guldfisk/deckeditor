@@ -7,7 +7,6 @@ from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader, DBLoadException
 from mtgorp.managejson.update import update
-from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools.parsing.search.parse import SearchParser
 
 from mtgimg.load import Loader as ImageLoader
@@ -16,17 +15,13 @@ from cubeclient.models import ApiClient
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
-from deckeditor.context.serialize import SoftSerialization
-from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
-
 
 class _Context(QObject):
     settings: QtCore.QSettings
     pixmap_loader: PixmapLoader
     db: CardDatabase
-    # soft_serialization: SoftSerialization
+    cardboard_names: t.List[str]
     search_pattern_parser: SearchParser
-    # deck_list_view: DeckListWidget
     undo_group: QUndoGroup
 
     host: str
@@ -45,6 +40,8 @@ class _Context(QObject):
 
     @classmethod
     def init(cls) -> None:
+        cls.db = Loader.load()
+
         cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
 
         cls.token = ''
@@ -60,20 +57,7 @@ class _Context(QObject):
             ),
         )
 
-        try:
-            cls.db = Loader.load()
-        except DBLoadException:
-            update()
-            cls.db = Loader.load()
-
-        # json_id = JsonId(cls.db)
-        #
-        # cls.soft_serialization = SoftSerialization(
-        #     [json_id],
-        #     {
-        #         'emb': json_id,
-        #     },
-        # )
+        cls.cardboard_names = sorted(cls.db.cardboards.keys())
 
         cls.search_pattern_parser = SearchParser(cls.db)
         cls.undo_group = QUndoGroup()

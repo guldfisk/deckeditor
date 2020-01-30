@@ -37,7 +37,7 @@ class DeckView(Editable):
 
         layout = QVBoxLayout()
 
-        horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
+        self._horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 
         self._maindeck_cube_view = (
             maindeck_cube_view
@@ -57,11 +57,10 @@ class DeckView(Editable):
             )
         )
 
-        horizontal_splitter.addWidget(self._maindeck_cube_view)
-        horizontal_splitter.addWidget(self._sideboard_cube_view)
-        layout.addWidget(
-            horizontal_splitter
-        )
+        self._horizontal_splitter.addWidget(self._maindeck_cube_view)
+        self._horizontal_splitter.addWidget(self._sideboard_cube_view)
+
+        layout.addWidget(self._horizontal_splitter)
 
         self.setLayout(layout)
 
@@ -88,14 +87,15 @@ class DeckView(Editable):
         return {
             'maindeck_view': self._maindeck_cube_view.persist(),
             'sideboard_view': self._sideboard_cube_view.persist(),
-            'deck_model': self._deck_model.persist()
+            'splitter': self._horizontal_splitter.saveState(),
+            'deck_model': self._deck_model.persist(),
         }
 
     @classmethod
     def load(cls, state: t.Any) -> DeckView:
         deck_model = DeckModel.load(state['deck_model'])
         undo_stack = QUndoStack(Context.undo_group)
-        return DeckView(
+        deck_view = DeckView(
             deck_model,
             maindeck_cube_view = CubeView.load(
                 state['maindeck_view'],
@@ -111,6 +111,8 @@ class DeckView(Editable):
             ),
             undo_stack = undo_stack,
         )
+        deck_view._horizontal_splitter.restoreState(state['splitter'])
+        return deck_view
 
     @property
     def file_path(self) -> t.Optional[str]:
@@ -128,27 +130,3 @@ class DeckView(Editable):
     @property
     def undo_stack(self) -> QUndoStack:
         return self._undo_stack
-
-    def save(self) -> None:
-        dialog = QtWidgets.QFileDialog(self)
-        dialog.setFileMode(QtWidgets.QFileDialog.AnyFile)
-        dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
-        dialog.setNameFilter(SUPPORTED_EXTENSIONS)
-        dialog.setDefaultSuffix('json')
-
-        if not dialog.exec_():
-            return
-
-        file_names = dialog.selectedFiles()
-
-        if not file_names:
-            return
-
-        file_name = file_names[0]
-
-        extension = file_name.split('.')[1]
-
-        with open(file_name, 'w') as f:
-            f.write(
-                DeckSerializer.extension_to_serializer[extension].serialize(self._deck_model.as_deck())
-            )
