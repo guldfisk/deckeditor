@@ -1,3 +1,5 @@
 .idea/
 /.gitignore
 __pycache__
+*.spec
+/dist
