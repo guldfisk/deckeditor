@@ -1,22 +1,25 @@
 fix rubberband on windows
 fix style on windows
-tickets
 visual indicator of logged in status
 ability to log out
 error handling of disconnects
 instead of just "select matching", full search dialog, with option to exit and select matching
 search dialog searching entire tab (all views in pool or deck or whatever)
-fix bunchview drop card on last card in first column puts it in first in second.
-what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged? They should always be rearranged to the current column moves down, so you dont have to move cursor when clicking multiple cards in a row.
 add basics to pool (and remove)
 disable change printing for pool except for basics
 option for visual menu when selecting printing (also for cardboards with many printing)
-save session info for pools (how does this work. pool need to be able to be worked in unattached offline mode or something)
-fix cardboards without printings (and the snot thing?)
+(and the snot thing?)
 
 uploading of deckelists when done with draft / sealed pool
 drafting
 
+bliver session gemt ved pc shutdown eller lign?
+make tickets work with cards in traps
+auto sort non emb files on open?
+export pool as deck
+fix bunchview drop card on last card in first column puts it in first in second.
+what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged? They should always be rearranged to the current column moves down, so you dont have to move cursor when clicking multiple cards in a row.
+add relecvant text to aplication header
 on cubeable view thing, set image to card back when loading instead of using previous image?
 ability to point dbbuilder at exising db/json / download db directly
 db info view (checksum, latest expansion etc)
