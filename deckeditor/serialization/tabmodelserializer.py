@@ -127,9 +127,9 @@ class PoolJsonSerializer(TabModelSerializer[Pool]):
     tab_model_type = Pool
 
     @classmethod
-    def serialize(cls, deck: Deck) -> t.AnyStr:
-        return JsonId.serialize(deck)
+    def serialize(cls, pool: Pool) -> t.AnyStr:
+        return JsonId.serialize(pool)
 
     @classmethod
-    def deserialize(cls, s: t.AnyStr) -> Deck:
-        return JsonId(Context.db).deserialize(Deck, s)
+    def deserialize(cls, s: t.AnyStr) -> Pool:
+        return JsonId(Context.db).deserialize(Pool, s)
