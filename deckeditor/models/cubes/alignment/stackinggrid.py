@@ -710,23 +710,23 @@ class StackingGrid(Aligner):
         # self._cursor_position: t.Optional[PhysicalCard] = None
         # self._cursor_index = 0
 
-    # @classmethod
-    # def _inflate(
-    #     cls,
-    #     margin: float,
-    #     stacker_map: StackerMap,
-    #     stacked_cards: t.Dict[PhysicalCard, _CardInfo],
-    # ) -> StackingGrid:
-    #     stacking_grid = cls.__new__(cls)
-    #
-    #     stacking_grid._stacked_cards = stacked_cards
-    #     stacking_grid._margin_pixel_size = margin
-    #     stacking_grid._stacker_map = stacker_map
-    #
-    #     return stacking_grid
-    #
-    # def __reduce__(self):
-    #     return self._inflate, (self._margin_pixel_size, self._stacker_map, self._stacked_cards)
+    @classmethod
+    def _inflate(
+        cls,
+        margin: float,
+        stacker_map: StackerMap,
+        stacked_cards: t.Dict[PhysicalCard, _CardInfo],
+    ) -> StackingGrid:
+        stacking_grid = cls.__new__(cls)
+
+        stacking_grid._stacked_cards = stacked_cards
+        stacking_grid._margin_pixel_size = margin
+        stacking_grid._stacker_map = stacker_map
+
+        return stacking_grid
+
+    def __reduce__(self):
+        return self._inflate, (self._margin_pixel_size, self._stacker_map, self._stacked_cards)
 
     @abstractmethod
     def create_stacker_map(self) -> StackerMap:

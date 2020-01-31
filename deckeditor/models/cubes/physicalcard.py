@@ -34,7 +34,12 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
 
     DEFAULT_PIXMAP: QtGui.QPixmap = None
 
-    def __init__(self, cubeable: C, node_parent: t.Optional[PhysicalCard] = None):
+    def __init__(
+        self,
+        cubeable: C,
+        node_parent: t.Optional[PhysicalCard] = None,
+        values: t.Optional[t.MutableMapping[str, t.Any]] = None,
+    ):
         super().__init__(Context.pixmap_loader.get_default_pixmap(SizeSlug.MEDIUM))
 
         self._selection_highlight_pen = QtGui.QPen(
@@ -45,6 +50,8 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
         self._cubeable = cubeable
         self.node_parent = node_parent
         self._back = False
+
+        self.values: t.MutableMapping[str, t.Any] = values if values is not None else {}
 
         self.setFlag(QtWidgets.QGraphicsItem.ItemIsSelectable)
 
@@ -119,6 +126,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
         cubeable: t.Any,
         cubeable_type: t.Optional[t.Type],
         node_parent: t.Optional[PhysicalCard],
+        values: t.MutableMapping[str, t.Any],
         additional_values: t.Optional[t.Dict[str, t.Any]],
     ) -> PhysicalCard:
         card = card_type(
@@ -128,6 +136,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
                 JsonId(Context.db).deserialize(cubeable_type, cubeable)
             ),
             node_parent,
+            values,
         )
         if additional_values:
             card.__dict__.update(additional_values)
@@ -144,6 +153,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
                 self.cubeable.id if isinstance(self.cubeable, Printing) else JsonId.serialize(self.cubeable),
                 type(self.cubeable),
                 self.node_parent,
+                self.values,
                 self._get_additional_reduce(),
             )
         )
@@ -274,8 +284,13 @@ class PhysicalPrinting(PhysicalCard[Printing]):
 
 class PhysicalTrap(PhysicalCard[Trap]):
 
-    def __init__(self, cubeable: C, node_parent: t.Optional[PhysicalTrap]):
-        super().__init__(cubeable, node_parent)
+    def __init__(
+        self,
+        cubeable: C,
+        node_parent: t.Optional[PhysicalTrap],
+        values: t.Optional[t.MutableMapping[str, t.Any]] = None,
+    ):
+        super().__init__(cubeable, node_parent, values)
         self.node_children: t.Sequence[PhysicalTrap] = []
 
     def _get_additional_reduce(self) -> t.Dict[str, t.Any]:
@@ -431,7 +446,104 @@ class PhysicalAnyCard(PhysicalTrap):
 
 
 class PhysicalTicket(PhysicalCard[Ticket]):
-    pass
+
+    def __init__(
+        self,
+        cubeable: C,
+        node_parent: t.Optional[PhysicalCard],
+        values: t.Optional[t.MutableMapping[str, t.Any]] = None,
+    ):
+        super().__init__(cubeable, node_parent, values)
+        self.option_children: t.Sequence[PhysicalPrinting] = []
+
+    def _get_additional_reduce(self) -> t.Dict[str, t.Any]:
+        return {
+            'option_children': self.option_children,
+        }
+
+    def _generate_children(self) -> None:
+        self.option_children = sorted(
+            (
+                PhysicalPrinting(option, self)
+                for option in
+                self.cubeable.options
+            ),
+            key = lambda c: c.cubeable.cardboard.name,
+        )
+
+    def _refund(self, child: PhysicalPrinting, undo_stack: QUndoStack):
+        undo_stack.push(
+            child.scene().get_cube_modification(
+                (
+                    child.values['tickets_payed'],
+                    (child,),
+                ),
+                child.pos() + QPoint(1, 1)
+            )
+        )
+
+    def _get_select_option(self, tickets: t.List[PhysicalTicket], option: PhysicalCard, undo_stack: QUndoStack):
+        def _select_option():
+            option.values['tickets_payed'] = tickets
+            undo_stack.push(
+                self.scene().get_cube_modification(
+                    (
+                        (option,),
+                        tickets,
+                    ),
+                    self.pos() + QPoint(1, 1),
+                )
+            )
+
+        return _select_option
+
+    def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+        refund_action = QtWidgets.QAction('Refund', menu)
+        refund_action.triggered.connect(lambda: self._refund(child, undo_stack))
+        menu.addAction(refund_action)
+
+    def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
+        super().context_menu(menu, undo_stack)
+
+        if not self.option_children:
+            self._generate_children()
+
+        same_tickets = sorted(
+            (
+                card
+                for card in
+                self.scene().items()
+                if isinstance(card, PhysicalTicket) and card.cubeable == self.cubeable
+            ),
+            key = lambda c: c == self,
+            reverse = True,
+        )
+
+        printings_amounts = defaultdict(int)
+
+        for card in self.scene().items():
+            if isinstance(card, PhysicalPrinting):
+                printings_amounts[card.cubeable] += 1
+
+        flatten = menu.addMenu('Select')
+
+        for option in self.option_children:
+            _flatten = QtWidgets.QAction(
+                option.cubeable.cardboard.name,
+                flatten,
+            )
+            if len(same_tickets) > printings_amounts[option.cubeable]:
+                _flatten.triggered.connect(
+                    self._get_select_option(
+                        same_tickets[:printings_amounts[option.cubeable] + 1],
+                        option,
+                        undo_stack,
+                    )
+                )
+            else:
+                _flatten.setEnabled(False)
+
+            flatten.addAction(_flatten)
 
 
 class PhysicalPurple(PhysicalCard[Purple]):

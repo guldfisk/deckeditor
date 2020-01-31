@@ -4,14 +4,19 @@ import typing as t
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
-from deckeditor.models.cubes.cubescene import CubeScene
-from magiccube.collections.cube import Cube
-from magiccube.collections.delta import CubeDeltaOperation
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 
+from magiccube.collections.cube import Cube
 
-class Deck(Serializeable):
+from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
+from deckeditor.models.cubes.cubescene import CubeScene
+
+
+class TabModel(Serializeable):
+    pass
+
+
+class Deck(TabModel):
 
     def __init__(self, maindeck: Cube, sideboard: Cube):
         self._maindeck = maindeck
@@ -32,7 +37,7 @@ class Deck(Serializeable):
         }
 
     @classmethod
-    def deserialize(cls, value: serialization_model, inflator: Inflator) -> Serializeable:
+    def deserialize(cls, value: serialization_model, inflator: Inflator) -> Deck:
         return cls(
             maindeck = Cube.deserialize(value['maindeck'], inflator),
             sideboard = Cube.deserialize(value['sideboard'], inflator),
@@ -47,6 +52,52 @@ class Deck(Serializeable):
             and self._maindeck == other._maindeck
             and self._sideboard == other._sideboard
         )
+
+
+class Pool(Cube, TabModel):
+    pass
+    # def __init__(self, maindeck: Cube, sideboard: Cube, pool: Cube):
+    #     self._maindeck = maindeck
+    #     self._sideboard = sideboard
+    #     self._pool = pool
+    #
+    # @property
+    # def maindeck(self) -> Cube:
+    #     return self._maindeck
+    #
+    # @property
+    # def sideboard(self) -> Cube:
+    #     return self._sideboard
+    #
+    # @property
+    # def pool(self) -> Cube:
+    #     return self._pool
+    #
+    # def serialize(self) -> serialization_model:
+    #     return {
+    #         'maindeck': self._maindeck.serialize(),
+    #         'sideboard': self._sideboard.serialize(),
+    #         'pool': self._pool.serialize(),
+    #     }
+    #
+    # @classmethod
+    # def deserialize(cls, value: serialization_model, inflator: Inflator) -> Pool:
+    #     return cls(
+    #         maindeck = Cube.deserialize(value['maindeck'], inflator),
+    #         sideboard = Cube.deserialize(value['sideboard'], inflator),
+    #         pool = Cube.deserialize(value['pool'], inflator),
+    #     )
+    #
+    # def __hash__(self) -> int:
+    #     return hash((self._maindeck, self._sideboard, self._pool))
+    #
+    # def __eq__(self, other: object) -> bool:
+    #     return (
+    #         isinstance(other, self.__class__)
+    #         and self._maindeck == other._maindeck
+    #         and self._sideboard == other._sideboard
+    #         and self._pool == other._pool
+    #     )
 
 
 class DeckModel(QObject):
@@ -82,7 +133,7 @@ class DeckModel(QObject):
 
     @classmethod
     def load(cls, state: t.Any) -> DeckModel:
-        return DeckModel(
+        return cls(
             CubeScene.load(state['maindeck']),
             CubeScene.load(state['sideboard']),
         )
@@ -90,8 +141,13 @@ class DeckModel(QObject):
 
 class PoolModel(DeckModel):
 
-    def __init__(self, pool: t.Optional[CubeScene] = None):
-        super().__init__(None, None)
+    def __init__(
+        self,
+        pool: t.Optional[CubeScene] = None,
+        maindeck: t.Optional[CubeScene] = None,
+        sideboard: t.Optional[CubeScene] = None,
+    ):
+        super().__init__(maindeck, sideboard)
         self._pool = CubeScene(StaticStackingGrid) if pool is None else pool
 
         self._pool.changed.connect(self.changed)
@@ -99,3 +155,22 @@ class PoolModel(DeckModel):
     @property
     def pool(self) -> CubeScene:
         return self._pool
+
+    def as_pool(self) -> Pool:
+        return Pool(
+            self._maindeck.cube + self._sideboard.cube + self._pool.cube
+        )
+
+    def persist(self) -> t.Any:
+        return {
+            'pool': self._pool.persist(),
+            **super().persist(),
+        }
+
+    @classmethod
+    def load(cls, state: t.Any) -> PoolModel:
+        return cls(
+            maindeck = CubeScene.load(state['maindeck']),
+            sideboard = CubeScene.load(state['sideboard']),
+            pool = CubeScene.load(state['pool']),
+        )

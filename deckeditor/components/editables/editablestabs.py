@@ -18,15 +18,27 @@ from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.models.cubes.cubescene import CubeScene
-from deckeditor.models.deck import DeckModel, PoolModel
-from deckeditor.serialization.deckserializer import DeckSerializer
+from deckeditor.models.deck import DeckModel, PoolModel, TabModel, Deck, Pool
+from deckeditor.serialization.tabmodelserializer import TabModelSerializer
+
+
+class FileIOException(Exception):
+    pass
+
+
+class FileOpenException(FileIOException):
+    pass
+
+
+class FileSaveException(FileIOException):
+    pass
 
 
 class EditablesMeta(object):
 
-    def __init__(self, name: str, path: t.Optional[str] = None):
+    def __init__(self, name: str, path: t.Optional[str] = None, key: t.Optional[str] = None):
         self._path: t.Optional[str] = path
-        self._key = str(uuid.uuid4())
+        self._key = key if key is not None else str(uuid.uuid4())
         self._name: str = name
 
     @property
@@ -58,7 +70,6 @@ class EditablesTabs(QtWidgets.QTabWidget):
         super().__init__(parent)
         self._new_decks = 0
 
-        # self._open_files: t.MutableMapping[str, Editable] = {}
         self._metas: t.MutableMapping[Editable, EditablesMeta] = {}
 
         self.setTabsClosable(True)
@@ -72,8 +83,8 @@ class EditablesTabs(QtWidgets.QTabWidget):
             self.widget(idx).undo_stack
         )
 
-    def _new_pool(self, pool: Cube) -> None:
-        self.addTab(
+    def _new_pool(self, pool: Cube, key: t.Optional[str] = None) -> None:
+        self.add_editable(
             PoolView(
                 PoolModel(
                     CubeScene(
@@ -82,10 +93,13 @@ class EditablesTabs(QtWidgets.QTabWidget):
                     )
                 )
             ),
-            'a pool',
+            EditablesMeta(
+                'untitled pool',
+                key = key,
+            ),
         )
 
-    def save(self) -> None:
+    def save_session(self) -> None:
         with open(paths.SESSION_PATH, 'wb') as session_file:
             pickle.dump(
                 {
@@ -99,7 +113,7 @@ class EditablesTabs(QtWidgets.QTabWidget):
                 session_file,
             )
 
-    def load(self) -> None:
+    def load_session(self) -> None:
         try:
             previous_session = pickle.load(open(paths.SESSION_PATH, 'rb'))
         except (FileNotFoundError, UnpicklingError, EOFError):
@@ -121,9 +135,16 @@ class EditablesTabs(QtWidgets.QTabWidget):
         return deck_widget
 
     def load_file(self, state: t.Any, meta: EditablesMeta) -> Editable:
-        return self.add_editable(DeckView.load(state), meta)
+        return self.add_editable(
+            (
+                PoolView
+                if state['tab_type'] == 'pool' else
+                DeckView
+            ).load(state),
+            meta,
+        )
 
-    def open_file(self, path: str) -> None:
+    def open_file(self, path: str, target: t.Type[TabModel] = Deck) -> None:
         for editable, meta in self._metas.items():
             if meta.path == path:
                 self.setCurrentWidget(editable)
@@ -134,33 +155,99 @@ class EditablesTabs(QtWidgets.QTabWidget):
         extension = extension[1:]
         meta = EditablesMeta(file_name, path)
 
-        if extension.lower() == 'embd':
-            with open(path, 'rb') as f:
-                deck_view = self.load_file(pickle.load(f), meta)
+        if target == Deck:
+            if extension.lower() == 'embd':
+                with open(path, 'rb') as f:
+                    try:
+                        tab = self.load_file(pickle.load(f), meta)
+                    except UnpicklingError:
+                        raise FileOpenException('corrupt file')
+
+            else:
+                with open(path, 'r') as f:
+                    try:
+                        serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
+                            (extension, target)
+                        ]
+                    except KeyError:
+                        raise FileOpenException('unsupported file type "{}"'.format(extension))
+                    deck = serializer.deserialize(f.read())
+
+                tab = DeckView(
+                    DeckModel(
+                        CubeScene(StaticStackingGrid, deck.maindeck),
+                        CubeScene(StaticStackingGrid, deck.sideboard),
+                    )
+                )
+                self.add_editable(tab, meta)
+
+        elif target == Pool:
+            if extension.lower() == 'embp':
+                with open(path, 'rb') as f:
+                    try:
+                        tab = self.load_file(pickle.load(f), meta)
+                    except UnpicklingError:
+                        raise FileOpenException('corrupt file')
+
+            else:
+                with open(path, 'r') as f:
+                    try:
+                        serializer: TabModelSerializer[PoolModel] = TabModelSerializer.extension_to_serializer[
+                            (extension, target)
+                        ]
+                    except KeyError:
+                        raise FileOpenException('unsupported file type "{}"'.format(extension))
+                    pool = serializer.deserialize(f.read())
+
+                tab = PoolView(
+                    PoolModel(
+                        # maindeck = CubeScene(StaticStackingGrid, pool.maindeck),
+                        # sideboard = CubeScene(StaticStackingGrid, pool.sideboard),
+                        pool = CubeScene(StaticStackingGrid, pool),
+                    )
+                )
+                self.add_editable(tab, meta)
 
         else:
-            with open(path, 'r') as f:
-                deck = DeckSerializer.extension_to_serializer[extension].deserialize(f.read())
+            raise FileOpenException('invalid load target "{}"'.format(target))
 
-            deck_view = DeckView(
-                DeckModel(
-                    CubeScene(StaticStackingGrid, deck.maindeck),
-                    CubeScene(StaticStackingGrid, deck.sideboard),
-                )
-            )
-            self.add_editable(deck_view, meta)
-
-        self.setCurrentWidget(deck_view)
+        self.setCurrentWidget(tab)
 
     def save_tab_at_path(self, editable: Editable, path: str) -> None:
-        extension = path.split('.')[1]
+        print('save tab at path', editable, path)
+        extension = os.path.splitext(path)[-1][1:]
 
-        with open(path, 'w') as f:
-            f.write(
-                DeckSerializer.extension_to_serializer[extension].serialize(
-                    editable.deck_model.as_deck()
-                )
-            )
+        if isinstance(editable, PoolView):
+            if extension == 'embp':
+                with open(path, 'wb') as f:
+                    pickle.dump(editable.persist(), f)
+                return
+
+            try:
+                serializer: TabModelSerializer[Pool] = TabModelSerializer.extension_to_serializer[
+                    (extension, Pool)
+                ]
+            except KeyError:
+                raise FileSaveException('invalid file type "{}"'.format(extension))
+
+            with open(path, 'w') as f:
+                f.write(serializer.serialize(editable.pool_model.as_pool()))
+
+        else:
+            if extension == 'embd':
+                with open(path, 'wb') as f:
+                    pickle.dump(editable.persist(), f)
+                return
+
+            try:
+                serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
+                    (extension, Deck)
+                ]
+            except KeyError:
+                raise FileSaveException('invalid file type "{}"'.format(extension))
+
+            with open(path, 'w') as f:
+                f.write(serializer.serialize(editable.deck_model.as_deck()))
 
         editable.undo_stack.clear()
 
@@ -171,23 +258,25 @@ class EditablesTabs(QtWidgets.QTabWidget):
         )
 
     def save_tab(self, editable: t.Optional[Editable] = None):
-        current_editable: DeckView = editable if editable is not None else self.currentWidget()
+        print('save tab')
+        current_editable = editable if editable is not None else self.currentWidget()
 
-        if not current_editable or not isinstance(current_editable, DeckView):
+        if not current_editable:
             return
 
         meta = self._metas[current_editable]
 
         if not meta.path:
-            self.save_tab_as()
+            self.save_tab_as(editable)
             return
 
         self.save_tab_at_path(current_editable, meta.path)
 
     def save_tab_as(self, editable: t.Optional[Editable] = None) -> None:
-        current_editable: DeckView = editable if editable is not None else self.currentWidget()
+        print('save tab as')
+        current_editable = editable if editable is not None else self.currentWidget()
 
-        if not current_editable or not isinstance(current_editable, DeckView):
+        if not current_editable:
             return
 
         dialog = QtWidgets.QFileDialog(self)
@@ -212,7 +301,7 @@ class EditablesTabs(QtWidgets.QTabWidget):
 
         if not self._metas[closed_tab].path or not closed_tab.undo_stack.isClean():
             confirm_dialog = QMessageBox()
-            confirm_dialog.setText('Deck has been modified')
+            confirm_dialog.setText('File has been modified')
             confirm_dialog.setInformativeText('Wanna save that shit?')
             confirm_dialog.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
             confirm_dialog.setDefaultButton(QMessageBox.Cancel)

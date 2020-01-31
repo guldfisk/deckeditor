@@ -3,8 +3,8 @@ from __future__ import annotations
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QPoint, Qt, QRect, QRectF
-from PyQt5.QtGui import QKeySequence, QPainter
+from PyQt5.QtCore import QPoint, Qt, QRectF
+from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
@@ -16,7 +16,7 @@ from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
 
-from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalTrap, PhysicalAllCard
+from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting import sorting
@@ -76,9 +76,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._mode = mode
 
         self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
-        # self.setRenderHint(QPainter.SmoothPixmapTransform, True)
         self.setRenderHints(QPainter.SmoothPixmapTransform)
-        print(bool(self.renderHints() & QPainter.SmoothPixmapTransform))
 
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
@@ -96,8 +94,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._dragging_move: bool = False
         self._last_move_event_pos = None
         self._last_press_on_card = False
-
-        # self._card_scene.cursor_moved.connect(lambda pos: self.centerOn(pos))
 
         self._sort_actions: t.List[QtWidgets.QAction] = []
 
@@ -274,30 +270,11 @@ class CubeImageView(QtWidgets.QGraphicsView):
     #         target._card_scene.aligner.attach_cards(cards)
     #     )
 
-
-
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         pressed_key = key_event.key()
         modifiers = key_event.modifiers()
 
-        # if pressed_key == QtCore.Qt.Key_Up:
-        #     self._card_scene.aligner.move_cursor(Direction.UP, modifiers)
-        #
-        # elif pressed_key == QtCore.Qt.Key_Right:
-        #     self._card_scene.aligner.move_cursor(Direction.RIGHT, modifiers)
-        #
-        # elif pressed_key == QtCore.Qt.Key_Down:
-        #     self._card_scene.aligner.move_cursor(Direction.DOWN, modifiers)
-        #
-        # elif pressed_key == QtCore.Qt.Key_Left:
-        #     self._card_scene.aligner.move_cursor(Direction.LEFT, modifiers)
-        #
-        # elif pressed_key == QtCore.Qt.Key_Plus:
-        #     self.scale(1.1, 1.1)
-        #
-        # elif pressed_key == QtCore.Qt.Key_Minus:
-        #     self.scale(.9, .9)
-
+        # TODO is there a reason this isnt actions?
         if pressed_key == QtCore.Qt.Key_Delete and self._mode == CubeEditMode.OPEN:
             cards = self._scene.selectedItems()
             if cards:
@@ -326,17 +303,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
                         cards[0].pos() + QPoint(1, 1),
                     )
                 )
-
-
-        # elif pressed_key == QtCore.Qt.Key_Period:
-        #     pos = self.mapFromScene(self.card_scene.cursor.pos())
-        #     self.customContextMenuRequested.emit(
-        #         QtCore.QPoint(
-        #             int(pos.x()),
-        #             int(pos.y()),
-        #         )
-        #     )
-
         else:
             super().keyPressEvent(key_event)
 
@@ -503,7 +469,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
                     self._scene.set_selection((item,))
 
                 self._last_press_on_card = True
-
 
     def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
         Context.focus_scene_changed.emit(self._scene)

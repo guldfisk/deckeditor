@@ -12,7 +12,7 @@ from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel
-from deckeditor.serialization.deckserializer import DeckSerializer
+from deckeditor.serialization.tabmodelserializer import TabModelSerializer
 from deckeditor.values import SUPPORTED_EXTENSIONS
 
 
@@ -89,6 +89,7 @@ class DeckView(Editable):
             'sideboard_view': self._sideboard_cube_view.persist(),
             'splitter': self._horizontal_splitter.saveState(),
             'deck_model': self._deck_model.persist(),
+            'tab_type': 'deck',
         }
 
     @classmethod

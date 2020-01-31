@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QWidget, QUndoStack
+from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubeview import CubeView
@@ -16,45 +18,59 @@ class PoolView(Editable):
     def __init__(
         self,
         pool_model: PoolModel,
-        parent: t.Optional[QWidget] = None,
+        *,
+        maindeck_cube_view: t.Optional[CubeView] = None,
+        sideboard_cube_view: t.Optional[CubeView] = None,
+        pool_cube_view: t.Optional[CubeEditMode] = None,
+        undo_stack: t.Optional[QUndoStack] = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__()
 
-        self._undo_stack = QUndoStack(Context.undo_group)
-        # Context.undo_group.setActiveStack(self._undo_stack)
+        self._undo_stack = undo_stack if undo_stack is not None else QUndoStack(Context.undo_group)
+        QUndoStack(Context.undo_group)
 
         self._pool_model = pool_model
 
         layout = QtWidgets.QVBoxLayout()
 
-        vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
-        horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
+        self._vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
+        self._horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 
-        self._maindeck_cube_view = CubeView(
-            self._pool_model.maindeck,
-            self._undo_stack,
-            CubeEditMode.CLOSED,
+        self._maindeck_cube_view = (
+            maindeck_cube_view
+            if maindeck_cube_view is not None else
+            CubeView(
+                self._pool_model.maindeck,
+                self._undo_stack,
+                CubeEditMode.CLOSED,
+            )
         )
-        self._sideboard_cube_view = CubeView(
-            self._pool_model.sideboard,
-            self._undo_stack,
-            CubeEditMode.CLOSED,
+        self._sideboard_cube_view = (
+            sideboard_cube_view
+            if sideboard_cube_view is not None else
+            CubeView(
+                self._pool_model.sideboard,
+                self._undo_stack,
+                CubeEditMode.CLOSED,
+            )
         )
-        self._pool_cube_view = CubeView(
-            self._pool_model.pool,
-            self._undo_stack,
-            CubeEditMode.CLOSED,
+        self._pool_cube_view = (
+            pool_cube_view
+            if pool_cube_view is not None else
+            CubeView(
+                self._pool_model.pool,
+                self._undo_stack,
+                CubeEditMode.CLOSED,
+            )
         )
 
-        horizontal_splitter.addWidget(self._maindeck_cube_view)
-        horizontal_splitter.addWidget(self._sideboard_cube_view)
+        self._horizontal_splitter.addWidget(self._maindeck_cube_view)
+        self._horizontal_splitter.addWidget(self._sideboard_cube_view)
 
-        vertical_splitter.addWidget(self._pool_cube_view)
-        vertical_splitter.addWidget(
-            horizontal_splitter
-        )
+        self._vertical_splitter.addWidget(self._pool_cube_view)
+        self._vertical_splitter.addWidget(self._horizontal_splitter)
 
-        layout.addWidget(vertical_splitter)
+        layout.addWidget(self._vertical_splitter)
 
         self.setLayout(layout)
 
@@ -86,6 +102,51 @@ class PoolView(Editable):
                 )
             )
         )
+
+    @property
+    def pool_model(self) -> PoolModel:
+        return self._pool_model
+
+    def persist(self) -> t.Any:
+        return {
+            'maindeck_view': self._maindeck_cube_view.persist(),
+            'sideboard_view': self._sideboard_cube_view.persist(),
+            'pool_view': self._pool_cube_view.persist(),
+            'horizontal_splitter': self._horizontal_splitter.saveState(),
+            'vertical_splitter': self._vertical_splitter.saveState(),
+            'pool_model': self._pool_model.persist(),
+            'tab_type': 'pool',
+        }
+
+    @classmethod
+    def load(cls, state: t.Any) -> PoolView:
+        pool_model = PoolModel.load(state['pool_model'])
+        undo_stack = QUndoStack(Context.undo_group)
+        pool_view = cls(
+            pool_model,
+            maindeck_cube_view = CubeView.load(
+                state['maindeck_view'],
+                pool_model.maindeck,
+                CubeEditMode.CLOSED,
+                undo_stack = undo_stack,
+            ),
+            sideboard_cube_view = CubeView.load(
+                state['sideboard_view'],
+                pool_model.sideboard,
+                CubeEditMode.CLOSED,
+                undo_stack = undo_stack,
+            ),
+            pool_cube_view = CubeView.load(
+                state['pool_view'],
+                pool_model.pool,
+                CubeEditMode.CLOSED,
+                undo_stack = undo_stack,
+            ),
+            undo_stack = undo_stack,
+        )
+        pool_view._horizontal_splitter.restoreState(state['horizontal_splitter'])
+        pool_view._vertical_splitter.restoreState(state['vertical_splitter'])
+        return pool_view
 
     @property
     def undo_stack(self) -> QUndoStack:

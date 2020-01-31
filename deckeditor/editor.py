@@ -1,271 +1,41 @@
 from __future__ import annotations
 
 import io
-import traceback
-
-import linecache
+import os
+import sys
 import time
+import traceback
 import typing
 import typing as t
 
-import sys
-import random
-import os
-import tracemalloc
-
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QInputDialog, QDialog, QStatusBar
-from mtgorp.db import create
+from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog, QStatusBar
 
-from deckeditor import paths
-from deckeditor.components.authentication.login import LoginDialog
-from deckeditor.components.draft.view import DraftTabs
-from deckeditor.components.lobbies.view import LobbiesView, CreateLobbyDialog, LobbyModelClientConnection
-from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
-from deckeditor.components.views.editables.deck import DeckView
-from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
-from deckeditor.models.cubes.cubescene import CubeScene
-from deckeditor.notifications.frame import NotificationFrame
-from deckeditor.notifications.notifyable import Notifyable
-from deckeditor.serialization.deckserializer import DeckSerializer
-from deckeditor.values import SUPPORTED_EXTENSIONS
-from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import AllNode, AnyNode
+from yeetlong.multiset import Multiset
+
+from mtgorp.db import create
 from mtgorp.db.load import DBLoadException
 from mtgorp.managejson import download
 from mtgorp.managejson.update import check, update_last_updated
-from mtgorp.models.serilization.strategies.jsonid import JsonId
-from mtgorp.tools.parsing.exceptions import ParseException
-from yeetlong.multiset import Multiset
-
-from mtgorp.db.database import CardDatabase
-from mtgorp.models.persistent.printing import Printing
-from mtgorp.models.serilization.serializeable import SerializationException
-from mtgorp.tools.search.pattern import Criteria, Pattern
 from mtgorp.tools.search.extraction import PrintingStrategy
-from mtgorp.tools.parsing.search.parse import SearchPatternParseException
-from mtgorp.models.persistent.expansion import Expansion
+from mtgorp.tools.search.pattern import Criteria, Pattern
 
-from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
 
+from deckeditor import paths
 from deckeditor.application.embargo import EmbargoApp
+from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
-from deckeditor.components.editables.editablestabs import EditablesTabs
-# from deckeditor.components.generate.dialog import PoolGenerateable
-from deckeditor.models.deck import DeckModel, Deck
-from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
-# from deckeditor.notifications.frame import NotificationFrame
-# from deckeditor.notifications.notifyable import Notifyable
-# from deckeditor.values import DeckZoneType
 from deckeditor.components.cardview.cubeableview import CubeableView
+from deckeditor.components.editables.editablestabs import EditablesTabs
+from deckeditor.components.lobbies.view import LobbiesView, LobbyModelClientConnection
+from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
+from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.context.context import Context
-from deckeditor.garbage.decklistview.decklistwidget import DeckListWidget
-
-
-def display_top(snapshot, key_type='lineno', limit=10):
-    snapshot = snapshot.filter_traces((
-        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
-        tracemalloc.Filter(False, "<unknown>"),
-    ))
-    top_stats = snapshot.statistics(key_type)
-
-    print("Top %s lines" % limit)
-    for index, stat in enumerate(top_stats[:limit], 1):
-        frame = stat.traceback[0]
-        # replace "/path/to/module/file.py" with "module/file.py"
-        filename = os.sep.join(frame.filename.split(os.sep)[-2:])
-        print("#%s: %s:%s: %.1f KiB"
-              % (index, filename, frame.lineno, stat.size / 1024))
-        line = linecache.getline(frame.filename, frame.lineno).strip()
-        if line:
-            print('    %s' % line)
-
-    other = top_stats[limit:]
-    if other:
-        size = sum(stat.size for stat in other)
-        print("%s other: %.1f KiB" % (len(other), size / 1024))
-    total = sum(stat.size for stat in top_stats)
-    print("Total allocated size: %.1f KiB" % (total / 1024))
-
-
-# class DeckWidget(QWidget):
-#     printings_changed = QtCore.pyqtSignal(DeckZoneType, CardScene)
-#
-#     def __init__(self, name: str, parent = None):
-#         super().__init__(parent = parent)
-#
-#         self._name = name
-#
-#         self._undo_stack = UndoStack()
-#
-#         self._card_widgets = {
-#             DeckZoneType.MAINDECK: DeckZone(DeckZoneType.MAINDECK, self._undo_stack, self),
-#             DeckZoneType.SIDEBOARD: DeckZone(DeckZoneType.SIDEBOARD, self._undo_stack, self),
-#             DeckZoneType.POOL: DeckZone(DeckZoneType.POOL, self._undo_stack, self)
-#         }
-#
-#         self._zones = {
-#             key: window.card_container
-#             for key, window in
-#             self._card_widgets.items()
-#         }
-#
-#         self._scenes_to_deck_zone = {
-#             widget.card_scene: zone
-#             for zone, widget in
-#             self._zones.items()
-#         }  # type: t.Dict[CardScene, DeckZoneType]
-#
-#         for card_scene in self._scenes_to_deck_zone:
-#             card_scene.cards_changed.connect(self._card_widget_changed)
-#
-#         for window in self._card_widgets.values():
-#             window.card_container.set_zones(self._zones)
-#
-#         self._layout = QtWidgets.QHBoxLayout(self)
-#
-#         self._vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
-#
-#         self._horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
-#
-#         self._horizontal_splitter.addWidget(self.maindeck)
-#         self._horizontal_splitter.addWidget(self.sideboard)
-#
-#         self._vertical_splitter.addWidget(self.pool)
-#         self._vertical_splitter.addWidget(self._horizontal_splitter)
-#
-#         self._vertical_splitter.setSizes((0, 1,))
-#
-#         self._layout.addWidget(
-#             self._vertical_splitter
-#         )
-#
-#         self.setLayout(
-#             self._layout
-#         )
-#
-#         self.printings_changed.connect(self._printings_changed)
-#
-#     def _printings_changed(self, deck_zone: DeckZoneType, card_scene: CardScene) -> None:
-#         if deck_zone == DeckZoneType.POOL:
-#             return
-#
-#         Context.deck_list_view.set_deck.emit(self.maindeck.printings, self.sideboard.printings)
-#
-#     def _card_widget_changed(self, card_scene: CardScene) -> None:
-#         self.printings_changed.emit(self._scenes_to_deck_zone[card_scene], card_scene)
-#
-#     @property
-#     def name(self) -> str:
-#         return self._name
-#
-#     @property
-#     def deck(self) -> Deck:
-#         return Deck(
-#             maindeck = self.maindeck.printings,
-#             sideboard = self.sideboard.printings,
-#         )
-#
-#     @property
-#     def pool(self) -> DeckZone:
-#         return self._card_widgets[DeckZoneType.POOL]
-#
-#     @property
-#     def maindeck(self) -> DeckZone:
-#         return self._card_widgets[DeckZoneType.MAINDECK]
-#
-#     @property
-#     def sideboard(self) -> DeckZone:
-#         return self._card_widgets[DeckZoneType.SIDEBOARD]
-#
-#     @property
-#     def zones(self) -> t.Dict[DeckZoneType, DeckZone]:
-#         return self._card_widgets
-#
-#     @property
-#     def card_containers(self) -> t.Iterable[CardContainer]:
-#         return (card_widget.card_container for card_widget in self._card_widgets.values())
-#
-#     @property
-#     def undo_stack(self) -> UndoStack:
-#         return self._undo_stack
-#
-#     def exclusive_maindeck(self):
-#         self._vertical_splitter.setSizes((0, 1))
-#         self._horizontal_splitter.setSizes((1, 0))
-#         self.maindeck.card_container.setFocus()
-#
-#     def exclusive_sideboard(self):
-#         self._vertical_splitter.setSizes((0, 1))
-#         self._horizontal_splitter.setSizes((0, 1))
-#         self.sideboard.card_container.setFocus()
-#
-#     def exclusive_pool(self):
-#         self._vertical_splitter.setSizes((1, 0))
-#         self.pool.card_container.setFocus()
-
-
-# class DeckTabs(QtWidgets.QTabWidget):
-#     DEFAULT_TEMPLATE = 'New Deck {}'
-#
-#     def __init__(self, parent: QtWidgets.QWidget = None):
-#         super().__init__(parent)
-#         self._new_decks = 0
-#         self.setTabsClosable(True)
-#
-#         self.tabCloseRequested.connect(self._tab_close_requested)
-#         self.currentChanged.connect(self._current_changed)
-#
-#     def add_deck(self, deck: DeckWidget) -> None:
-#         self.addTab(deck, deck.name)
-#
-#     def new_deck(self) -> DeckWidget:
-#         deck_widget = DeckWidget(
-#             name = self.DEFAULT_TEMPLATE.format(self._new_decks),
-#         )
-#         self.add_deck(
-#             deck_widget
-#         )
-#         self._new_decks += 1
-#
-#         return deck_widget
-#
-#     def _tab_close_requested(self, index: int) -> None:
-#         if index == 0:
-#             self.new_deck()
-#
-#         self.removeTab(index)
-#
-#     def _current_changed(self, index: int) -> None:
-#         Context.deck_list_view.set_deck.emit(
-#             self.currentWidget().maindeck.printings,
-#             self.currentWidget().sideboard.printings,
-#         )
-
-
-# class _MainView(QWidget):
-#
-#     def __init__(self, parent: 'MainWindow'):
-#         super().__init__(parent)
-#
-#         self._deck_tabs = DeckTabs(self)
-#
-#         self._deck_tabs.new_deck()
-#
-#         self._layout = QtWidgets.QVBoxLayout()
-#
-#         self._layout.addWidget(self._deck_tabs)
-#
-#         self.setLayout(self._layout)
-#
-#     @property
-#     def deck_tabs(self) -> DeckTabs:
-#         return self._deck_tabs
-#
-#     @property
-#     def active_deck(self) -> DeckWidget:
-#         return self._deck_tabs.currentWidget()
+from deckeditor.models.deck import DeckModel, Deck, TabModel, Pool
+from deckeditor.notifications.frame import NotificationFrame
+from deckeditor.notifications.notifyable import Notifyable
+from deckeditor.values import SUPPORTED_EXTENSIONS
 
 
 class MainView(QWidget):
@@ -423,9 +193,10 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             menu_bar.addMenu('File'): (
                 ('Exit', 'Ctrl+Q', self.close),
                 ('New Deck', 'Ctrl+N', self._new_deck),
-                ('Open Deck', 'Ctrl+O', self._load),
-                # ('Load Pool', 'Ctrl+P', self.load_pool),
-                ('Save Deck', 'Ctrl+S', self._save_as),
+                ('Open Deck', 'Ctrl+O', lambda: self._open(Deck)),
+                ('Open Pool', 'Ctrl+P', lambda: self._open(Pool)),
+                ('Save', 'Ctrl+S', self._save),
+                ('Save As', 'Ctrl+Shift+S', self._save_as),
                 # ('Save pool', 'Ctrl+l', self.save_pool),
                 ('Close Deck', 'Ctrl+W', self._close_deck),
 
@@ -434,27 +205,27 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 ('Undo', 'Ctrl+Z', self._undo),
                 ('Redo', 'Ctrl+Shift+Z', self._redo),
             ),
-            menu_bar.addMenu('Deck'): (
-                # ('Maindeck', 'Ctrl+1', lambda: self._focus_deck_zone(DeckZoneType.MAINDECK)),
-                # ('Sideboard', 'Ctrl+2', lambda: self._focus_deck_zone(DeckZoneType.SIDEBOARD)),
-                # ('Pool', 'Ctrl+3', lambda: self._focus_deck_zone(DeckZoneType.POOL)),
-                # ('Exclusive Maindeck', 'Alt+Ctrl+1', self._exclusive_maindeck),
-                # ('Exclusive Sideboard', 'Alt+Ctrl+2', self._exclusive_sideboard),
-                # ('Exclusive Pool', 'Alt+Ctrl+3', self._exclusive_pool),
-            ),
-            menu_bar.addMenu('Generate'): (
-                # ('Sealed pool', 'Ctrl+G', self._generate_pool),
-                # ('Cube Pools', 'Ctrl+C', self.generate_cube_pools),
-            ),
+            # menu_bar.addMenu('Deck'): (
+            #     # ('Maindeck', 'Ctrl+1', lambda: self._focus_deck_zone(DeckZoneType.MAINDECK)),
+            #     # ('Sideboard', 'Ctrl+2', lambda: self._focus_deck_zone(DeckZoneType.SIDEBOARD)),
+            #     # ('Pool', 'Ctrl+3', lambda: self._focus_deck_zone(DeckZoneType.POOL)),
+            #     # ('Exclusive Maindeck', 'Alt+Ctrl+1', self._exclusive_maindeck),
+            #     # ('Exclusive Sideboard', 'Alt+Ctrl+2', self._exclusive_sideboard),
+            #     # ('Exclusive Pool', 'Alt+Ctrl+3', self._exclusive_pool),
+            # ),
+            # menu_bar.addMenu('Generate'): (
+            #     # ('Sealed pool', 'Ctrl+G', self._generate_pool),
+            #     # ('Cube Pools', 'Ctrl+C', self.generate_cube_pools),
+            # ),
             menu_bar.addMenu('Add'): (
                 # ('Test Add', 'Ctrl+W', self._test_add),
                 ('Add cards', 'Ctrl+F', self._add_cards),
             ),
-            menu_bar.addMenu('Select'): (
-                # ('All', 'Ctrl+A', self._select_all),
-                # ('Clear Selection', 'Ctrl+D', self._clear_selection),
-                # ('Select Matching', 'Ctrl+E', self._search_select),
-            ),
+            # menu_bar.addMenu('Select'): (
+            #     # ('All', 'Ctrl+A', self._select_all),
+            #     # ('Clear Selection', 'Ctrl+D', self._clear_selection),
+            #     # ('Select Matching', 'Ctrl+E', self._search_select),
+            # ),
             menu_bar.addMenu('View'): (
                 ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
                 ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
@@ -463,9 +234,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
             ),
-            menu_bar.addMenu('Test'): (
-                ('Test', 'Ctrl+T', self._test),
-            ),
+            # menu_bar.addMenu('Test'): (
+            #     ('Test', 'Ctrl+T', self._test),
+            # ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', self._login),
             ),
@@ -482,8 +253,6 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 menu.addAction(_action)
 
         self._printings = None
-
-        # self._last_focused_card_container = None  # type: # t.Optional[CardContainer]
 
         self._reset_dock_width = 500
         self._reset_dock_height = 1200
@@ -534,9 +303,6 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
 
     def notify(self, message: str) -> None:
         self._notification_frame.notify(message)
-
-    # def _focus_deck_zone(self, zone: DeckZoneType):
-    #     self._main_view.active_deck.zones[zone].card_container.setFocus()
 
     def _exclusive_maindeck(self):
         self._main_view.active_deck.exclusive_maindeck()
@@ -599,52 +365,10 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         if hasattr(self, '_notification_frame'):
             self._notification_frame.stack_notifications()
 
-    # def focus_changed(self, old_widget: QtWidgets.QWidget, new_widget: QtWidgets.QWidget):
-    #     if isinstance(new_widget, CardContainer):
-    #         self._last_focused_card_container = new_widget
-
-    # def _add_card(self, db: CardDatabase):
-    #     if self._printings is None:
-    #         self._printings = list(db.printings.values())
-    #
-    #     sampled = random.sample(self._printings, 9) + [
-    #         db.cardboards['Huntmaster of the Fells // Ravager of the Fells'].printing]
-    #
-    #     self._main_view.active_deck.undo_stack.push(
-    #         AddPrintings(
-    #             (
-    #                 self._last_focused_card_container
-    #                 if (
-    #                     self._last_focused_card_container is not None
-    #                     and self._last_focused_card_container in
-    #                     (
-    #                         card_window.card_container
-    #                         for card_window in
-    #                         self._main_view.active_deck.zones.values()
-    #                     )
-    #                 ) else
-    #                 self._main_view.active_deck.maindeck.card_container
-    #             ).scene(),
-    #             sampled,
-    #             QtCore.QPointF(0, 0),
-    #         )
-    #     )
-
-    # def _test_add(self):
-    #     self._add_card(Context.db)
-
-    # def add_printings(self, target: DeckZoneType, printings: t.Iterable[Printing]):
-    #     self._main_view.active_deck.undo_stack.push(
-    #         AddPrintings(
-    #             self._main_view.active_deck.zones[target].card_container.scene(),
-    #             printings,
-    #         )
-    #     )
-
     def generate_cube_pools(self):
         pass
 
-    def _load(self):
+    def _open(self, target: t.Type[TabModel] = Deck):
         dialog = QtWidgets.QFileDialog(self)
         dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
         dialog.setNameFilter(SUPPORTED_EXTENSIONS)
@@ -659,42 +383,19 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             return
 
         file_path = file_names[0]
-
-        self._main_view.deck_tabs.open_file(file_path)
+        print('some open shit', target)
+        self._main_view.deck_tabs.open_file(file_path, target)
 
     def _save(self):
-        pass
-
-    def _save_as(self):
         self._main_view.deck_tabs.save_tab()
 
-    # def _pool_generated(self, key: Multiset[Expansion]):
-    #     deck_widget = DeckWidget('Generated Pool')
-    #
-    #     self._main_view.deck_tabs.add_deck(deck_widget)
-    #
-    #     self._main_view.deck_tabs.setCurrentWidget(deck_widget)
-    #
-    #     deck_widget.undo_stack.push(
-    #         AddPrintings(
-    #             deck_widget.zones[DeckZoneType.POOL].card_container.card_scene,
-    #             (printing for expansion in key for printing in expansion.generate_booster()),
-    #         )
-    #     )
-    #
-    # def _generate_pool(self):
-    #     dialog = GeneratePoolDialog(self, self)
-    #     dialog.exec()
+    def _save_as(self):
+        self._main_view.deck_tabs.save_tab_as()
 
     def _save_state(self):
         Context.settings.setValue('geometry', self.saveGeometry())
         Context.settings.setValue('window_state', self.saveState(0))
-        self._main_view.deck_tabs.save()
-        # Context.settings.beginGroup('main_window')
-        # Context.settings.setValue('size', self.size())
-        # Context.settings.setValue('position', self.pos())
-        # Context.settings.setValue('state', self.saveState(0))
-        # Context.settings.endGroup()
+        self._main_view.deck_tabs.save_session()
 
     def _load_state(self):
         geometry = Context.settings.value('geometry', None)
@@ -703,28 +404,11 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         state = Context.settings.value('window_state')
         if state is not None:
             self.restoreState(state, 0)
-        self._main_view.deck_tabs.load()
-        # Context.settings.beginGroup('main_window')
-        #
-        # saved_size = Context.settings.value('size', None)
-        # if saved_size is not None:
-        #     self.resize(saved_size)
-        #
-        # saved_position = Context.settings.value('position', None)
-        # if saved_position is not None:
-        #     self.move(saved_position)
-        #
-        # saved_state = Context.settings.value('state', None)
-        # if saved_state is not None:
-        #     self.restoreState(saved_state, 0)
-        #
-        # Context.settings.endGroup()
+        self._main_view.deck_tabs.load_session()
 
     def closeEvent(self, close_event):
         self._save_state()
         super().closeEvent(close_event)
-
-
 
 
 def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callable[[t.Any, t.Any, t.Any], None]:
