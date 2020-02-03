@@ -1,22 +1,31 @@
-fix rubberband on windows
-fix style on windows
-visual indicator of logged in status
-ability to log out
 error handling of disconnects
 instead of just "select matching", full search dialog, with option to exit and select matching
 search dialog searching entire tab (all views in pool or deck or whatever)
 add basics to pool (and remove)
 disable change printing for pool except for basics
-option for visual menu when selecting printing (also for cardboards with many printing)
-(and the snot thing?)
+merge view sorta like arena, two rows dynamic height, keep cards sorted in stackers, merge multiples into "nX"
+fix tickets look at whole pool
+hotkey for toggling double click move target, or something like that
+auto load embp as pool
+dont crash on failed file load
+sort macroes
+export pool as deck
+make sideboard scene less wide
+
+fix rubberband on windows
+fix style on windows
+fix mouse input problem on windows (prob related to double click)
 
 uploading of deckelists when done with draft / sealed pool
 drafting
 
+option for visual menu when selecting printing (also for cardboards with many printing)
+visual indicator of logged in status
+status bar?
+ability to log out
 bliver session gemt ved pc shutdown eller lign?
 make tickets work with cards in traps
 auto sort non emb files on open?
-export pool as deck
 fix bunchview drop card on last card in first column puts it in first in second.
 what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged? They should always be rearranged to the current column moves down, so you dont have to move cursor when clicking multiple cards in a row.
 add relecvant text to aplication header
@@ -31,7 +40,6 @@ move cards retaining structure in stacking grid option
 jesus you cant see the cards as long as there is more then like 6 of them in a pile.
     make dynamic grid work
     alternate card image? (cropped + name?)
-    merge view sorta like arena, two rows dynamic height, keep cards sorted in stackers, merge multiples into "nX"
 align specific context actions?
     ssg
 group all cards by cardboard feature
@@ -64,7 +72,6 @@ filtering ability for printings in card adder (maybe option to filter on only pr
 image view in card adder?
 merge contextmenu overlap when multiple physical cards selected
 initial load of file should not be undoable (to an empty scene)
-sort macroes
 save / load .cod
 save session on qt error, or at elast periodically
 ability to resize graphicsscenes

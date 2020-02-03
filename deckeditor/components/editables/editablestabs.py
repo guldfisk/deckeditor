@@ -20,6 +20,7 @@ from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingG
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.models.deck import DeckModel, PoolModel, TabModel, Deck, Pool
 from deckeditor.serialization.tabmodelserializer import TabModelSerializer
+from mtgorp.models.serilization.serializeable import SerializationException
 
 
 class FileIOException(Exception):
@@ -155,61 +156,57 @@ class EditablesTabs(QtWidgets.QTabWidget):
         extension = extension[1:]
         meta = EditablesMeta(file_name, path)
 
-        if target == Deck:
-            if extension.lower() == 'embd':
-                with open(path, 'rb') as f:
-                    try:
-                        tab = self.load_file(pickle.load(f), meta)
-                    except UnpicklingError:
-                        raise FileOpenException('corrupt file')
+        if extension.lower() == 'embd':
+            with open(path, 'rb') as f:
+                try:
+                    tab = self.load_file(pickle.load(f), meta)
+                except UnpicklingError:
+                    raise FileOpenException('corrupt file')
 
-            else:
-                with open(path, 'r') as f:
-                    try:
-                        serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
-                            (extension, target)
-                        ]
-                    except KeyError:
-                        raise FileOpenException('unsupported file type "{}"'.format(extension))
-                    deck = serializer.deserialize(f.read())
-
-                tab = DeckView(
-                    DeckModel(
-                        CubeScene(StaticStackingGrid, deck.maindeck),
-                        CubeScene(StaticStackingGrid, deck.sideboard),
-                    )
-                )
-                self.add_editable(tab, meta)
-
-        elif target == Pool:
-            if extension.lower() == 'embp':
-                with open(path, 'rb') as f:
-                    try:
-                        tab = self.load_file(pickle.load(f), meta)
-                    except UnpicklingError:
-                        raise FileOpenException('corrupt file')
-
-            else:
-                with open(path, 'r') as f:
-                    try:
-                        serializer: TabModelSerializer[PoolModel] = TabModelSerializer.extension_to_serializer[
-                            (extension, target)
-                        ]
-                    except KeyError:
-                        raise FileOpenException('unsupported file type "{}"'.format(extension))
-                    pool = serializer.deserialize(f.read())
-
-                tab = PoolView(
-                    PoolModel(
-                        # maindeck = CubeScene(StaticStackingGrid, pool.maindeck),
-                        # sideboard = CubeScene(StaticStackingGrid, pool.sideboard),
-                        pool = CubeScene(StaticStackingGrid, pool),
-                    )
-                )
-                self.add_editable(tab, meta)
+        elif extension.lower() == 'embp':
+            with open(path, 'rb') as f:
+                try:
+                    tab = self.load_file(pickle.load(f), meta)
+                except UnpicklingError:
+                    raise FileOpenException('corrupt file')
 
         else:
-            raise FileOpenException('invalid load target "{}"'.format(target))
+            with open(path, 'r') as f:
+                print(extension, target)
+                try:
+                    serializer: TabModelSerializer[t.Union[Deck, Pool]] = TabModelSerializer.extension_to_serializer[
+                        (extension, target)
+                    ]
+                    print(serializer)
+                except KeyError:
+                    raise FileOpenException('unsupported file type "{}"'.format(extension))
+
+                try:
+                    tab_model = serializer.deserialize(f.read())
+                except SerializationException:
+                    raise FileOpenException()
+
+            print(tab_model)
+
+            if target == Deck:
+                tab = DeckView(
+                    DeckModel(
+                        tab_model.maindeck,
+                        tab_model.sideboard,
+                    )
+                )
+
+            elif target == Pool:
+                tab = PoolView(
+                    PoolModel(
+                        pool = CubeScene(StaticStackingGrid, cube = tab_model),
+                    )
+                )
+
+            else:
+                raise FileOpenException('invalid load target "{}"'.format(target))
+
+            self.add_editable(tab, meta)
 
         self.setCurrentWidget(tab)
 
@@ -294,7 +291,6 @@ class EditablesTabs(QtWidgets.QTabWidget):
             return
 
         self.save_tab_at_path(current_editable, file_names[0])
-
 
     def _tab_close_requested(self, index: int) -> None:
         closed_tab: DeckView = self.widget(index)

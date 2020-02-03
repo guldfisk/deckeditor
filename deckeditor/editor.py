@@ -27,7 +27,7 @@ from deckeditor.application.embargo import EmbargoApp
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
 from deckeditor.components.cardview.cubeableview import CubeableView
-from deckeditor.components.editables.editablestabs import EditablesTabs
+from deckeditor.components.editables.editablestabs import EditablesTabs, FileOpenException
 from deckeditor.components.lobbies.view import LobbiesView, LobbyModelClientConnection
 from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
 from deckeditor.components.views.editables.deck import DeckView
@@ -383,8 +383,11 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             return
 
         file_path = file_names[0]
-        print('some open shit', target)
-        self._main_view.deck_tabs.open_file(file_path, target)
+
+        try:
+            self._main_view.deck_tabs.open_file(file_path, target)
+        except FileOpenException:
+            self.notify('Corrupt file or wrong inferred type')
 
     def _save(self):
         self._main_view.deck_tabs.save_tab()

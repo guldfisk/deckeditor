@@ -152,10 +152,19 @@ class CubeScene(SelectionScene):
         self,
         aligner_type: t.Optional[t.Type[Aligner]] = None,
         cube: t.Optional[Cube] = None,
+        width: float = values.IMAGE_WIDTH * 12,
+        height: float = values.IMAGE_HEIGHT * 8,
     ):
         super().__init__()
 
-        self.setSceneRect(0, 0, values.IMAGE_WIDTH * 12, values.IMAGE_HEIGHT * 8)
+        print('cube scene init', width, height)
+
+        self.setSceneRect(
+            0,
+            0,
+            width,
+            height,
+        )
 
         self._aligner = None if aligner_type is None else aligner_type(self)
 

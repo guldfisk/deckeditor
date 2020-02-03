@@ -4,6 +4,7 @@ import typing as t
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 
 from magiccube.collections.cube import Cube
@@ -103,10 +104,29 @@ class Pool(Cube, TabModel):
 class DeckModel(QObject):
     changed = pyqtSignal()
 
-    def __init__(self, maindeck: t.Optional[CubeScene] = None, sideboard: t.Optional[CubeScene] = None):
+    def __init__(
+        self,
+        maindeck: t.Union[CubeScene, Cube, None] = None,
+        sideboard: t.Union[CubeScene, Cube, None] = None,
+    ):
         super().__init__()
-        self._maindeck = CubeScene(StaticStackingGrid) if maindeck is None else maindeck
-        self._sideboard = CubeScene(StaticStackingGrid) if sideboard is None else sideboard
+        self._maindeck = (
+            CubeScene(StaticStackingGrid)
+            if maindeck is None else
+            CubeScene(aligner_type = StaticStackingGrid, cube = maindeck)
+            if isinstance(maindeck, Cube) else
+            maindeck
+        )
+        self._sideboard = (
+            CubeScene(
+                aligner_type = StaticStackingGrid,
+                cube = sideboard if isinstance(sideboard, Cube) else None,
+                width = IMAGE_WIDTH * 3.3,
+                height = IMAGE_HEIGHT * 5.5,
+            )
+            if sideboard is None or isinstance(sideboard, Cube) else
+            sideboard
+        )
 
         self._maindeck.changed.connect(self.changed)
         self._sideboard.changed.connect(self.changed)
