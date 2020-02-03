@@ -6,11 +6,10 @@ disable change printing for pool except for basics
 merge view sorta like arena, two rows dynamic height, keep cards sorted in stackers, merge multiples into "nX"
 fix tickets look at whole pool
 hotkey for toggling double click move target, or something like that
-auto load embp as pool
-dont crash on failed file load
 sort macroes
 export pool as deck
-make sideboard scene less wide
+make sideboard scene less wide in pool also
+fix reload resizes scene
 
 fix rubberband on windows
 fix style on windows

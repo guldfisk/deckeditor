@@ -86,14 +86,7 @@ class EditablesTabs(QtWidgets.QTabWidget):
 
     def _new_pool(self, pool: Cube, key: t.Optional[str] = None) -> None:
         self.add_editable(
-            PoolView(
-                PoolModel(
-                    CubeScene(
-                        StaticStackingGrid,
-                        pool,
-                    )
-                )
-            ),
+            PoolView(PoolModel(pool)),
             EditablesMeta(
                 'untitled pool',
                 key = key,
@@ -172,12 +165,10 @@ class EditablesTabs(QtWidgets.QTabWidget):
 
         else:
             with open(path, 'r') as f:
-                print(extension, target)
                 try:
                     serializer: TabModelSerializer[t.Union[Deck, Pool]] = TabModelSerializer.extension_to_serializer[
                         (extension, target)
                     ]
-                    print(serializer)
                 except KeyError:
                     raise FileOpenException('unsupported file type "{}"'.format(extension))
 
@@ -185,8 +176,6 @@ class EditablesTabs(QtWidgets.QTabWidget):
                     tab_model = serializer.deserialize(f.read())
                 except SerializationException:
                     raise FileOpenException()
-
-            print(tab_model)
 
             if target == Deck:
                 tab = DeckView(
@@ -197,11 +186,7 @@ class EditablesTabs(QtWidgets.QTabWidget):
                 )
 
             elif target == Pool:
-                tab = PoolView(
-                    PoolModel(
-                        pool = CubeScene(StaticStackingGrid, cube = tab_model),
-                    )
-                )
+                tab = PoolView(PoolModel(tab_model))
 
             else:
                 raise FileOpenException('invalid load target "{}"'.format(target))

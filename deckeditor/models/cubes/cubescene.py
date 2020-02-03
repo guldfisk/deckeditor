@@ -157,8 +157,6 @@ class CubeScene(SelectionScene):
     ):
         super().__init__()
 
-        print('cube scene init', width, height)
-
         self.setSceneRect(
             0,
             0,

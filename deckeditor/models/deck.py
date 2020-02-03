@@ -111,10 +111,13 @@ class DeckModel(QObject):
     ):
         super().__init__()
         self._maindeck = (
-            CubeScene(StaticStackingGrid)
-            if maindeck is None else
-            CubeScene(aligner_type = StaticStackingGrid, cube = maindeck)
-            if isinstance(maindeck, Cube) else
+            CubeScene(
+                aligner_type = StaticStackingGrid,
+                cube = maindeck if isinstance(maindeck, Cube) else None,
+                width = IMAGE_WIDTH * 15.5,
+                height = IMAGE_HEIGHT * 6.3,
+            )
+            if sideboard is None or isinstance(maindeck, Cube) else
             maindeck
         )
         self._sideboard = (
@@ -122,7 +125,7 @@ class DeckModel(QObject):
                 aligner_type = StaticStackingGrid,
                 cube = sideboard if isinstance(sideboard, Cube) else None,
                 width = IMAGE_WIDTH * 3.3,
-                height = IMAGE_HEIGHT * 5.5,
+                height = IMAGE_HEIGHT * 6.3,
             )
             if sideboard is None or isinstance(sideboard, Cube) else
             sideboard
@@ -163,12 +166,21 @@ class PoolModel(DeckModel):
 
     def __init__(
         self,
-        pool: t.Optional[CubeScene] = None,
-        maindeck: t.Optional[CubeScene] = None,
-        sideboard: t.Optional[CubeScene] = None,
+        pool: t.Union[CubeScene, Cube, None] = None,
+        maindeck: t.Union[CubeScene, Cube, None] = None,
+        sideboard: t.Union[CubeScene, Cube, None] = None,
     ):
         super().__init__(maindeck, sideboard)
-        self._pool = CubeScene(StaticStackingGrid) if pool is None else pool
+        self._pool = (
+            CubeScene(
+                aligner_type = StaticStackingGrid,
+                cube = pool if isinstance(pool, Cube) else None,
+                width = IMAGE_WIDTH * 20.7,
+                height = IMAGE_HEIGHT * 6.3,
+            )
+            if sideboard is None or isinstance(pool, Cube) else
+            pool
+        )
 
         self._pool.changed.connect(self.changed)
 
