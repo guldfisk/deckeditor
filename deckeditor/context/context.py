@@ -2,11 +2,12 @@ import typing as t
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene
+from PyQt5.QtGui import QClipboard
+from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication
 
 from mtgorp.db.database import CardDatabase
-from mtgorp.db.load import Loader, DBLoadException
-from mtgorp.managejson.update import update
+from mtgorp.db.load import Loader
+from mtgorp.models.interfaces import Cardboard
 from mtgorp.tools.parsing.search.parse import SearchParser
 
 from mtgimg.load import Loader as ImageLoader
@@ -19,10 +20,14 @@ from mtgqt.pixmapload.pixmaploader import PixmapLoader
 class _Context(QObject):
     settings: QtCore.QSettings
     pixmap_loader: PixmapLoader
+
     db: CardDatabase
+    basics: t.List[Cardboard]
+
     cardboard_names: t.List[str]
     search_pattern_parser: SearchParser
     undo_group: QUndoGroup
+    clipboard : QClipboard
 
     host: str
     token: str
@@ -30,6 +35,8 @@ class _Context(QObject):
     token_changed = pyqtSignal(str)
 
     cube_api_client: ApiClient
+
+    notification_message = pyqtSignal(str)
 
     focus_card_changed = pyqtSignal(object)
     focus_scene_changed = pyqtSignal(QGraphicsScene)
@@ -39,8 +46,15 @@ class _Context(QObject):
     new_pool = pyqtSignal(object)
 
     @classmethod
-    def init(cls) -> None:
+    def init(cls, application: QApplication) -> None:
         cls.db = Loader.load()
+        cls.basics = [
+            cls.db.cardboards[name]
+            for name in
+            ('Plains', 'Island', 'Swamp', 'Mountain', 'Forest')
+        ]
+
+        cls.clipboard = application.clipboard()
 
         cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
 

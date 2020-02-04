@@ -13,9 +13,8 @@ from mtgorp.tools.parsing.exceptions import ParseException
 from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.context.context import Context
-from deckeditor.notifications.notifyable import Notifyable
-from deckeditor.components.cardview.cubeableview import CubeableView
 from deckeditor.values import DeckZoneType
+from mtgorp.tools.search.extraction import PrintingStrategy
 
 
 class CardAddable(object):
@@ -163,18 +162,29 @@ class CardboardList(QtWidgets.QListWidget):
     def __init__(
         self,
         printing_list: PrintingList,
-        parent: QtWidgets.QWidget,
+        query_editor: QueryEditor,
     ):
-        super().__init__(parent)
+        super().__init__()
         self._printing_list = printing_list
+        self._query_editor = query_editor
 
-        self._item_model = QtGui.QStandardItemModel(parent)
+        self._item_model = QtGui.QStandardItemModel(self)
 
     def currentChanged(self, index, _index):
         current = self.currentItem()
 
         if current is not None:
-            self._printing_list.set_printings(current.cardboard.printings)
+            printings = current.cardboard.printings
+            if self._query_editor.text():
+                try:
+                    printings = Context.search_pattern_parser.parse(
+                        self._query_editor.text(),
+                        strategy = PrintingStrategy
+                    ).matches(printings)
+                except ParseException:
+                    pass
+
+            self._printing_list.set_printings(printings)
             self._printing_list.setCurrentIndex(self._printing_list.model().index(0, 0))
             self.scrollTo(self.currentIndex())
             Context.focus_card_changed.emit(
@@ -228,12 +238,9 @@ class CardAdder(QtWidgets.QWidget):
 
     def __init__(
         self,
-        notifyable: Notifyable,
         parent: QtWidgets.QWidget,
     ):
         super().__init__(parent)
-
-        self._notifyable = notifyable
 
         self._search_button = QtWidgets.QPushButton(self)
         self._target_selector = TargetSelector(self)
@@ -241,11 +248,13 @@ class CardAdder(QtWidgets.QWidget):
             card_adder = self,
             target_selector = self._target_selector,
         )
+
+        self._query_edit = QueryEditor(self)
+
         self._cardboard_list = CardboardList(
             self._printing_list,
-            self,
+            self._query_edit,
         )
-        self._query_edit = QueryEditor(self)
 
         self._search_button.setText('Search')
 
@@ -285,7 +294,7 @@ class CardAdder(QtWidgets.QWidget):
         try:
             pattern = Context.search_pattern_parser.parse(s)
         except ParseException as e:
-            self._notifyable.notify(f'Invalid search query {e}')
+            Context.notification_message.emit(f'Invalid search query {e}')
             return
 
         self._cardboard_list.set_cardboards(

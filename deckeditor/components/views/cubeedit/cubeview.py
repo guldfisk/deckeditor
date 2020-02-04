@@ -11,21 +11,22 @@ from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor import paths
-from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
 from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.models.cubes.alignment.bunchingstackinggrid import BunchingStackingGrid
+from deckeditor.models.cubes.alignment.dynamicstackinggrid import DynamicStackingGrid
 from deckeditor.models.cubes.alignment.grid import GridAligner
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.models.cubes.cubescene import CubeScene
+
 
 ALIGNER_TYPE_MAP = OrderedDict(
     (
         ('Static Stacking Grid', StaticStackingGrid),
         ('Grid', GridAligner),
         ('Bunch', BunchingStackingGrid),
-        # 'Dynamic Stacking Grid': DynamicStackingGrid,
+        ('Dynamic Stacking Grid', DynamicStackingGrid),
     )
 )
 
@@ -125,13 +126,11 @@ class CubeView(QtWidgets.QWidget):
         self,
         scene: CubeScene,
         undo_stack: QUndoStack,
-        mode: CubeEditMode = CubeEditMode.OPEN,
         *,
         cube_view_layout: CubeViewLayout = CubeViewLayout.IMAGE,
     ):
         super().__init__()
 
-        self._mode = mode
         self._cube_scene = scene
         self._undo_stack = undo_stack
 
@@ -141,13 +140,11 @@ class CubeView(QtWidgets.QWidget):
         self._cube_image_view = CubeImageView(
             undo_stack,
             self._cube_scene,
-            self._mode,
         )
 
         self._cube_list_view = CubeListView(
             self._cube_scene,
             undo_stack,
-            self._mode,
         )
         self._cube_list_view.hide()
 
@@ -212,17 +209,14 @@ class CubeView(QtWidgets.QWidget):
 
     def persist(self) -> t.Any:
         return {
-            # 'aligner': self._cube_scene.aligner.persist(),
-            # 'aligner_type': self._cube_scene.aligner.__class__.__name__,
             'layout': self._view_layout.name,
         }
 
     @classmethod
-    def load(cls, state: t.Any, cube_scene: CubeScene, mode: CubeEditMode, undo_stack: QUndoStack) -> CubeView:
+    def load(cls, state: t.Any, cube_scene: CubeScene, undo_stack: QUndoStack) -> CubeView:
         return CubeView(
             cube_scene,
             undo_stack,
-            mode,
             cube_view_layout = CubeViewLayout[state['layout']],
         )
 

@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QWidget
 
 class Editable(QWidget):
 
-    def get_key(self) -> str:
+    def is_empty(self) -> bool:
         pass
 
     def persist(self) -> t.Any:

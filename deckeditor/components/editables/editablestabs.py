@@ -110,7 +110,10 @@ class EditablesTabs(QtWidgets.QTabWidget):
     def load_session(self) -> None:
         try:
             previous_session = pickle.load(open(paths.SESSION_PATH, 'rb'))
-        except (FileNotFoundError, UnpicklingError, EOFError):
+        except FileNotFoundError:
+            return
+        except (UnpicklingError, EOFError):
+            Context.notification_message.emit('Failed loading previous session')
             return
 
         for state, meta in previous_session['tabs']:
@@ -195,8 +198,7 @@ class EditablesTabs(QtWidgets.QTabWidget):
 
         self.setCurrentWidget(tab)
 
-    def save_tab_at_path(self, editable: Editable, path: str) -> None:
-        print('save tab at path', editable, path)
+    def save_tab_at_path(self, editable: Editable, path: str, clear_undo: bool = True) -> None:
         extension = os.path.splitext(path)[-1][1:]
 
         if isinstance(editable, PoolView):
@@ -231,16 +233,16 @@ class EditablesTabs(QtWidgets.QTabWidget):
             with open(path, 'w') as f:
                 f.write(serializer.serialize(editable.deck_model.as_deck()))
 
-        editable.undo_stack.clear()
+        if clear_undo:
+            editable.undo_stack.clear()
 
-        self._metas[editable].path = path
-        self.setTabText(
-            self.indexOf(editable),
-            self._metas[editable].truncated_name,
-        )
+            self._metas[editable].path = path
+            self.setTabText(
+                self.indexOf(editable),
+                self._metas[editable].truncated_name,
+            )
 
     def save_tab(self, editable: t.Optional[Editable] = None):
-        print('save tab')
         current_editable = editable if editable is not None else self.currentWidget()
 
         if not current_editable:
@@ -254,20 +256,23 @@ class EditablesTabs(QtWidgets.QTabWidget):
 
         self.save_tab_at_path(current_editable, meta.path)
 
-    def save_tab_as(self, editable: t.Optional[Editable] = None) -> None:
-        print('save tab as')
+    def _save_dialog(self, default_suffix: str = 'json') -> t.Tuple[QtWidgets.QFileDialog, int]:
+        dialog = QtWidgets.QFileDialog(self)
+        dialog.setFileMode(QtWidgets.QFileDialog.AnyFile)
+        dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+        dialog.setNameFilter(SUPPORTED_EXTENSIONS)
+        dialog.setDefaultSuffix(default_suffix)
+        return dialog, dialog.exec_()
+
+    def save_tab_as(self, editable: t.Optional[Editable] = None, clear_undo: bool = True) -> None:
         current_editable = editable if editable is not None else self.currentWidget()
 
         if not current_editable:
             return
 
-        dialog = QtWidgets.QFileDialog(self)
-        dialog.setFileMode(QtWidgets.QFileDialog.AnyFile)
-        dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
-        dialog.setNameFilter(SUPPORTED_EXTENSIONS)
-        dialog.setDefaultSuffix('json')
+        dialog, result = self._save_dialog()
 
-        if not dialog.exec_():
+        if not result:
             return
 
         file_names = dialog.selectedFiles()
@@ -275,12 +280,44 @@ class EditablesTabs(QtWidgets.QTabWidget):
         if not file_names:
             return
 
-        self.save_tab_at_path(current_editable, file_names[0])
+        self.save_tab_at_path(current_editable, file_names[0], clear_undo = clear_undo)
+
+    def export_deck(self) -> None:
+        current_editable = self.currentWidget()
+
+        if not current_editable:
+            return
+
+        if isinstance(current_editable, DeckView):
+            self.save_tab_as(current_editable, clear_undo = False)
+
+        elif isinstance(current_editable, PoolView):
+            dialog, result = self._save_dialog()
+
+            if not result:
+                return
+
+            file_names = dialog.selectedFiles()
+
+            if not file_names:
+                return
+
+            extension = os.path.splitext(file_names[0])[-1][1:]
+
+            try:
+                serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
+                    (extension, Deck)
+                ]
+            except KeyError:
+                raise FileSaveException('invalid file type "{}"'.format(extension))
+
+            with open(file_names[0], 'w') as f:
+                f.write(serializer.serialize(current_editable.pool_model.as_deck()))
 
     def _tab_close_requested(self, index: int) -> None:
-        closed_tab: DeckView = self.widget(index)
+        closed_tab = self.widget(index)
 
-        if not self._metas[closed_tab].path or not closed_tab.undo_stack.isClean():
+        if not self._metas[closed_tab].path and not closed_tab.is_empty() or not closed_tab.undo_stack.isClean():
             confirm_dialog = QMessageBox()
             confirm_dialog.setText('File has been modified')
             confirm_dialog.setInformativeText('Wanna save that shit?')

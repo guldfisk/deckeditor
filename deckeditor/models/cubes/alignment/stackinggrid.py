@@ -94,8 +94,10 @@ class CardStacker(ABC):
     def calculate_requested_size(self) -> t.Tuple[float, float]:
         pass
 
-    def update(self):
-        self._aligner.request_space(self, *self.requested_size)
+    def update(self, external: bool = False):
+        if not external:
+            self._requested_size = self.calculate_requested_size()
+            self._aligner.request_space(self, *self.requested_size)
 
         self._stack()
 
@@ -272,6 +274,34 @@ class SortStacker(QUndoCommand):
     def undo(self) -> None:
         self._stacker.cards[:] = self._original_order
         self._stacker.update()
+
+
+class SortAllStackers(QUndoCommand):
+
+    def __init__(self, grid: StackingGrid, sort_property: t.Type[sorting.SortProperty]):
+        self._grid = grid
+        self._sort_property = sort_property
+        super().__init__('Sort all stacker')
+
+        self._original_orders: t.MutableMapping[CardStacker, t.List[PhysicalCard]] = defaultdict(list)
+
+    def redo(self) -> None:
+        if not self._original_orders:
+            for stacker in self._grid.stacker_map.stackers:
+                self._original_orders[stacker][:] = stacker.cards
+
+        for stacker in self._grid.stacker_map.stackers:
+            stacker.cards[:] = sorted(
+                stacker.cards,
+                key = lambda card: self._sort_property.extract(card.cubeable),
+            )
+
+            stacker.update()
+
+    def undo(self) -> None:
+        for stacker, cards in self._original_orders.items():
+            stacker.cards[:] = cards
+            stacker.update()
 
 
 class _StackingSort(QUndoCommand):
@@ -540,9 +570,16 @@ class StackerMap(object):
     def columns(self) -> t.List[t.List[CardStacker]]:
         return self._grid
 
+    def column_at(self, index: int) -> t.List[CardStacker]:
+        return self._grid[index]
+
     @property
     def rows(self) -> t.Iterator[t.Tuple[CardStacker, ...]]:
         return zip(*self._grid)
+
+    def row_at(self, index: int) -> t.Iterable[CardStacker]:
+        for column in self._grid:
+            yield column[index]
 
     def width_at(self, index: int) -> int:
         return sum(self._column_widths[:index])
@@ -613,24 +650,6 @@ class StackingGrid(Aligner):
         self._margin_pixel_size = margin * IMAGE_WIDTH
 
         self._stacker_map = self.create_stacker_map()
-
-    # @classmethod
-    # def _inflate(
-    #     cls,
-    #     margin: float,
-    #     stacker_map: StackerMap,
-    #     stacked_cards: t.Dict[PhysicalCard, _CardInfo],
-    # ) -> StackingGrid:
-    #     stacking_grid = cls.__new__(cls)
-    #
-    #     stacking_grid._stacked_cards = stacked_cards
-    #     stacking_grid._margin_pixel_size = margin
-    #     stacking_grid._stacker_map = stacker_map
-    #
-    #     return stacking_grid
-    #
-    # def __reduce__(self):
-    #     return self._inflate, (self._margin_pixel_size, self._stacker_map, self._stacked_cards)
 
     @abstractmethod
     def create_stacker_map(self) -> StackerMap:
@@ -912,36 +931,36 @@ class StackingGrid(Aligner):
     #         # self.link_cursor(stacker.cards[position])
     #         self._cursor_index = position
 
-        # else:
-        #     stacker = info.card_stacker
-        #
-        #     next_stacker = self.find_stacker(*stacker.index, direction = direction)
-        #
-        #     if next_stacker is not None:
-        #         stacker = next_stacker
+    # else:
+    #     stacker = info.card_stacker
+    #
+    #     next_stacker = self.find_stacker(*stacker.index, direction = direction)
+    #
+    #     if next_stacker is not None:
+    #         stacker = next_stacker
 
-        # self.link_cursor(
-        #     stacker.cards[
-        #         min(
-        #             len(stacker.cards) - 1,
-        #             max(
-        #                 info.position,
-        #                 self._cursor_index,
-        #             )
-        #         )
-        #     ]
-        # )
+    # self.link_cursor(
+    #     stacker.cards[
+    #         min(
+    #             len(stacker.cards) - 1,
+    #             max(
+    #                 info.position,
+    #                 self._cursor_index,
+    #             )
+    #         )
+    #     ]
+    # )
 
-        # if modifiers & QtCore.Qt.ControlModifier:
-        #     self._scene.add_selection((self._cursor_position,))
-        #
-        # elif modifiers & QtCore.Qt.AltModifier:
-        #     self._scene.remove_selected((self._cursor_position,))
-        #
-        # else:
-        #     self._scene.set_selection((self._cursor_position,))
-        #
-        # Context.card_view.set_image.emit(self._cursor_position.image_request())
+    # if modifiers & QtCore.Qt.ControlModifier:
+    #     self._scene.add_selection((self._cursor_position,))
+    #
+    # elif modifiers & QtCore.Qt.AltModifier:
+    #     self._scene.remove_selected((self._cursor_position,))
+    #
+    # else:
+    #     self._scene.set_selection((self._cursor_position,))
+    #
+    # Context.card_view.set_image.emit(self._cursor_position.image_request())
 
     # @abstractmethod
     # def _can_create_rows(self, amount: int) -> bool:
@@ -1027,6 +1046,21 @@ class StackingGrid(Aligner):
 
         return _sort_stack
 
+    def _get_all_sort_stacker(
+        self,
+        sort_property: t.Type[sorting.SortProperty],
+        undo_stack: QUndoStack,
+    ) -> t.Callable[[], None]:
+        def _sort_all_stackers() -> None:
+            undo_stack.push(
+                SortAllStackers(
+                    self,
+                    sort_property,
+                )
+            )
+
+        return _sort_all_stackers
+
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
         stacker = self.get_card_stacker(position.x(), position.y())
 
@@ -1036,6 +1070,13 @@ class StackingGrid(Aligner):
             sort_action = QtWidgets.QAction(sort_property.name, stacker_sort_menu)
             sort_action.triggered.connect(self._get_sort_stack(stacker, sort_property, undo_stack))
             stacker_sort_menu.addAction(sort_action)
+
+        all_stacker_sort_menu = menu.addMenu('Sort All Stack')
+
+        for sort_property in sorting.SortProperty.names_to_sort_property.values():
+            all_sort_action = QtWidgets.QAction(sort_property.name, all_stacker_sort_menu)
+            all_sort_action.triggered.connect(self._get_all_sort_stacker(sort_property, undo_stack))
+            all_stacker_sort_menu.addAction(all_sort_action)
 
     # def persist(self) -> t.Any:
     #     return {

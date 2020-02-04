@@ -4,6 +4,7 @@ import typing as t
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 
@@ -170,13 +171,33 @@ class PoolModel(DeckModel):
         maindeck: t.Union[CubeScene, Cube, None] = None,
         sideboard: t.Union[CubeScene, Cube, None] = None,
     ):
-        super().__init__(maindeck, sideboard)
+        super().__init__(
+            CubeScene(
+                aligner_type = StaticStackingGrid,
+                cube = maindeck if isinstance(maindeck, Cube) else None,
+                width = IMAGE_WIDTH * 15.5,
+                height = IMAGE_HEIGHT * 6.3,
+                mode = CubeEditMode.CLOSED,
+            )
+            if sideboard is None or isinstance(maindeck, Cube) else
+            maindeck,
+            CubeScene(
+                aligner_type = StaticStackingGrid,
+                cube = sideboard if isinstance(sideboard, Cube) else None,
+                width = IMAGE_WIDTH * 3.3,
+                height = IMAGE_HEIGHT * 6.3,
+                mode = CubeEditMode.CLOSED,
+            )
+            if sideboard is None or isinstance(sideboard, Cube) else
+            sideboard,
+        )
         self._pool = (
             CubeScene(
                 aligner_type = StaticStackingGrid,
                 cube = pool if isinstance(pool, Cube) else None,
                 width = IMAGE_WIDTH * 20.7,
                 height = IMAGE_HEIGHT * 6.3,
+                mode = CubeEditMode.CLOSED,
             )
             if sideboard is None or isinstance(pool, Cube) else
             pool

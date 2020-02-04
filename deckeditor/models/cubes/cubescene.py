@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 import itertools
-import pickle
 import typing as t
 from collections import defaultdict
 
 from PyQt5.QtCore import QPoint, pyqtSignal
-from PyQt5.QtWidgets import QGraphicsItem, QUndoCommand
+from PyQt5.QtWidgets import QUndoCommand
 
-from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, AlignmentMultiDrop
-from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from magiccube.collections import cubeable as Cubeable
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
 
-from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalPrinting
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor import values
+from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
+from deckeditor.context.context import Context
+from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, AlignmentMultiDrop
 
 
 class IntraCubeSceneMove(QUndoCommand):
@@ -67,23 +67,6 @@ class InterCubeSceneMove(QUndoCommand):
         self._drop.undo()
         self._to_scene.remove_physical_cards(*self._cards)
         self._from_scene.add_physical_cards(*self._cards)
-        self._pick_up.undo()
-
-
-class CubeSceneRemove(QUndoCommand):
-
-    def __init__(self, scene: CubeScene, pick_up: AlignmentPickUp, cards: t.Iterable[PhysicalCard]):
-        self._scene = scene
-        self._pick_up = pick_up
-        self._cards = list(cards)
-        super().__init__('Remove cubeables')
-
-    def redo(self) -> None:
-        self._pick_up.redo()
-        self._scene.remove_physical_cards(*self._cards)
-
-    def undo(self) -> None:
-        self._scene.add_physical_cards(*self._cards)
         self._pick_up.undo()
 
 
@@ -147,6 +130,7 @@ class ChangeAligner(QUndoCommand):
 
 class CubeScene(SelectionScene):
     aligner_changed = pyqtSignal(Aligner)
+    content_changed = pyqtSignal()
 
     def __init__(
         self,
@@ -154,8 +138,10 @@ class CubeScene(SelectionScene):
         cube: t.Optional[Cube] = None,
         width: float = values.IMAGE_WIDTH * 12,
         height: float = values.IMAGE_HEIGHT * 8,
+        mode: CubeEditMode = CubeEditMode.OPEN,
     ):
         super().__init__()
+        self._mode = mode
 
         self.setSceneRect(
             0,
@@ -215,11 +201,18 @@ class CubeScene(SelectionScene):
     def persist(self) -> t.Any:
         return {
             'aligner': self._aligner,
+            'mode': self._mode,
+            'width': self.width(),
+            'height': self.height(),
         }
 
     @classmethod
     def load(cls, state: t.Any) -> CubeScene:
-        cube_scene = CubeScene()
+        cube_scene = CubeScene(
+            width = state['width'],
+            height = state['height'],
+            mode = state['mode'],
+        )
         aligner: Aligner = state['aligner']
         aligner._scene = cube_scene
         cube_scene._aligner = aligner
@@ -249,8 +242,11 @@ class CubeScene(SelectionScene):
 
     def get_cube_modification(
         self,
-        modification: t.Union[CubeDeltaOperation, t.Tuple[t.Sequence[PhysicalCard], t.Sequence[PhysicalCard]]],
+        modification: t.Optional[CubeDeltaOperation] = None,
+        add: t.Optional[t.Sequence[PhysicalCard]] = None,
+        remove: t.Optional[t.Sequence[PhysicalCard]] = None,
         position: t.Optional[QPoint] = None,
+        closed_operation: bool = False,
     ) -> CubeSceneModification:
         if isinstance(modification, CubeDeltaOperation):
             new_physical_cards = list(
@@ -270,7 +266,20 @@ class CubeScene(SelectionScene):
             )
 
         else:
-            new_physical_cards, removed_physical_cards = modification
+            new_physical_cards = add if add is not None else []
+            removed_physical_cards = remove if remove is not None else []
+
+        if not closed_operation and self._mode == CubeEditMode.CLOSED:
+            new_physical_cards, removed_physical_cards = (
+                [
+                    card
+                    for card in
+                    cards
+                    if isinstance(card, PhysicalPrinting) and card.cubeable.cardboard in Context.basics
+                ]
+                for cards in
+                (new_physical_cards, removed_physical_cards)
+            )
 
         return CubeSceneModification(
             self,
@@ -280,23 +289,19 @@ class CubeScene(SelectionScene):
             removed_physical_cards,
         )
 
-    def get_cube_scene_remove(self, cards: t.Iterable[PhysicalCard]):
-        cards = list(cards)
-        return CubeSceneRemove(
-            self,
-            self._aligner.pick_up(cards),
-            cards,
-        )
-
     def add_physical_cards(self, *physical_cards: PhysicalCard) -> None:
         for card in physical_cards:
             self._item_map[card.cubeable].append(card)
             self.addItem(card)
 
+        self.content_changed.emit()
+
     def remove_physical_cards(self, *physical_cards: PhysicalCard) -> None:
         for card in physical_cards:
             self._item_map[card.cubeable].remove(card)
             self.removeItem(card)
+
+        self.content_changed.emit()
 
     def add_cubeables(self, *cubeables: Cubeable) -> None:
         for cubeable in cubeables:
@@ -304,16 +309,11 @@ class CubeScene(SelectionScene):
             self._item_map[cubeable].append(physical_card)
             self.addItem(physical_card)
 
+        self.content_changed.emit()
+
     def remove_cubeables(self, *cubeables: Cubeable) -> None:
         for cubeable in cubeables:
             physical_card = self._item_map[cubeable].pop()
             self.removeItem(physical_card)
-    #
-    # def _update(self, delta_operation: CubeDeltaOperation) -> None:
-    #     for cubeable, multiplicity in delta_operation.removed_cubeables:
-    #         for _ in range(-multiplicity):
-    #             self.remove_cubeable(cubeable)
-    #
-    #     for cubeable, multiplicity in delta_operation.new_cubeables:
-    #         for _ in range(multiplicity):
-    #             self.add_cubeable(cubeable)
+
+        self.content_changed.emit()

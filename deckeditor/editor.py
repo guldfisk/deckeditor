@@ -9,8 +9,9 @@ import typing
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog, QStatusBar
+from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
+from deckeditor.components.views.editables.pool import PoolView
 from yeetlong.multiset import Multiset
 
 from mtgorp.db import create
@@ -27,14 +28,13 @@ from deckeditor.application.embargo import EmbargoApp
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
 from deckeditor.components.cardview.cubeableview import CubeableView
-from deckeditor.components.editables.editablestabs import EditablesTabs, FileOpenException
+from deckeditor.components.editables.editablestabs import FileOpenException, EditablesTabs, FileSaveException
 from deckeditor.components.lobbies.view import LobbiesView, LobbyModelClientConnection
 from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
 from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel, Deck, TabModel, Pool
 from deckeditor.notifications.frame import NotificationFrame
-from deckeditor.notifications.notifyable import Notifyable
 from deckeditor.values import SUPPORTED_EXTENSIONS
 
 
@@ -42,73 +42,17 @@ class MainView(QWidget):
 
     def __init__(self, parent: typing.Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        # cube = CubeLoader(Context.db).load()
-        # import random
-        # printings = list(Context.db.printings.values())
-        # cube = Cube(random.sample(printings, 10 ** 1))
-        # cube = Cube(
-        #     (
-        #         Trap(
-        #             AnyNode(
-        #                 (
-        #                     AllNode(
-        #                         (
-        #                             Context.db.cardboards['Through the Breach'].from_expansion('UMA'),
-        #                             Context.db.cardboards['Reach Through Mists'].from_expansion('CHK'),
-        #                         )
-        #                     ),
-        #                     AllNode(
-        #                         (
-        #                             Context.db.cardboards['Birds of Paradise'].from_expansion('LEA'),
-        #                             Context.db.cardboards['Lightning Bolt'].from_expansion('LEA'),
-        #                             Context.db.cards['Delver of Secrets'].cardboard.printing,
-        #                         )
-        #                     )
-        #                 )
-        #             )
-        #         ),
-        #     )
-        # )
-        #
-        self.deck_tabs = EditablesTabs()
-        # self.deck_tabs.new_deck(DeckModel(CubeScene(StaticStackingGrid, cube)))
 
         layout = QtWidgets.QVBoxLayout()
 
-        # draft_tabs = DraftTabs()
-        # layout.addWidget(draft_tabs)
+        self.editables_tabs = EditablesTabs()
 
-        layout.addWidget(self.deck_tabs)
+        layout.addWidget(self.editables_tabs)
 
         self.setLayout(layout)
 
-        # self._cube_model = CubeModel(cube)
-        # self._cube_list_view = CubeListView(self._cube_model, self)
-        # self._second_cube_list_view = CubeListView(self._cube_model, self)
-        # # self._cube_list_view = CubeListView(self._cube_model)
-        # # self._second_cube_list_view = CubeListView(self._cube_model)
-        # # self._cube_list_view.setModel(self._cube_model)
-        # # self._second_cube_list_view.setModel(self._cube_model)
-        #
-        # self._shitty_button = QPushButton('ok', self)
-        # self._shitty_button.clicked.connect(self._button_clicked)
-        #
-        # self._layout = QtWidgets.QVBoxLayout()
-        #
-        # _layout = QtWidgets.QHBoxLayout()
-        #
-        # _layout.addWidget(self._cube_list_view)
-        # _layout.addWidget(self._second_cube_list_view)
-        # self._layout.addLayout(_layout)
-        # self._layout.addWidget(self._shitty_button)
-        #
-        # self.setLayout(self._layout)
 
-    # def _button_clicked(self) -> None:
-    #     self._cube_model.modify(CubeDeltaOperation({Context.db.cardboards['Abrade'].from_expansion('HOU'): 10}))
-
-
-class MainWindow(QMainWindow, CardAddable, Notifyable):
+class MainWindow(QMainWindow, CardAddable):
     search_select = QtCore.pyqtSignal(Criteria)
     pool_generated = QtCore.pyqtSignal(Multiset)
 
@@ -127,7 +71,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         self._card_view_dock.setWidget(self._printing_view)
         self._card_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
-        self._card_adder = CardAdder(self, self)
+        self._card_adder = CardAdder(self)
         self._card_adder.add_printings.connect(self._on_add_printings)
 
         self._card_adder_dock = QtWidgets.QDockWidget('Card Adder', self)
@@ -197,8 +141,9 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 ('Open Pool', 'Ctrl+P', lambda: self._open(Pool)),
                 ('Save', 'Ctrl+S', self._save),
                 ('Save As', 'Ctrl+Shift+S', self._save_as),
+                ('Export Deck', 'Ctrl+Shift+E', self._export_deck),
                 # ('Save pool', 'Ctrl+l', self.save_pool),
-                ('Close Deck', 'Ctrl+W', self._close_deck),
+                ('Close Tab', 'Ctrl+W', self._close_tab),
 
             ),
             menu_bar.addMenu('Edit'): (
@@ -239,6 +184,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
             # ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', self._login),
+                ('Logout', None, lambda: None),
             ),
             menu_bar.addMenu('DB'): (
             ),
@@ -252,47 +198,50 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
                 _action.triggered.connect(action)
                 menu.addAction(_action)
 
-        self._printings = None
-
         self._reset_dock_width = 500
         self._reset_dock_height = 1200
 
         self.search_select.connect(self._search_selected)
         # self.pool_generated.connect(self._pool_generated)
 
-        self._status_bar = QStatusBar()
+        # self._status_bar = QStatusBar()
+        #
+        # self.setStatusBar(self._status_bar)
+        #
+        # self._status_bar.showMessage('LMAO LETS GO BOIS')
 
-        self.setStatusBar(self._status_bar)
-
-        self._status_bar.showMessage('LMAO LETS GO BOIS')
+        Context.notification_message.connect(self._notify)
 
         self._load_state()
 
     def _on_add_printings(self, delta_operation: CubeDeltaOperation):
-        tab = self._main_view.deck_tabs.currentWidget()
+        tab = self._main_view.editables_tabs.currentWidget()
         if isinstance(tab, DeckView):
             tab.undo_stack.push(
                 tab.deck_model.maindeck.get_cube_modification(delta_operation)
             )
+        elif isinstance(tab, PoolView):
+            tab.undo_stack.push(
+                tab.pool_model.maindeck.get_cube_modification(delta_operation)
+            )
 
     def _login(self):
-        dialog = LoginDialog(self)
-        dialog.exec()
+        LoginDialog(self).exec_()
 
     @staticmethod
     def _toggle_dock_view(dock: QtWidgets.QDockWidget):
         dock.setVisible(not dock.isVisible())
 
     def _new_deck(self) -> None:
-        self._main_view.deck_tabs.setCurrentWidget(
-            self._main_view.deck_tabs.new_deck(
+        self._main_view.editables_tabs.setCurrentWidget(
+            self._main_view.editables_tabs.new_deck(
                 DeckModel()
             )
         )
 
-    def _close_deck(self) -> None:
-        self._main_view.deck_tabs.tabCloseRequested.emit(
-            self._main_view.deck_tabs.currentIndex()
+    def _close_tab(self) -> None:
+        self._main_view.editables_tabs.tabCloseRequested.emit(
+            self._main_view.editables_tabs.currentIndex()
         )
 
     def _undo(self):
@@ -301,7 +250,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
     def _redo(self):
         Context.undo_group.redo()
 
-    def notify(self, message: str) -> None:
+    def _notify(self, message: str) -> None:
         self._notification_frame.notify(message)
 
     def _exclusive_maindeck(self):
@@ -385,20 +334,32 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         file_path = file_names[0]
 
         try:
-            self._main_view.deck_tabs.open_file(file_path, target)
+            self._main_view.editables_tabs.open_file(file_path, target)
         except FileOpenException:
-            self.notify('Corrupt file or wrong inferred type')
+            Context.notification_message.emit('Corrupt file or wrong inferred type')
 
     def _save(self):
-        self._main_view.deck_tabs.save_tab()
+        try:
+            self._main_view.editables_tabs.save_tab()
+        except FileSaveException:
+            Context.notification_message.emit('Invalid extension')
 
     def _save_as(self):
-        self._main_view.deck_tabs.save_tab_as()
+        try:
+            self._main_view.editables_tabs.save_tab_as()
+        except FileSaveException:
+            Context.notification_message.emit('Invalid extension')
+
+    def _export_deck(self):
+        try:
+            self._main_view.editables_tabs.export_deck()
+        except FileSaveException:
+            Context.notification_message.emit('Invalid extension')
 
     def _save_state(self):
         Context.settings.setValue('geometry', self.saveGeometry())
         Context.settings.setValue('window_state', self.saveState(0))
-        self._main_view.deck_tabs.save_session()
+        self._main_view.editables_tabs.save_session()
 
     def _load_state(self):
         geometry = Context.settings.value('geometry', None)
@@ -407,7 +368,7 @@ class MainWindow(QMainWindow, CardAddable, Notifyable):
         state = Context.settings.value('window_state')
         if state is not None:
             self.restoreState(state, 0)
-        self._main_view.deck_tabs.load_session()
+        self._main_view.editables_tabs.load_session()
 
     def closeEvent(self, close_event):
         self._save_state()
@@ -507,11 +468,11 @@ def run():
     app.setQuitOnLastWindowClosed(True)
 
     try:
-        Context.init()
+        Context.init(app)
     except DBLoadException:
         if not MtgOrpDialog().exec_() == QDialog.Accepted:
             return
-        Context.init()
+        Context.init(app)
 
     main_window = MainWindow()
 

@@ -1,44 +1,42 @@
 error handling of disconnects
 instead of just "select matching", full search dialog, with option to exit and select matching
 search dialog searching entire tab (all views in pool or deck or whatever)
-add basics to pool (and remove)
-disable change printing for pool except for basics
-merge view sorta like arena, two rows dynamic height, keep cards sorted in stackers, merge multiples into "nX"
 fix tickets look at whole pool
 hotkey for toggling double click move target, or something like that
 sort macroes
-export pool as deck
-make sideboard scene less wide in pool also
-fix reload resizes scene
+dont create empty undo events when attempting to change closed view
 
 fix rubberband on windows
 fix style on windows
 fix mouse input problem on windows (prob related to double click)
+cant generate db on windows
 
 uploading of deckelists when done with draft / sealed pool
 drafting
 
+max undo commands
+disable change printing for pool except for basics also visually
+sort row/column option in stacking grid aligners?
+sort all stacks option
+make dynamic stacking grid able no handle arbitrary row amount
 option for visual menu when selecting printing (also for cardboards with many printing)
 visual indicator of logged in status
-status bar?
 ability to log out
-bliver session gemt ved pc shutdown eller lign?
+is session persisted on pc shutdown?
 make tickets work with cards in traps
 auto sort non emb files on open?
 fix bunchview drop card on last card in first column puts it in first in second.
-what is natural when going through a bunched pile? when you double click a card, to move to to or from pool, how should the other cards be rearranged? They should always be rearranged to the current column moves down, so you dont have to move cursor when clicking multiple cards in a row.
+what is natural when going through a bunched pile? when you double click a card, to move to or from pool, how should the other cards be rearranged? They should always be rearranged to the current column moves down, so you dont have to move cursor when clicking multiple cards in a row.
 add relecvant text to aplication header
 on cubeable view thing, set image to card back when loading instead of using previous image?
 ability to point dbbuilder at exising db/json / download db directly
 db info view (checksum, latest expansion etc)
 only ask about saving when closing tab when changes has actually modified it (not just a bunch of intra scene moves)
 auto sorted mode in cubeimage view (cant move cards in view, sort selected for both directions, auto updated)
-improve sort menu ()
+    also option to merge identical cards like arena
 save cubeimageview transform state in session
 move cards retaining structure in stacking grid option
-jesus you cant see the cards as long as there is more then like 6 of them in a pile.
-    make dynamic grid work
-    alternate card image? (cropped + name?)
+alternate card image? (cropped + name?)
 align specific context actions?
     ssg
 group all cards by cardboard feature
@@ -61,7 +59,6 @@ some sort of groupes list view. doesnt necessarily have to be editable, but hove
 dont show info only related to image view when in table mode only in cubeview (align selector etc)
 find out what to do with the notification system meme
 save layout of stretches / status of views / last selected aligner
-copy/paste (especially relevant when using method of selecting that does not involve having the cursor there, i.e. search-select)
 auto-focus name column when selecting table view to easier look up names
 rubberband only select intersection with non-covered parts of cards?
 rubberband update selection / show preview shile dragging?
@@ -70,8 +67,8 @@ dont let table view steal control tabbing priority
 filtering ability for printings in card adder (maybe option to filter on only printings matching for printing specifi searches)
 image view in card adder?
 merge contextmenu overlap when multiple physical cards selected
-initial load of file should not be undoable (to an empty scene)
 save / load .cod
 save session on qt error, or at elast periodically
 ability to resize graphicsscenes
 draw viewport indicator on minimap? lmao
+make printings filtering in cardadder optional

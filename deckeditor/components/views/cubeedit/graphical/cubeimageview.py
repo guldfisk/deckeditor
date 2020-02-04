@@ -7,11 +7,12 @@ from PyQt5.QtCore import QPoint, Qt, QRectF
 from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
-from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.graphical.sortdialog import SortDialog
 from deckeditor.utils.undo import CommandPackage
+from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
 from mtgorp.models.persistent.printing import Printing
+from mtgorp.models.serilization.strategies.picklestrategy import PickleStrategy
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
@@ -68,12 +69,11 @@ class CubeImageView(QtWidgets.QGraphicsView):
     search_select = QtCore.pyqtSignal(Criteria)
     card_double_clicked = QtCore.pyqtSignal(PhysicalCard)
 
-    def __init__(self, undo_stack: QUndoStack, scene: CubeScene, mode: CubeEditMode = CubeEditMode.OPEN):
+    def __init__(self, undo_stack: QUndoStack, scene: CubeScene):
         super().__init__(scene)
 
         self._scene = scene
         self._undo_stack = undo_stack
-        self._mode = mode
 
         self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
         self.setRenderHints(QPainter.SmoothPixmapTransform)
@@ -123,6 +123,8 @@ class CubeImageView(QtWidgets.QGraphicsView):
             self._search_select,
             'Ctrl+E',
         )
+        self._create_action('Copy', self._copy, 'Ctrl+C')
+        self._create_action('Paste', self._paste, 'Ctrl+V')
         #
         # self._move_selected_to_maindeck_action = self._create_action(
         #     'Move Selected to Maindeck',
@@ -156,6 +158,44 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self.scale(.3, .3)
         self.translate(self.scene().width(), self.scene().height())
+
+    def _paste(self):
+        mime = Context.clipboard.mimeData()
+        cards = mime.data('cards')
+
+        if not cards:
+            return
+
+        cube = PickleStrategy(Context.db).deserialize(Cube, cards)
+
+        self._undo_stack.push(
+            self._scene.get_cube_modification(
+                CubeDeltaOperation(cube.cubeables.elements()),
+                QPoint() if self._last_move_event_pos is None else self.mapToScene(self._last_move_event_pos),
+            )
+        )
+
+    def _copy(self):
+        cards = self._scene.selectedItems()
+
+        if not cards:
+            return
+
+        stream = QtCore.QByteArray(
+            PickleStrategy.serialize(
+                Cube(
+                    card.cubeable
+                    for card in
+                    cards
+                )
+            )
+        )
+
+        mime = QtCore.QMimeData()
+
+        mime.setData('cards', stream)
+
+        Context.clipboard.setMimeData(mime)
 
     def _on_sort_selected(self, sort_property: t.Type[sorting.SortProperty], orientation: int) -> None:
         self._undo_stack.push(
@@ -275,19 +315,18 @@ class CubeImageView(QtWidgets.QGraphicsView):
         modifiers = key_event.modifiers()
 
         # TODO is there a reason this isnt actions?
-        if pressed_key == QtCore.Qt.Key_Delete and self._mode == CubeEditMode.OPEN:
+        if pressed_key == QtCore.Qt.Key_Delete:
             cards = self._scene.selectedItems()
             if cards:
                 self._undo_stack.push(
-                    self._scene.get_cube_scene_remove(
-                        cards
+                    self._scene.get_cube_modification(
+                        remove = cards
                     )
                 )
 
         elif (
             pressed_key == QtCore.Qt.Key_J
             and modifiers & QtCore.Qt.ControlModifier
-            and self._mode == CubeEditMode.OPEN
         ):
             cards = self._scene.selectedItems()
             if cards:
@@ -373,10 +412,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
     def dragEnterEvent(self, drag_event: QtGui.QDragEnterEvent):
         if isinstance(drag_event.source(), self.__class__):
-            # if drag_event.source() == self:
             drag_event.accept()
-        # print(drag_event.source())
-        # drag_event.accept()
 
     def dragMoveEvent(self, drag_event: QtGui.QDragMoveEvent):
         pass
@@ -403,29 +439,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
                     )
                 )
             )
-        # self._undo_stack.push(
-        #     InterTransferCubeModels(
-        #         drop_event.source().cube_scene.cube_model,
-        #         self._scene.cube_model,
-        #         CubeDeltaOperation(
-        #             Multiset(
-        #                 card.cubeable
-        #                 for card in
-        #                 drop_event.source().dragging
-        #             ).elements()
-        #         )
-        #     )
-        # )
-        # drop_event.setDropAction(QtCore.Qt.MoveAction)
-        # drop_event.accept()
-        # self._undo_stack.push(
-        #     self._card_scene.aligner.attach_cards(
-        #         drop_event.source().dragging,
-        #         self.mapToScene(
-        #             drop_event.pos()
-        #         ),
-        #     )
-        # )
 
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
         modifiers = event.modifiers()
@@ -485,17 +498,17 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 drag.setMimeData(mime)
                 drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
 
-                exec_value = drag.exec_()
+                drag.exec_()
                 return
             else:
                 self._last_press_on_card = False
 
         if self._last_move_event_pos:
-            delta = mouse_event.globalPos() - self._last_move_event_pos
+            delta = mouse_event.pos() - self._last_move_event_pos
         else:
             delta = None
 
-        self._last_move_event_pos = mouse_event.globalPos()
+        self._last_move_event_pos = mouse_event.pos()
 
         if self._dragging_move:
             if delta:

@@ -44,13 +44,11 @@ class CubeListView(QTableWidget):
         self,
         cube_model: CubeScene,
         undo_stack: QUndoStack,
-        mode: CubeEditMode = CubeEditMode.OPEN,
         parent: t.Optional[QObject] = None,
     ):
         super().__init__(0, 6, parent)
         self._cube_scene = cube_model
         self._undo_stack = undo_stack
-        self._mode = mode
 
         self.setHorizontalHeaderLabels(
             (
@@ -65,7 +63,7 @@ class CubeListView(QTableWidget):
 
         self.itemChanged.connect(self._handle_item_edit)
         self._update_content()
-        self._cube_scene.changed.connect(self._update_content)
+        self._cube_scene.content_changed.connect(self._update_content)
         self.resizeColumnsToContents()
         self.setSortingEnabled(True)
         self.setMouseTracking(True)
@@ -75,7 +73,7 @@ class CubeListView(QTableWidget):
         pressed_key = key_event.key()
         modifiers = key_event.modifiers()
 
-        if pressed_key == QtCore.Qt.Key_Delete and self._mode == CubeEditMode.OPEN:
+        if pressed_key == QtCore.Qt.Key_Delete:
             self._undo_stack.push(
                 self._cube_scene.get_cube_modification(
                     CubeDeltaOperation(
@@ -88,7 +86,7 @@ class CubeListView(QTableWidget):
                 )
             )
 
-        elif pressed_key == QtCore.Qt.Key_Plus and self._mode == CubeEditMode.OPEN:
+        elif pressed_key == QtCore.Qt.Key_Plus:
             self._undo_stack.push(
                 self._cube_scene.get_cube_modification(
                     CubeDeltaOperation(
@@ -101,7 +99,7 @@ class CubeListView(QTableWidget):
                 )
             )
 
-        elif pressed_key == QtCore.Qt.Key_Minus and self._mode == CubeEditMode.OPEN:
+        elif pressed_key == QtCore.Qt.Key_Minus:
             self._undo_stack.push(
                 self._cube_scene.get_cube_modification(
                     CubeDeltaOperation(
@@ -150,14 +148,14 @@ class CubeListView(QTableWidget):
                     key=lambda vs: str(vs[0].id),
                 )
         ):
-            if self._mode == CubeEditMode.OPEN:
-                item = QTableWidgetItem()
-                item.setData(0, multiplicity)
-                self.setItem(index, 0, item)
-            else:
-                self.setItem(
-                    index, 0, NonEditableItem(str(multiplicity))
-                )
+            # if self._mode == CubeEditMode.OPEN:
+            item = QTableWidgetItem()
+            item.setData(0, multiplicity)
+            self.setItem(index, 0, item)
+            # else:
+            #     self.setItem(
+            #         index, 0, NonEditableItem(str(multiplicity))
+            #     )
 
             self.setItem(index, 1, CubeableTableItem(cubeable))
 

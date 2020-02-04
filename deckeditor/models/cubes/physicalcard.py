@@ -6,6 +6,7 @@ from collections import defaultdict
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu
+from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 from magiccube.laps.lap import Lap
 from magiccube.laps.purples.purple import Purple
@@ -133,7 +134,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
             (
                 Context.db.printings[cubeable]
                 if isinstance(cubeable, int) else
-                JsonId(Context.db).deserialize(cubeable_type, cubeable)
+                RawStrategy(Context.db).deserialize(cubeable_type, cubeable)
             ),
             node_parent,
             values,
@@ -150,7 +151,7 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
             self._inflate,
             (
                 self.__class__,
-                self.cubeable.id if isinstance(self.cubeable, Printing) else JsonId.serialize(self.cubeable),
+                self.cubeable.id if isinstance(self.cubeable, Printing) else RawStrategy.serialize(self.cubeable),
                 type(self.cubeable),
                 self.node_parent,
                 self.values,
@@ -165,11 +166,9 @@ class PhysicalPrinting(PhysicalCard[Printing]):
         def _change_printing():
             undo_stack.push(
                 self.scene().get_cube_modification(
-                    (
-                        (PhysicalCard.from_cubeable(printing),),
-                        (self,),
-                    ),
-                    self.pos() + QPoint(1, 1),
+                    add = (PhysicalCard.from_cubeable(printing),),
+                    remove = (self,),
+                    position = self.pos() + QPoint(1, 1),
                 )
             )
 
@@ -190,15 +189,13 @@ class PhysicalPrinting(PhysicalCard[Printing]):
             ]
             undo_stack.push(
                 self.scene().get_cube_modification(
-                    (
-                        [
-                            PhysicalCard.from_cubeable(to_printing)
-                            for _ in
-                            cards
-                        ],
-                        cards,
-                    ),
-                    self.pos() + QPoint(1, 1),
+                    add = [
+                        PhysicalCard.from_cubeable(to_printing)
+                        for _ in
+                        cards
+                    ],
+                    remove = cards,
+                    position = self.pos() + QPoint(1, 1),
                 )
             )
 
@@ -219,15 +216,13 @@ class PhysicalPrinting(PhysicalCard[Printing]):
             ]
             undo_stack.push(
                 self.scene().get_cube_modification(
-                    (
-                        [
-                            PhysicalCard.from_cubeable(printing)
-                            for _ in
-                            cards
-                        ],
-                        cards,
-                    ),
-                    self.pos() + QPoint(1, 1),
+                    add = [
+                        PhysicalCard.from_cubeable(printing)
+                        for _ in
+                        cards
+                    ],
+                    remove = cards,
+                    position = self.pos() + QPoint(1, 1),
                 )
             )
 
@@ -320,14 +315,13 @@ class PhysicalTrap(PhysicalCard[Trap]):
             CommandPackage(
                 [
                     scene.get_cube_modification(
-                        (
-                            (self,),
-                            cards,
-                        ),
-                        child.pos() + QPoint(1, 1),
+                        add = (self,),
+                        remove = cards,
+                        position = child.pos() + QPoint(1, 1),
+                        closed_operation = True,
                     )
                     if scene == child.scene() else
-                    scene.get_cube_scene_remove(cards)
+                    scene.get_cube_modification(remove = cards)
                     for scene, cards in
                     scene_remove_map.items()
                     if scene is not None
@@ -350,11 +344,10 @@ class PhysicalAllCard(PhysicalTrap):
         if not self.node_children:
             self._generate_children()
         return self.scene().get_cube_modification(
-            (
-                self.node_children,
-                (self,),
-            ),
-            self.pos() + QPoint(1, 1),
+            add = self.node_children,
+            remove = (self,),
+            position = self.pos() + QPoint(1, 1),
+            closed_operation = True,
         )
 
     def _flatten(self, undo_stack: QUndoStack) -> None:
@@ -385,11 +378,10 @@ class PhysicalAnyCard(PhysicalTrap):
         def _re_select():
             undo_stack.push(
                 previous_child.scene().get_cube_modification(
-                    (
-                        (new_child,),
-                        (previous_child,),
-                    ),
-                    previous_child.pos() + QPoint(1, 1),
+                    add = (new_child,),
+                    remove = (previous_child,),
+                    position = previous_child.pos() + QPoint(1, 1),
+                    closed_operation = True,
                 )
             )
 
@@ -399,11 +391,10 @@ class PhysicalAnyCard(PhysicalTrap):
         def _select_or():
             undo_stack.push(
                 self.scene().get_cube_modification(
-                    (
-                        (child,),
-                        (self,),
-                    ),
-                    self.pos() + QPoint(1, 1),
+                    add = (child,),
+                    remove = (self,),
+                    position = self.pos() + QPoint(1, 1),
+                    closed_operation = True,
                 )
             )
 
@@ -419,9 +410,9 @@ class PhysicalAnyCard(PhysicalTrap):
         for _child in self.node_children:
             if _child.cubeable != child.cubeable:
                 re_select = QtWidgets.QAction(
-                    child.cubeable.cardboard.name
-                    if isinstance(child.cubeable, Printing) else
-                    child.cubeable.node.get_minimal_string(),
+                    _child.cubeable.cardboard.name
+                    if isinstance(_child.cubeable, Printing) else
+                    _child.cubeable.node.get_minimal_string(),
                     reselection_menu,
                 )
                 re_select.triggered.connect(self._get_re_select_action(child, _child, undo_stack))
@@ -474,11 +465,10 @@ class PhysicalTicket(PhysicalCard[Ticket]):
     def _refund(self, child: PhysicalPrinting, undo_stack: QUndoStack):
         undo_stack.push(
             child.scene().get_cube_modification(
-                (
-                    child.values['tickets_payed'],
-                    (child,),
-                ),
-                child.pos() + QPoint(1, 1)
+                add = child.values['tickets_payed'],
+                remove = (child,),
+                position = child.pos() + QPoint(1, 1),
+                closed_operation = True,
             )
         )
 
@@ -487,11 +477,10 @@ class PhysicalTicket(PhysicalCard[Ticket]):
             option.values['tickets_payed'] = tickets
             undo_stack.push(
                 self.scene().get_cube_modification(
-                    (
-                        (option,),
-                        tickets,
-                    ),
-                    self.pos() + QPoint(1, 1),
+                    add = (option,),
+                    remove = tickets,
+                    position = self.pos() + QPoint(1, 1),
+                    closed_operation = True,
                 )
             )
 

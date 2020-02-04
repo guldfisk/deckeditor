@@ -42,7 +42,6 @@ class PoolView(Editable):
             CubeView(
                 self._pool_model.maindeck,
                 self._undo_stack,
-                CubeEditMode.CLOSED,
             )
         )
         self._sideboard_cube_view = (
@@ -51,7 +50,6 @@ class PoolView(Editable):
             CubeView(
                 self._pool_model.sideboard,
                 self._undo_stack,
-                CubeEditMode.CLOSED,
             )
         )
         self._pool_cube_view = (
@@ -60,7 +58,6 @@ class PoolView(Editable):
             CubeView(
                 self._pool_model.pool,
                 self._undo_stack,
-                CubeEditMode.CLOSED,
             )
         )
 
@@ -103,6 +100,13 @@ class PoolView(Editable):
             )
         )
 
+    def is_empty(self) -> bool:
+        return not (
+            self._pool_model.maindeck.items()
+            or self._pool_model.sideboard.items()
+            or self._pool_model.pool.items()
+        )
+
     @property
     def pool_model(self) -> PoolModel:
         return self._pool_model
@@ -127,19 +131,16 @@ class PoolView(Editable):
             maindeck_cube_view = CubeView.load(
                 state['maindeck_view'],
                 pool_model.maindeck,
-                CubeEditMode.CLOSED,
                 undo_stack = undo_stack,
             ),
             sideboard_cube_view = CubeView.load(
                 state['sideboard_view'],
                 pool_model.sideboard,
-                CubeEditMode.CLOSED,
                 undo_stack = undo_stack,
             ),
             pool_cube_view = CubeView.load(
                 state['pool_view'],
                 pool_model.pool,
-                CubeEditMode.CLOSED,
                 undo_stack = undo_stack,
             ),
             undo_stack = undo_stack,

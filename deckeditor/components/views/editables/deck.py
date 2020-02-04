@@ -12,8 +12,6 @@ from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel
-from deckeditor.serialization.tabmodelserializer import TabModelSerializer
-from deckeditor.values import SUPPORTED_EXTENSIONS
 
 
 class DeckView(Editable):
@@ -83,6 +81,9 @@ class DeckView(Editable):
             )
         )
 
+    def is_empty(self) -> bool:
+        return not (self._deck_model.maindeck.items() or self._deck_model.sideboard.items())
+
     def persist(self) -> t.Any:
         return {
             'maindeck_view': self._maindeck_cube_view.persist(),
@@ -101,13 +102,11 @@ class DeckView(Editable):
             maindeck_cube_view = CubeView.load(
                 state['maindeck_view'],
                 deck_model.maindeck,
-                CubeEditMode.OPEN,
                 undo_stack = undo_stack,
             ),
             sideboard_cube_view = CubeView.load(
                 state['sideboard_view'],
                 deck_model.sideboard,
-                CubeEditMode.OPEN,
                 undo_stack = undo_stack,
             ),
             undo_stack = undo_stack,
