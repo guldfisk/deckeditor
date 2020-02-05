@@ -55,14 +55,8 @@ class LoginDialog(QtWidgets.QDialog):
         username = self._username_selector.text()
         password = self._password_selector.text()
 
-        try:
-            login.login(host_name, username, password)
-        except ConnectionError:
-            # TODO notify user
-            print('connection error')
-        else:
+        if login.login(host_name, username, password):
             Context.settings.setValue('host_name', host_name)
             Context.settings.setValue('username', username)
             Context.settings.setValue('password', password)
-
-        self.accept()
+            self.accept()

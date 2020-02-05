@@ -28,24 +28,3 @@ class EmbargoApp(QApplication):
         self.setOrganizationName('EmbargoSoft')
         self.setOrganizationDomain('prohunterdogkeeper.dk')
         self.setApplicationName('Embargo Edit')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

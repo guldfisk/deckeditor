@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import typing as t
-from abc import abstractmethod
 
-from PyQt5 import QtWidgets, QtGui
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem
 
@@ -30,6 +29,14 @@ class _LobbyClient(LobbyClient):
     ) -> None:
         self._model.changed.emit()
 
+    def _on_error(self, error):
+        super()._on_error(error)
+        self._model.on_disconnected()
+
+    def _on_close(self):
+        super()._on_close()
+        self._model.on_disconnected()
+
     def _game_started(self, lobby: Lobby, key: str) -> None:
         if lobby.options['game_type'] == 'draft':
             Context.draft_started.emit(
@@ -53,17 +60,25 @@ class LobbyModelClientConnection(QObject):
     def __init__(self, parent: t.Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._lobby_client: t.Optional[LobbyClient] = None
+
         if Context.token:
             self._logged_in(None)
+
         Context.token_changed.connect(self._logged_in)
 
     @property
     def is_connected(self) -> bool:
         return self._lobby_client is not None
 
+    def on_disconnected(self):
+        self._lobby_client = None
+        self.connected.emit(False)
+        self.changed.emit()
+
     def _logged_in(self, _):
         if self._lobby_client is not None:
             self._lobby_client.close()
+
         self._lobby_client = _LobbyClient(
             self,
             url = 'ws://' + Context.host + '/ws/lobbies/',
@@ -142,11 +157,11 @@ class LobbiesListView(QTableWidget):
             self._lobbies[row].name
         )
 
-    def _update_content(self ) -> None:
+    def _update_content(self) -> None:
         self._lobbies = sorted(
-                self._lobby_view.lobby_model.get_lobbies().values(),
-                key = lambda l: l.name,
-            )
+            self._lobby_view.lobby_model.get_lobbies().values(),
+            key = lambda l: l.name,
+        )
 
         self.setRowCount(len(self._lobbies))
 
@@ -191,7 +206,7 @@ class LobbyUserListView(QTableWidget):
         self.resizeColumnsToContents()
         # self.setSortingEnabled(True)
 
-    def _update_content(self ) -> None:
+    def _update_content(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
 
         users = () if lobby is None else lobby.users.values()
@@ -335,6 +350,7 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 
         self._ok_button.clicked.connect(self._create)
 
+        self._lobby_name_selector.setFocus()
         # self.setTabOrder(self._lobby_name_selector, self._ok_button)
 
     def _create(self) -> None:
@@ -361,10 +377,10 @@ class LobbyTabs(QtWidgets.QTabWidget):
 
     def _update_content(self) -> None:
         lobbies = {
-              name: lobby
-              for name, lobby in
-              self._lobby_view.lobby_model.get_lobbies().items()
-              if Context.username in lobby.users
+            name: lobby
+            for name, lobby in
+            self._lobby_view.lobby_model.get_lobbies().items()
+            if Context.username in lobby.users
         }
 
         removed = self._tabs_map.keys() - lobbies.keys()

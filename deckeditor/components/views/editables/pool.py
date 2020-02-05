@@ -26,8 +26,7 @@ class PoolView(Editable):
     ) -> None:
         super().__init__()
 
-        self._undo_stack = undo_stack if undo_stack is not None else QUndoStack(Context.undo_group)
-        QUndoStack(Context.undo_group)
+        self._undo_stack = undo_stack if undo_stack is not None else Context.get_undo_stack()
 
         self._pool_model = pool_model
 
@@ -125,7 +124,7 @@ class PoolView(Editable):
     @classmethod
     def load(cls, state: t.Any) -> PoolView:
         pool_model = PoolModel.load(state['pool_model'])
-        undo_stack = QUndoStack(Context.undo_group)
+        undo_stack = Context.get_undo_stack()
         pool_view = cls(
             pool_model,
             maindeck_cube_view = CubeView.load(

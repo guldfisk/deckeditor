@@ -3,7 +3,7 @@ import typing as t
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QClipboard
-from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication
+from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack
 
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
@@ -75,6 +75,12 @@ class _Context(QObject):
 
         cls.search_pattern_parser = SearchParser(cls.db)
         cls.undo_group = QUndoGroup()
+
+    @classmethod
+    def get_undo_stack(cls) -> QUndoStack:
+        stack = QUndoStack(cls.undo_group)
+        stack.setUndoLimit(64)
+        return stack
 
 
 Context = _Context()

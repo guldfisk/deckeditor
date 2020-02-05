@@ -29,7 +29,7 @@ class DeckView(Editable):
         self._file_path = file_path
         self._uuid = str(uuid.uuid4())
 
-        self._undo_stack = undo_stack if undo_stack is not None else QUndoStack(Context.undo_group)
+        self._undo_stack = undo_stack if undo_stack is not None else Context.get_undo_stack()
 
         self._deck_model = deck_model
 
@@ -96,7 +96,7 @@ class DeckView(Editable):
     @classmethod
     def load(cls, state: t.Any) -> DeckView:
         deck_model = DeckModel.load(state['deck_model'])
-        undo_stack = QUndoStack(Context.undo_group)
+        undo_stack = Context.get_undo_stack()
         deck_view = DeckView(
             deck_model,
             maindeck_cube_view = CubeView.load(

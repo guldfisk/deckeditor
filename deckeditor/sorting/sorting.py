@@ -15,7 +15,7 @@ from mtgorp.models.persistent.printing import Printing
 
 class _SortPropertyMeta(ABCMeta):
 
-    names_to_sort_property: t.Mapping[str, t.Type[SortProperty]] = OrderedDict()
+    names_to_sort_property: t.MutableMapping[str, t.Type[SortProperty]] = OrderedDict()
 
     def __new__(mcs, classname, base_classes, attributes):
         klass = type.__new__(mcs, classname, base_classes, attributes)
