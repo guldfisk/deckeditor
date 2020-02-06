@@ -1,6 +1,5 @@
-import pickle
 import typing as t
-
+import pickle
 import os
 import uuid
 from pickle import UnpicklingError
@@ -8,19 +7,19 @@ from pickle import UnpicklingError
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
-from deckeditor.values import SUPPORTED_EXTENSIONS
+from mtgorp.models.serilization.serializeable import SerializationException
+
 from magiccube.collections.cube import Cube
 
-from deckeditor import paths
+from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.values import SUPPORTED_EXTENSIONS
 from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.context.context import Context
-from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
-from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.models.deck import DeckModel, PoolModel, TabModel, Deck, Pool
 from deckeditor.serialization.tabmodelserializer import TabModelSerializer
-from mtgorp.models.serilization.serializeable import SerializationException
+from deckeditor import paths
 
 
 class FileIOException(Exception):
@@ -65,7 +64,6 @@ class EditablesMeta(object):
 
 
 class EditablesTabs(QtWidgets.QTabWidget):
-    DEFAULT_TEMPLATE = 'New Deck {}'
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
@@ -75,7 +73,7 @@ class EditablesTabs(QtWidgets.QTabWidget):
 
         self.setTabsClosable(True)
 
-        Context.new_pool.connect(self._new_pool)
+        Context.new_pool.connect(self.new_pool)
         self.tabCloseRequested.connect(self._tab_close_requested)
         self.currentChanged.connect(self._on_current_changed)
 
@@ -84,9 +82,13 @@ class EditablesTabs(QtWidgets.QTabWidget):
             self.widget(idx).undo_stack
         )
 
-    def _new_pool(self, pool: Cube, key: t.Optional[str] = None) -> None:
+    def new_pool(self, pool: Cube, key: t.Optional[str] = None) -> None:
         self.add_editable(
-            PoolView(PoolModel(pool)),
+            PoolView(
+                PoolModel(
+                    list(map(PhysicalCard.from_cubeable, pool)),
+                )
+            ),
             EditablesMeta(
                 'untitled pool',
                 key = key,
@@ -183,13 +185,17 @@ class EditablesTabs(QtWidgets.QTabWidget):
             if target == Deck:
                 tab = DeckView(
                     DeckModel(
-                        tab_model.maindeck,
-                        tab_model.sideboard,
+                        list(map(PhysicalCard.from_cubeable, tab_model.maindeck)),
+                        list(map(PhysicalCard.from_cubeable, tab_model.sideboard)),
                     )
                 )
 
             elif target == Pool:
-                tab = PoolView(PoolModel(tab_model))
+                tab = PoolView(
+                    PoolModel(
+                        list(map(PhysicalCard.from_cubeable, tab_model)),
+                    )
+                )
 
             else:
                 raise FileOpenException('invalid load target "{}"'.format(target))

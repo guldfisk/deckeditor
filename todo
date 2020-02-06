@@ -1,20 +1,19 @@
-error handling of disconnects
 instead of just "select matching", full search dialog, with option to exit and select matching
 search dialog searching entire tab (all views in pool or deck or whatever)
-fix tickets look at whole pool
-hotkey for toggling double click move target, or something like that
-sort macroes
-dont create empty undo events when attempting to change closed view
+dont create empty undo events when attempting to change cubeeditmode.closed view
 
 fix rubberband on windows
 fix style on windows
 fix mouse input problem on windows (prob related to double click)
 cant generate db on windows
 
+error handling of disconnects
 uploading of deckelists when done with draft / sealed pool
 drafting
 
-max undo commands
+remove scenecard, just move physicalcards into same file as cubescene prob
+dont have stacking grid as a default
+sort macroes
 disable change printing for pool except for basics also visually
 sort row/column option in stacking grid aligners?
 sort all stacks option
@@ -37,8 +36,6 @@ auto sorted mode in cubeimage view (cant move cards in view, sort selected for b
 save cubeimageview transform state in session
 move cards retaining structure in stacking grid option
 alternate card image? (cropped + name?)
-align specific context actions?
-    ssg
 group all cards by cardboard feature
     how works with aligners?
 proper undo command names

@@ -63,7 +63,7 @@ class DeckView(Editable):
         self.setLayout(layout)
 
         self._maindeck_cube_view.cube_image_view.card_double_clicked.connect(
-            lambda card: self._undo_stack.push(
+            lambda card, _: self._undo_stack.push(
                 self._maindeck_cube_view.cube_scene.get_inter_move(
                     [card],
                     self._sideboard_cube_view.cube_scene,
@@ -72,7 +72,7 @@ class DeckView(Editable):
             )
         )
         self._sideboard_cube_view.cube_image_view.card_double_clicked.connect(
-            lambda card: self._undo_stack.push(
+            lambda card, _: self._undo_stack.push(
                 self._sideboard_cube_view.cube_scene.get_inter_move(
                     [card],
                     self._maindeck_cube_view.cube_scene,

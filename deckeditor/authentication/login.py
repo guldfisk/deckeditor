@@ -15,6 +15,7 @@ def login(host: str, username: str, password: str) -> bool:
     if response.status_code == 200:
         Context.token = response.json()['token']
         Context.username = response.json()['user']['username']
+        print('login ok')
         Context.token_changed.emit(Context.token)
         Context.cube_api_client = NativeApiClient(host, Context.db)
         return True

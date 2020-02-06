@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import itertools
 import typing as t
 from collections import defaultdict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu
+
+from deckeditor.models.cubes.scenecard import SceneCard, C
 from mtgorp.models.serilization.strategies.raw import RawStrategy
 
-from magiccube.laps.lap import Lap
 from magiccube.laps.purples.purple import Purple
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
@@ -18,18 +20,17 @@ from mtgimg.interface import ImageRequest, SizeSlug
 
 from mtgorp.models.interfaces import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
-from mtgorp.models.serilization.strategies.jsonid import JsonId
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
-from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
 from deckeditor.utils.undo import CommandPackage
 from deckeditor.context.context import Context
+from deckeditor.models.cubes.cubescene import CubeScene
 
-C = t.TypeVar('C', bound = t.Union[Printing, Lap])
 
+class PhysicalCard(SceneCard[C]):
+    scene: t.Callable[[], CubeScene]
 
-class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
     signal = QtCore.pyqtSignal(QtGui.QPixmap)
     pixmap_loader: PixmapLoader = None
 
@@ -82,10 +83,6 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
         else:
             return PhysicalCard(cubeable, node_parent)
 
-    @property
-    def cubeable(self) -> C:
-        return self._cubeable
-
     def image_request(self) -> ImageRequest:
         return ImageRequest(self._cubeable, back = self._back, size_slug = SizeSlug.MEDIUM)
 
@@ -106,12 +103,6 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
     def flip(self) -> None:
         self._back = not self._back
         self._update_image()
-
-    def __repr__(self):
-        return '{}({})'.format(
-            self.__class__.__name__,
-            self.cubeable,
-        )
 
     def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         if self.node_parent is not None:
@@ -158,6 +149,9 @@ class PhysicalCard(GraphicPixmapObject, t.Generic[C]):
                 self._get_additional_reduce(),
             )
         )
+
+
+SceneCard.from_cubeable = PhysicalCard.from_cubeable
 
 
 class PhysicalPrinting(PhysicalCard[Printing]):
@@ -472,15 +466,33 @@ class PhysicalTicket(PhysicalCard[Ticket]):
             )
         )
 
-    def _get_select_option(self, tickets: t.List[PhysicalTicket], option: PhysicalCard, undo_stack: QUndoStack):
+    def _get_select_option(
+        self,
+        tickets: t.Mapping[CubeScene, t.List[PhysicalTicket]],
+        option: PhysicalCard,
+        undo_stack: QUndoStack,
+    ) -> t.Callable[[], None]:
         def _select_option():
-            option.values['tickets_payed'] = tickets
+            option.values['tickets_payed'] = list(itertools.chain(*tickets.values()))
             undo_stack.push(
-                self.scene().get_cube_modification(
-                    add = (option,),
-                    remove = tickets,
-                    position = self.pos() + QPoint(1, 1),
-                    closed_operation = True,
+                CommandPackage(
+                    [
+                        (
+                            cube_scene.get_cube_modification(
+                                add = (option,),
+                                remove = scene_tickets,
+                                position = self.pos() + QPoint(1, 1),
+                                closed_operation = True,
+                            )
+                            if cube_scene == self.scene() else
+                            cube_scene.get_cube_modification(
+                                remove = scene_tickets,
+                                closed_operation = True
+                            )
+                        )
+                        for cube_scene, scene_tickets in
+                        tickets.items()
+                    ]
                 )
             )
 
@@ -497,22 +509,15 @@ class PhysicalTicket(PhysicalCard[Ticket]):
         if not self.option_children:
             self._generate_children()
 
-        same_tickets = sorted(
-            (
-                card
-                for card in
-                self.scene().items()
-                if isinstance(card, PhysicalTicket) and card.cubeable == self.cubeable
-            ),
-            key = lambda c: c == self,
-            reverse = True,
-        )
-
+        same_tickets = defaultdict(list)
         printings_amounts = defaultdict(int)
 
-        for card in self.scene().items():
-            if isinstance(card, PhysicalPrinting):
-                printings_amounts[card.cubeable] += 1
+        for scene in self.scene().related_scenes:
+            for item in scene.items():
+                if isinstance(item, PhysicalTicket) and item.cubeable == self.cubeable:
+                    same_tickets[scene].append(item)
+                elif isinstance(item, PhysicalPrinting):
+                    printings_amounts[item.cubeable] += 1
 
         flatten = menu.addMenu('Select')
 
@@ -521,10 +526,34 @@ class PhysicalTicket(PhysicalCard[Ticket]):
                 option.cubeable.cardboard.name,
                 flatten,
             )
-            if len(same_tickets) > printings_amounts[option.cubeable]:
+
+            printing_amount = printings_amounts[option.cubeable]
+
+            if sum(map(len, same_tickets.values())) > printing_amount:
+
+                tickets = {}
+                remaining_required_printings = printing_amount + 1
+
+                for scene, cards in sorted(
+                    same_tickets.items(),
+                    key = lambda p: p[0] != self.scene(),
+                ):
+                    if len(cards) <= remaining_required_printings:
+                        tickets[scene] = cards
+                        remaining_required_printings -= len(cards)
+                        if remaining_required_printings <= 0:
+                            break
+                    else:
+                        tickets[scene] = (
+                                             sorted(cards, key = lambda c: c != self)
+                                             if scene == self.scene() else
+                                             cards
+                                         )[:remaining_required_printings]
+                        break
+
                 _flatten.triggered.connect(
                     self._get_select_option(
-                        same_tickets[:printings_amounts[option.cubeable] + 1],
+                        tickets,
                         option,
                         undo_stack,
                     )

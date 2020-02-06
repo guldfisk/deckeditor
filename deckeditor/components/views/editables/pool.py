@@ -10,6 +10,7 @@ from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
+from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.deck import PoolModel
 
 
@@ -70,34 +71,30 @@ class PoolView(Editable):
 
         self.setLayout(layout)
 
-        # TODO dry this shit, also in deckview
-        self._maindeck_cube_view.cube_image_view.card_double_clicked.connect(
-            lambda card: self._undo_stack.push(
-                self._maindeck_cube_view.cube_scene.get_inter_move(
+        self._connect_move_cubeable(self._maindeck_cube_view, self._pool_cube_view, self._sideboard_cube_view)
+        self._connect_move_cubeable(self._sideboard_cube_view, self._pool_cube_view, self._maindeck_cube_view)
+        self._connect_move_cubeable(self._pool_cube_view, self._maindeck_cube_view, self._sideboard_cube_view)
+
+    def _connect_move_cubeable(
+        self,
+        cube_view: CubeView,
+        primary_target: CubeView,
+        secondary_target: CubeView,
+    ) -> None:
+        def _card_double_clicked(card: PhysicalCard, modifiers: int) -> None:
+            self._undo_stack.push(
+                cube_view.cube_scene.get_inter_move(
                     [card],
-                    self._pool_cube_view.cube_scene,
+                    (
+                        secondary_target.cube_scene
+                        if modifiers & QtCore.Qt.ShiftModifier else
+                        primary_target.cube_scene
+                    ),
                     QPoint(),
                 )
             )
-        )
-        self._sideboard_cube_view.cube_image_view.card_double_clicked.connect(
-            lambda card: self._undo_stack.push(
-                self._sideboard_cube_view.cube_scene.get_inter_move(
-                    [card],
-                    self._pool_cube_view.cube_scene,
-                    QPoint(),
-                )
-            )
-        )
-        self._pool_cube_view.cube_image_view.card_double_clicked.connect(
-            lambda card: self._undo_stack.push(
-                self._pool_cube_view.cube_scene.get_inter_move(
-                    [card],
-                    self._maindeck_cube_view.cube_scene,
-                    QPoint(),
-                )
-            )
-        )
+
+        cube_view.cube_image_view.card_double_clicked.connect(_card_double_clicked)
 
     def is_empty(self) -> bool:
         return not (

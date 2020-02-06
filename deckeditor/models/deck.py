@@ -5,6 +5,7 @@ import typing as t
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
+from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 
@@ -58,48 +59,6 @@ class Deck(TabModel):
 
 class Pool(Cube, TabModel):
     pass
-    # def __init__(self, maindeck: Cube, sideboard: Cube, pool: Cube):
-    #     self._maindeck = maindeck
-    #     self._sideboard = sideboard
-    #     self._pool = pool
-    #
-    # @property
-    # def maindeck(self) -> Cube:
-    #     return self._maindeck
-    #
-    # @property
-    # def sideboard(self) -> Cube:
-    #     return self._sideboard
-    #
-    # @property
-    # def pool(self) -> Cube:
-    #     return self._pool
-    #
-    # def serialize(self) -> serialization_model:
-    #     return {
-    #         'maindeck': self._maindeck.serialize(),
-    #         'sideboard': self._sideboard.serialize(),
-    #         'pool': self._pool.serialize(),
-    #     }
-    #
-    # @classmethod
-    # def deserialize(cls, value: serialization_model, inflator: Inflator) -> Pool:
-    #     return cls(
-    #         maindeck = Cube.deserialize(value['maindeck'], inflator),
-    #         sideboard = Cube.deserialize(value['sideboard'], inflator),
-    #         pool = Cube.deserialize(value['pool'], inflator),
-    #     )
-    #
-    # def __hash__(self) -> int:
-    #     return hash((self._maindeck, self._sideboard, self._pool))
-    #
-    # def __eq__(self, other: object) -> bool:
-    #     return (
-    #         isinstance(other, self.__class__)
-    #         and self._maindeck == other._maindeck
-    #         and self._sideboard == other._sideboard
-    #         and self._pool == other._pool
-    #     )
 
 
 class DeckModel(QObject):
@@ -107,30 +66,33 @@ class DeckModel(QObject):
 
     def __init__(
         self,
-        maindeck: t.Union[CubeScene, Cube, None] = None,
-        sideboard: t.Union[CubeScene, Cube, None] = None,
+        maindeck: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
+        sideboard: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
     ):
         super().__init__()
         self._maindeck = (
             CubeScene(
                 aligner_type = StaticStackingGrid,
-                cube = maindeck if isinstance(maindeck, Cube) else None,
+                cards = maindeck if isinstance(maindeck, t.Sequence) else None,
                 width = IMAGE_WIDTH * 15.5,
                 height = IMAGE_HEIGHT * 6.3,
             )
-            if sideboard is None or isinstance(maindeck, Cube) else
+            if sideboard is None or isinstance(maindeck, t.Sequence) else
             maindeck
         )
         self._sideboard = (
             CubeScene(
                 aligner_type = StaticStackingGrid,
-                cube = sideboard if isinstance(sideboard, Cube) else None,
+                cards = sideboard if isinstance(sideboard, t.Sequence) else None,
                 width = IMAGE_WIDTH * 3.3,
                 height = IMAGE_HEIGHT * 6.3,
             )
-            if sideboard is None or isinstance(sideboard, Cube) else
+            if sideboard is None or isinstance(sideboard, t.Sequence) else
             sideboard
         )
+
+        for scene in (self._maindeck, self._sideboard):
+            scene.related_scenes = {self._maindeck, self._sideboard}
 
         self._maindeck.changed.connect(self.changed)
         self._sideboard.changed.connect(self.changed)
@@ -151,15 +113,15 @@ class DeckModel(QObject):
 
     def persist(self) -> t.Any:
         return {
-            'maindeck': self._maindeck.persist(),
-            'sideboard': self._sideboard.persist(),
+            'maindeck': self._maindeck,
+            'sideboard': self._sideboard,
         }
 
     @classmethod
     def load(cls, state: t.Any) -> DeckModel:
         return cls(
-            CubeScene.load(state['maindeck']),
-            CubeScene.load(state['sideboard']),
+            state['maindeck'],
+            state['sideboard'],
         )
 
 
@@ -167,41 +129,46 @@ class PoolModel(DeckModel):
 
     def __init__(
         self,
-        pool: t.Union[CubeScene, Cube, None] = None,
-        maindeck: t.Union[CubeScene, Cube, None] = None,
-        sideboard: t.Union[CubeScene, Cube, None] = None,
+        pool: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
+        maindeck: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
+        sideboard: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
     ):
         super().__init__(
             CubeScene(
                 aligner_type = StaticStackingGrid,
-                cube = maindeck if isinstance(maindeck, Cube) else None,
+                cards = maindeck if isinstance(maindeck, t.Sequence) else None,
                 width = IMAGE_WIDTH * 15.5,
                 height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
             )
-            if sideboard is None or isinstance(maindeck, Cube) else
+            if sideboard is None or isinstance(maindeck, t.Sequence) else
             maindeck,
             CubeScene(
                 aligner_type = StaticStackingGrid,
-                cube = sideboard if isinstance(sideboard, Cube) else None,
+                cards = sideboard if isinstance(sideboard, t.Sequence) else None,
                 width = IMAGE_WIDTH * 3.3,
                 height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
             )
-            if sideboard is None or isinstance(sideboard, Cube) else
+            if sideboard is None or isinstance(sideboard, t.Sequence) else
             sideboard,
         )
         self._pool = (
             CubeScene(
                 aligner_type = StaticStackingGrid,
-                cube = pool if isinstance(pool, Cube) else None,
+                cards = pool if isinstance(pool, t.Sequence) else None,
                 width = IMAGE_WIDTH * 20.7,
                 height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
             )
-            if sideboard is None or isinstance(pool, Cube) else
+            if sideboard is None or isinstance(pool, t.Sequence) else
             pool
         )
+
+        scenes = {self._maindeck, self._sideboard, self._pool}
+
+        for scene in scenes:
+            scene.related_scenes = scenes
 
         self._pool.changed.connect(self.changed)
 
@@ -216,14 +183,14 @@ class PoolModel(DeckModel):
 
     def persist(self) -> t.Any:
         return {
-            'pool': self._pool.persist(),
+            'pool': self._pool,
             **super().persist(),
         }
 
     @classmethod
     def load(cls, state: t.Any) -> PoolModel:
         return cls(
-            maindeck = CubeScene.load(state['maindeck']),
-            sideboard = CubeScene.load(state['sideboard']),
-            pool = CubeScene.load(state['pool']),
+            maindeck = state['maindeck'],
+            sideboard = state['sideboard'],
+            pool = state['pool'],
         )
