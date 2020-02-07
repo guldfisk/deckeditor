@@ -76,20 +76,21 @@ class CubeSceneModification(QUndoCommand):
     def __init__(
         self,
         scene: CubeScene,
-        cards: t.Sequence[SceneCard],
+        add_cards: t.Sequence[SceneCard],
+        remove_cards: t.Sequence[SceneCard],
         point: QPoint,
-        # add: t.Iterable[SceneCard],
-        # drop: AlignmentDrop,
-        # pick_up: AlignmentPickUp,
-        # remove: t.Iterable[SceneCard],
     ):
-        self._scene = scene
-        self._add = add
-        self._drop = drop
-        self._pick_up = pick_up
-        self._remove = remove
         super().__init__('Cube modification')
-        self.setObsolete(True)
+
+        if not (add_cards or remove_cards):
+            self.setObsolete(True)
+            return
+
+        self._scene = scene
+        self._add = add_cards
+        self._pick_up = self._scene.aligner.pick_up(remove_cards)
+        self._drop = self._scene.aligner.drop(add_cards, point)
+        self._remove = remove_cards
 
     def redo(self) -> None:
         self._scene.add_physical_cards(*self._add)
@@ -304,14 +305,21 @@ class CubeScene(SelectionScene):
                 for cards in
                 (new_physical_cards, removed_physical_cards)
             )
-        # TODO fix in progress
+
         return CubeSceneModification(
             self,
             new_physical_cards,
-            self._aligner.drop(new_physical_cards, QPoint() if position is None else position),
-            self._aligner.pick_up(removed_physical_cards),
             removed_physical_cards,
+            QPoint() if position is None else position,
         )
+
+        # return CubeSceneModification(
+        #     self,
+        #     new_physical_cards,
+        #     self._aligner.drop(new_physical_cards, QPoint() if position is None else position),
+        #     self._aligner.pick_up(removed_physical_cards),
+        #     removed_physical_cards,
+        # )
 
     def add_physical_cards(self, *physical_cards: SceneCard) -> None:
         for card in physical_cards:
