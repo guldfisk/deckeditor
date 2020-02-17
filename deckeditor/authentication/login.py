@@ -5,20 +5,17 @@ from deckeditor.context.context import Context
 
 
 def login(host: str, username: str, password: str) -> bool:
-    url = 'http://' + host + '/api/auth/login/'
+    if Context.cube_api_client is None or host != Context.cube_api_client.host:
+        Context.cube_api_client = NativeApiClient(host, Context.db)
+
     try:
-        response = requests.post(url, {'username': username, 'password': password})
+        Context.cube_api_client.login(username, password)
     except requests.exceptions.ConnectionError:
         Context.notification_message.emit('connection error')
         return False
+    except requests.exceptions.HTTPError:
+        Context.notification_message.emit('invalid credentials')
+        return False
 
-    if response.status_code == 200:
-        Context.token = response.json()['token']
-        Context.username = response.json()['user']['username']
-        print('login ok')
-        Context.token_changed.emit(Context.token)
-        Context.cube_api_client = NativeApiClient(host, Context.db)
-        return True
-
-    Context.notification_message.emit('invalid login')
-    return False
+    Context.token_changed.emit(Context.cube_api_client.token)
+    return True

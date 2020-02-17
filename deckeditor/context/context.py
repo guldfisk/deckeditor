@@ -5,6 +5,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QClipboard
 from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack
 
+from cubeclient.endpoints import NativeApiClient
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
 from mtgorp.models.interfaces import Cardboard
@@ -30,7 +31,6 @@ class _Context(QObject):
     clipboard : QClipboard
 
     host: str
-    token: str
     username: str
     token_changed = pyqtSignal(str)
 
@@ -58,9 +58,9 @@ class _Context(QObject):
 
         cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
 
-        cls.token = ''
         cls.host = Context.settings.value('host_name', 'localhost:7000')
         cls.username = Context.settings.value('username', 'root')
+        cls.cube_api_client = NativeApiClient(host = cls.host, db = cls.db)
 
         cls.pixmap_loader = PixmapLoader(
             pixmap_executor = 30,

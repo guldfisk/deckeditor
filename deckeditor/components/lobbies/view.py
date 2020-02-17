@@ -54,14 +54,13 @@ class _LobbyClient(LobbyClient):
 
 class LobbyModelClientConnection(QObject):
     changed = pyqtSignal()
-    # game_started = pyqtSignal(Lobby, str)
     connected = pyqtSignal(bool)
 
     def __init__(self, parent: t.Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._lobby_client: t.Optional[LobbyClient] = None
 
-        if Context.token:
+        if Context.cube_api_client.token:
             self._logged_in(None)
 
         Context.token_changed.connect(self._logged_in)
@@ -82,7 +81,7 @@ class LobbyModelClientConnection(QObject):
         self._lobby_client = _LobbyClient(
             self,
             url = 'ws://' + Context.host + '/ws/lobbies/',
-            token = Context.token,
+            token = Context.cube_api_client.token,
         )
         self.connected.emit(True)
 
