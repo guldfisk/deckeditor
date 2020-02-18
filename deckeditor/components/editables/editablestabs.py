@@ -82,7 +82,12 @@ class EditablesTabs(QtWidgets.QTabWidget):
             self.widget(idx).undo_stack
         )
 
-    def new_pool(self, pool: Cube, key: t.Optional[str] = None) -> None:
+    def new_pool(self, pool: Cube, key: str) -> None:
+        for editable, meta in self._metas.items():
+            if meta.key == key:
+                self.setCurrentWidget(editable)
+                return
+
         self.add_editable(
             PoolView(
                 PoolModel(
@@ -90,7 +95,7 @@ class EditablesTabs(QtWidgets.QTabWidget):
                 )
             ),
             EditablesMeta(
-                'untitled pool',
+                key,
                 key = key,
             ),
         )

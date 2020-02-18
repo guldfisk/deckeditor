@@ -43,7 +43,7 @@ class _Context(QObject):
 
     draft_started = pyqtSignal(object)
 
-    new_pool = pyqtSignal(object)
+    new_pool = pyqtSignal(object, str)
 
     @classmethod
     def init(cls, application: QApplication) -> None:
