@@ -7,7 +7,6 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QVBoxLayout, QUndoStack
 
-from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.context.context import Context
@@ -114,14 +113,14 @@ class DeckView(Editable):
         deck_view._horizontal_splitter.restoreState(state['splitter'])
         return deck_view
 
-    @property
-    def file_path(self) -> t.Optional[str]:
-        return self._file_path
-
-    def get_key(self) -> str:
-        if self._file_path is not None:
-            return self._file_path
-        return self._uuid
+    # @property
+    # def file_path(self) -> t.Optional[str]:
+    #     return self._file_path
+    #
+    # def get_key(self) -> str:
+    #     if self._file_path is not None:
+    #         return self._file_path
+    #     return self._uuid
 
     @property
     def deck_model(self) -> DeckModel:

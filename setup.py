@@ -35,5 +35,6 @@ setup(
         'websocket-client',
         'websocket',
         'bidict',
+        'simplejson',
     ],
 )

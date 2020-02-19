@@ -7,6 +7,7 @@ from pickle import UnpicklingError
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
+from deckeditor.components.editables.editor import Editor
 from mtgorp.models.serilization.serializeable import SerializationException
 
 from magiccube.collections.cube import Cube
@@ -63,7 +64,7 @@ class EditablesMeta(object):
         return self._name if len(self._name) <= 25 else self._name[:22] + '...'
 
 
-class EditablesTabs(QtWidgets.QTabWidget):
+class EditablesTabs(QtWidgets.QTabWidget, Editor):
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
@@ -76,6 +77,9 @@ class EditablesTabs(QtWidgets.QTabWidget):
         Context.new_pool.connect(self.new_pool)
         self.tabCloseRequested.connect(self._tab_close_requested)
         self.currentChanged.connect(self._on_current_changed)
+
+    def current_editable(self) -> t.Optional[Editable]:
+        return self.currentWidget()
 
     def _on_current_changed(self, idx: int) -> None:
         Context.undo_group.setActiveStack(

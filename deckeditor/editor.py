@@ -48,6 +48,8 @@ class MainView(QWidget):
 
         self.editables_tabs = EditablesTabs()
 
+        Context.editor = self.editables_tabs
+
         layout.addWidget(self.editables_tabs)
 
         self.setLayout(layout)

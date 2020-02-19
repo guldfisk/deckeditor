@@ -6,6 +6,7 @@ from PyQt5.QtGui import QClipboard
 from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack
 
 from cubeclient.endpoints import NativeApiClient
+from deckeditor.components.editables.editor import Editor
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
 from mtgorp.models.interfaces import Cardboard
@@ -29,6 +30,8 @@ class _Context(QObject):
     search_pattern_parser: SearchParser
     undo_group: QUndoGroup
     clipboard : QClipboard
+
+    editor: Editor
 
     host: str
     username: str

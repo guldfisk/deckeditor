@@ -4,13 +4,14 @@ import typing as t
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
-from deckeditor.models.cubes.physicalcard import PhysicalCard
-from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
+from mtgorp.models.collections.deck import Deck as OrpDeck
 
 from magiccube.collections.cube import Cube
 
+from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
+from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.models.cubes.cubescene import CubeScene
 
@@ -44,6 +45,12 @@ class Deck(TabModel):
         return cls(
             maindeck = Cube.deserialize(value['maindeck'], inflator),
             sideboard = Cube.deserialize(value['sideboard'], inflator),
+        )
+
+    def as_primitive_deck(self) -> OrpDeck:
+        return OrpDeck(
+            self._maindeck.printings,
+            self._sideboard.printings,
         )
 
     def __hash__(self) -> int:

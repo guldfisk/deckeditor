@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import typing as t
 
 from PyQt5 import QtWidgets
@@ -9,6 +10,7 @@ from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem
 from frozendict import frozendict
 from bidict import bidict
 
+from cubeclient.models import VersionedCube
 from deckeditor.components.draft.view import DraftModel
 from deckeditor.context.context import Context
 
@@ -221,7 +223,138 @@ class LobbyUserListView(QTableWidget):
             self.setItem(index, 1, item)
 
 
+class ReleaseSelector(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self._cube_selector = QtWidgets.QComboBox()
+        self._release_selector = QtWidgets.QComboBox()
+
+        layout = QtWidgets.QHBoxLayout()
+
+        layout.addWidget(self._cube_selector)
+        layout.addWidget(self._release_selector)
+
+        self.setLayout(layout)
+
+        self._versioned_cubes: t.List[VersionedCube] = []
+        self._release_versioned_cube_map: t.Mapping[t.Union[str, int], VersionedCube] = {}
+
+        self._update()
+
+        self._cube_selector.currentIndexChanged(self._on_cube_selected)
+
+    def set_release(self, release_id: t.Union[str, int]) -> None:
+        versioned_cube = self._release_versioned_cube_map[release_id]
+        self._cube_selector.setCurrentIndex(
+            self._versioned_cubes.index(
+                self._release_versioned_cube_map[release_id]
+            )
+        )
+        idx = 0
+        self._release_selector.clear()
+        for _idx, release in enumerate(versioned_cube.releases):
+            self._release_selector.addItem(release.name, release.id)
+            if release.id == release_id:
+                idx = _idx
+
+        self._release_selector.setCurrentIndex(idx)
+
+    def _update(self):
+        self._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
+        self._release_versioned_cube_map = {
+            release.id: versioned_cube
+            for versioned_cube in
+            self._versioned_cubes
+            for release in
+            versioned_cube.releases
+        }
+
+        self._cube_selector.clear()
+        for versioned_cube in self._versioned_cubes:
+            self._cube_selector.addItem(versioned_cube.name, versioned_cube.id)
+
+    def _on_cube_selected(self, versioned_cube: VersionedCube) -> None:
+        print(versioned_cube)
+        # self._release_selector.clear()
+        # for release in versioned_cube.releases:
+        #     self._release_selector.addItem(release.name, release.id)
+
+    # def release(self) -> t.Union[str, int]:
+    #     return 14
+
+
+class OptionsSelector(QWidget):
+    # changed = pyqtSignal()
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__()
+        self._lobby_view = lobby_view
+
+    def set_options(self, options: t.Mapping[str, t.Any]) -> None:
+        pass
+
+    # def _on_changed(self) -> None:
+    #     self._lobby_view.options_changed.emit(self.options())
+    #
+    # def options(self) -> t.Mapping[str, t.Any]:
+    #     pass
+
+
+class SealedOptionsSelector(OptionsSelector):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__(lobby_view)
+
+        self._release_selector = ReleaseSelector()
+
+        layout = QtWidgets.QVBoxLayout()
+
+        layout.addWidget(self._release_selector)
+
+        self.setLayout(layout)
+
+    def set_options(self, options: t.Mapping[str, t.Any]) -> None:
+        self._release_selector.set_release(options['release'])
+
+    # def options(self) -> t.Mapping[str, t.Any]:
+    #     return {
+    #         'relase': self._release_selector.release(),
+    #         'pool_size': 90,
+    #         'format': 'limited_sideboard',
+    #         'game_type': 'sealed'
+    #     }
+
+
+class DraftOptionsSelector(OptionsSelector):
+    pass
+    # def options(self) -> t.Mapping[str, t.Any]:
+    #     return {
+    #         'game_type': 'sealed'
+    #     }
+
+
+class GameOptionsSelector(QtWidgets.QStackedWidget):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__()
+        self._lobby_view = lobby_view
+
+        self._options_selectors = {
+            'draft': DraftOptionsSelector(lobby_view),
+            'sealed': SealedOptionsSelector(lobby_view),
+        }
+        for option_selector in self._options_selectors.values():
+            self.addWidget(option_selector)
+
+        # self.setCurrentWidget(self._options_selectors[self._lobby_view.])
+
+    # def _on_options_changed(self, options: t.Mapping[str, t.Any]) -> None:
+    #     self.setCurrentWidget(self._options_selectors[options['game_type']])
+
+
 class LobbyView(QWidget):
+    options_changed = pyqtSignal(dict)
 
     def __init__(self, lobby_model: LobbyModelClientConnection, lobby_name: str, parent: t.Optional[QObject] = None):
         super().__init__(parent)
@@ -241,8 +374,11 @@ class LobbyView(QWidget):
         self._game_type_selector.addItem('sealed')
         self._game_type_selector.currentTextChanged.connect(self._select_game_type)
 
-        self._reconnect_button = QtWidgets.QPushButton('reconnect')
-        self._reconnect_button.clicked.connect(self._reconnect)
+        self._options_selector = QtWidgets.QStackedWidget()
+
+
+        # self._reconnect_button = QtWidgets.QPushButton('reconnect')
+        # self._reconnect_button.clicked.connect(self._reconnect)
 
         users_list = LobbyUserListView(self._lobby_model, self._lobby_name)
 
@@ -281,13 +417,13 @@ class LobbyView(QWidget):
     def _start_game(self) -> None:
         self._lobby_model.start_game(self._lobby_name)
 
-    def _reconnect(self) -> None:
-        lobby = self._lobby_model.get_lobby(self._lobby_name)
-        if lobby.options.get('game_type') == 'sealed':
-            sealed_pool = Context.cube_api_client.get_sealed_pool(
-                lobby.key
-            )
-            Context.new_pool.emit(sealed_pool.pool)
+    # def _reconnect(self) -> None:
+    #     lobby = self._lobby_model.get_lobby(self._lobby_name)
+    #     if lobby.options.get('game_type') == 'sealed':
+    #         sealed_pool = Context.cube_api_client.get_sealed_pool(
+    #             lobby.key
+    #         )
+    #         Context.new_pool.emit(sealed_pool.pool)
 
     def _update_content(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)

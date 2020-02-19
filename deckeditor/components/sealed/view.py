@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import typing as t
 
+import requests
+import simplejson
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView
 
 from cubeclient.models import SealedSession, LimitedDeck
+from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.context.context import Context
 
 
@@ -25,30 +28,17 @@ class SessionsList(QTableWidget):
 
         self.cellDoubleClicked.connect(self._cell_double_clicked)
 
-        self._update_content()
-        Context.token_changed.connect(self._update_content)
-
     def _cell_double_clicked(self, row: int, column: int) -> None:
         self._sessions_view.session_selected.emit(self._sessions[row])
 
-    def _update_content(self, *args, **kwargs) -> None:
-        if Context.cube_api_client.user is None:
-            return
+    def set_sessions(self, sessions: t.List[SealedSession]) -> None:
+        self._sessions = sessions
 
         def _set_data_at(data: str, _row: int, _column: int):
             item = QTableWidgetItem()
             item.setData(0, data)
             self.setItem(_row, _column, item)
 
-        self._sessions = list(
-            Context.cube_api_client.sealed_sessions(
-                limit = 20,
-                filters = {
-                    'state_filter': 'DECK_BUILDING',
-                    'players_filter': Context.cube_api_client.user.username,
-                },
-            )
-        )
 
         self.setRowCount(len(self._sessions))
 
@@ -112,8 +102,6 @@ class SealedSessionView(QWidget):
         self._sealed_sessions_view = parent
         self._session = session
 
-        self.setVisible(False)
-
         self._name_label = QtWidgets.QLabel()
         self._deck_list = DeckList()
         self._view_button = QtWidgets.QPushButton('View')
@@ -135,6 +123,10 @@ class SealedSessionView(QWidget):
         self._view_button.clicked.connect(self._on_view)
         self._submit_button.clicked.connect(self._on_submit)
 
+    @property
+    def session(self) -> t.Optional[SealedSession]:
+        return self._session
+
     def _on_view(self):
         if not self._session:
             return
@@ -144,10 +136,48 @@ class SealedSessionView(QWidget):
                 break
 
     def _on_submit(self):
-        print('submit')
+        editable = Context.editor.current_editable()
+
+        if isinstance(editable, DeckView):
+            deck = editable.deck_model.as_deck().as_primitive_deck()
+
+        else:
+            deck = editable.pool_model.as_deck().as_primitive_deck()
+
+        player_pool = None
+
+        for pool in self._session.pools:
+            if pool.user == Context.cube_api_client.user:
+                player_pool = pool
+                break
+
+        if player_pool is None:
+            return
+
+        try:
+            Context.cube_api_client.upload_sealed_deck(
+                pool_id = player_pool.id,
+                name = 'a deck :)',
+                deck = deck,
+            )
+        except requests.ConnectionError:
+            Context.notification_message.emit('disconnected')
+            return
+        except requests.HTTPError as e:
+            try:
+                message = '\n'.join(
+                    e.response.json()['errors']
+                )
+            except simplejson.errors.JSONDecodeError:
+                message = 'Cannot upload deck'
+            Context.notification_message.emit(message)
+            return
+
+        Context.notification_message.emit('Deck submitted')
+        self._sealed_sessions_view.update.emit()
 
     def set_session(self, session: SealedSession) -> None:
-        self.setVisible(True)
+        self.show()
         self._session = session
         self._update_content()
 
@@ -161,12 +191,17 @@ class SealedSessionView(QWidget):
 
 class SealedSessionsView(QWidget):
     session_selected = pyqtSignal(SealedSession)
+    update = pyqtSignal()
 
     def __init__(self, parent: t.Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
+        self._sessions: t.List[SealedSession] = []
+
         self._sessions_list = SessionsList(self)
         self._sealed_session_view = SealedSessionView(self)
+
+        self._sealed_session_view.hide()
 
         layout = QtWidgets.QHBoxLayout()
 
@@ -174,3 +209,24 @@ class SealedSessionsView(QWidget):
         layout.addWidget(self._sealed_session_view)
 
         self.setLayout(layout)
+
+        Context.token_changed.connect(self.update)
+        self.update.connect(self._on_update)
+
+    def _on_update(self) -> None:
+        if Context.cube_api_client.user is None:
+            self._sessions = []
+        else:
+            self._sessions = list(
+                Context.cube_api_client.sealed_sessions(
+                    limit = 20,
+                    filters = {
+                        'state_filter': 'DECK_BUILDING',
+                        'players_filter': Context.cube_api_client.user.username,
+                    },
+                )
+            )
+
+        self._sessions_list.set_sessions(self._sessions)
+        if not self._sealed_session_view.session in self._sessions:
+            self._sealed_session_view.hide()
