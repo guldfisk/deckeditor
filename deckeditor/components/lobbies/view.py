@@ -107,6 +107,11 @@ class LobbyModelClientConnection(QObject):
             return
         self._lobby_client.set_options(name, options)
 
+    def set_game_type(self, name: str, game_type: str) -> None:
+        if self._lobby_client is None:
+            return
+        self._lobby_client.set_game_type(name, game_type)
+
     # def get_options(self, name: str) -> t.Any:
     #     if self._lobby_client is None:
     #         return
@@ -136,9 +141,9 @@ class LobbyModelClientConnection(QObject):
 class LobbiesListView(QTableWidget):
 
     def __init__(self, parent: LobbiesView):
-        super().__init__(0, 5, parent)
+        super().__init__(0, 6, parent)
         self.setHorizontalHeaderLabels(
-            ('name', 'state', 'owner', 'users', 'size')
+            ('name', 'game_type', 'state', 'owner', 'users', 'size')
         )
 
         self._lobby_view = parent
@@ -151,7 +156,6 @@ class LobbiesListView(QTableWidget):
         self.setEditTriggers(self.NoEditTriggers)
 
         self.cellDoubleClicked.connect(self._cell_double_clicked)
-        # self.setSortingEnabled(True)
 
     def _cell_double_clicked(self, row: int, column: int) -> None:
         self._lobby_view.lobby_model.join_lobby(
@@ -159,33 +163,29 @@ class LobbiesListView(QTableWidget):
         )
 
     def _update_content(self) -> None:
+        def _set_data_at(data: str, _row: int, _column: int):
+            _item = QTableWidgetItem()
+            _item.setData(0, data)
+            self.setItem(_row, _column, _item)
+
         self._lobbies = sorted(
             self._lobby_view.lobby_model.get_lobbies().values(),
             key = lambda l: l.name,
         )
-
         self.setRowCount(len(self._lobbies))
 
         for index, lobby in enumerate(self._lobbies):
-            item = QTableWidgetItem()
-            item.setData(0, lobby.name)
-            self.setItem(index, 0, item)
-
-            item = QTableWidgetItem()
-            item.setData(0, lobby.state)
-            self.setItem(index, 1, item)
-
-            item = QTableWidgetItem()
-            item.setData(0, lobby.owner)
-            self.setItem(index, 2, item)
-
-            item = QTableWidgetItem()
-            item.setData(0, str(len(lobby.users)))
-            self.setItem(index, 3, item)
-
-            item = QTableWidgetItem()
-            item.setData(0, str(lobby.size))
-            self.setItem(index, 4, item)
+            for column, value in enumerate(
+                (
+                    lobby.name,
+                    lobby.game_type,
+                    lobby.state,
+                    lobby.owner,
+                    str(len(lobby.users)),
+                    str(lobby.size),
+                )
+            ):
+                _set_data_at(value, index, column)
 
         self.resizeColumnsToContents()
 
@@ -205,7 +205,6 @@ class LobbyUserListView(QTableWidget):
         self._lobby_model.changed.connect(self._update_content)
 
         self.resizeColumnsToContents()
-        # self.setSortingEnabled(True)
 
     def _update_content(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
@@ -225,8 +224,10 @@ class LobbyUserListView(QTableWidget):
 
 class ReleaseSelector(QWidget):
 
-    def __init__(self):
+    def __init__(self, lobby_view: LobbyView):
         super().__init__()
+        self._lobby_view = lobby_view
+
         self._cube_selector = QtWidgets.QComboBox()
         self._release_selector = QtWidgets.QComboBox()
 
@@ -242,9 +243,10 @@ class ReleaseSelector(QWidget):
 
         self._update()
 
-        self._cube_selector.currentIndexChanged(self._on_cube_selected)
+        self._cube_selector.activated.connect(self._on_cube_selected)
+        self._release_selector.activated.connect(self._on_release_selected)
 
-    def set_release(self, release_id: t.Union[str, int]) -> None:
+    def update_content(self, release_id: t.Union[str, int], enabled: bool) -> None:
         versioned_cube = self._release_versioned_cube_map[release_id]
         self._cube_selector.setCurrentIndex(
             self._versioned_cubes.index(
@@ -260,6 +262,9 @@ class ReleaseSelector(QWidget):
 
         self._release_selector.setCurrentIndex(idx)
 
+        self._cube_selector.setEnabled(enabled)
+        self._release_selector.setEnabled(enabled)
+
     def _update(self):
         self._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
         self._release_versioned_cube_map = {
@@ -274,14 +279,29 @@ class ReleaseSelector(QWidget):
         for versioned_cube in self._versioned_cubes:
             self._cube_selector.addItem(versioned_cube.name, versioned_cube.id)
 
-    def _on_cube_selected(self, versioned_cube: VersionedCube) -> None:
-        print(versioned_cube)
-        # self._release_selector.clear()
-        # for release in versioned_cube.releases:
-        #     self._release_selector.addItem(release.name, release.id)
+    def _on_release_selected(self, idx: int) -> None:
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {'release': self._release_selector.itemData(idx)},
+        )
 
-    # def release(self) -> t.Union[str, int]:
-    #     return 14
+    def _on_cube_selected(self, idx: int) -> None:
+        versioned_cube = self._versioned_cubes[idx]
+        if not self._release_selector.currentData() in (
+            release.id
+            for release in
+            versioned_cube.releases
+        ):
+            self._release_selector.clear()
+            for release in versioned_cube.releases:
+                self._release_selector.addItem(release.name, release.id)
+
+            self._release_selector.setCurrentIndex(0)
+
+            self._lobby_view.lobby_model.set_options(
+                self._lobby_view.lobby.name,
+                {'release': self._release_selector.itemData(0)},
+            )
 
 
 class OptionsSelector(QWidget):
@@ -291,7 +311,7 @@ class OptionsSelector(QWidget):
         super().__init__()
         self._lobby_view = lobby_view
 
-    def set_options(self, options: t.Mapping[str, t.Any]) -> None:
+    def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         pass
 
     # def _on_changed(self) -> None:
@@ -306,7 +326,7 @@ class SealedOptionsSelector(OptionsSelector):
     def __init__(self, lobby_view: LobbyView):
         super().__init__(lobby_view)
 
-        self._release_selector = ReleaseSelector()
+        self._release_selector = ReleaseSelector(lobby_view)
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -314,8 +334,8 @@ class SealedOptionsSelector(OptionsSelector):
 
         self.setLayout(layout)
 
-    def set_options(self, options: t.Mapping[str, t.Any]) -> None:
-        self._release_selector.set_release(options['release'])
+    def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
+        self._release_selector.update_content(options['release'], enabled)
 
     # def options(self) -> t.Mapping[str, t.Any]:
     #     return {
@@ -347,6 +367,11 @@ class GameOptionsSelector(QtWidgets.QStackedWidget):
         for option_selector in self._options_selectors.values():
             self.addWidget(option_selector)
 
+    def update_content(self, game_type: str, options: t.Mapping[str, t.Any], enabled: bool) -> None:
+        options_selector = self._options_selectors[game_type]
+        self.setCurrentWidget(options_selector)
+        options_selector.update_content(options, enabled)
+
         # self.setCurrentWidget(self._options_selectors[self._lobby_view.])
 
     # def _on_options_changed(self, options: t.Mapping[str, t.Any]) -> None:
@@ -372,10 +397,9 @@ class LobbyView(QWidget):
         self._game_type_selector = QtWidgets.QComboBox()
         self._game_type_selector.addItem('draft')
         self._game_type_selector.addItem('sealed')
-        self._game_type_selector.currentTextChanged.connect(self._select_game_type)
+        self._game_type_selector.activated.connect(self._on_game_type_selected)
 
-        self._options_selector = QtWidgets.QStackedWidget()
-
+        self._options_selector = GameOptionsSelector(self)
 
         # self._reconnect_button = QtWidgets.QPushButton('reconnect')
         # self._reconnect_button.clicked.connect(self._reconnect)
@@ -386,10 +410,11 @@ class LobbyView(QWidget):
 
         top_layout.addWidget(self._ready_button)
         top_layout.addWidget(self._start_game_button)
-        top_layout.addWidget(self._reconnect_button)
+        # top_layout.addWidget(self._reconnect_button)
 
         layout.addLayout(top_layout)
         layout.addWidget(self._game_type_selector)
+        layout.addWidget(self._options_selector)
         layout.addWidget(users_list)
 
         self._update_content()
@@ -397,17 +422,27 @@ class LobbyView(QWidget):
 
         self.setLayout(layout)
 
-    def _select_game_type(self, game_type: str) -> None:
+    @property
+    def lobby(self) -> t.Optional[Lobby]:
+        return self._lobby_model.get_lobby(self._lobby_name)
+
+    @property
+    def lobby_model(self) -> LobbyModelClientConnection:
+        return self._lobby_model
+
+    def _on_game_type_selected(self, idx: int) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
-        if lobby:
-            user = lobby.users.get(Context.username)
-            if user and user.username == lobby.owner:
-                self._lobby_model.set_options(self._lobby_name, {'game_type': game_type})
+        if lobby is None:
+            return
+
+        user = lobby.users.get(Context.cube_api_client.user.username)
+        if user and user.username == lobby.owner:
+            self._lobby_model.set_game_type(self._lobby_name, self._game_type_selector.itemText(idx))
 
     def _toggle_ready(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
         if lobby:
-            user = lobby.users.get(Context.username)
+            user = lobby.users.get(Context.cube_api_client.user.username)
             if user is not None:
                 self._lobby_model.set_ready(
                     self._lobby_name,
@@ -427,37 +462,38 @@ class LobbyView(QWidget):
 
     def _update_content(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
-        if lobby:
-            game_type = lobby.options.get('game_type')
-            self._game_type_selector.currentTextChanged.disconnect(self._select_game_type)
-            if game_type is not None:
-                self._game_type_selector.setCurrentText(game_type)
-            self._game_type_selector.currentTextChanged.connect(self._select_game_type)
+        if not lobby:
+            return
 
-            user = lobby.users.get(Context.username)
-            if user is not None:
-                self._ready_button.setText(
-                    'unready' if user.ready else 'ready'
-                )
-                self._ready_button.setVisible(lobby.state == 'pre-game')
+        user = lobby.users.get(Context.cube_api_client.user.username)
+        if user is None:
+            return
 
-                self._game_type_selector.setEnabled(
-                    Context.username == lobby.owner
-                )
+        can_edit_options = Context.cube_api_client.user.username == lobby.owner and lobby.state == 'pre-game'
 
-                self._start_game_button.setVisible(
-                    lobby.state == 'pre-game'
-                    and Context.username == lobby.owner
-                    and all(
-                        user.ready
-                        for user in
-                        lobby.users.values()
-                    )
-                )
+        self._ready_button.setText(
+            'unready' if user.ready else 'ready'
+        )
+        self._ready_button.setVisible(lobby.state == 'pre-game')
 
-                self._reconnect_button.setVisible(
-                    lobby.key is not None
-                )
+        self._game_type_selector.setEnabled(can_edit_options)
+
+        self._game_type_selector.setCurrentText(lobby.game_type)
+        self._options_selector.update_content(lobby.game_type, lobby.options, can_edit_options)
+
+        self._start_game_button.setVisible(
+            lobby.state == 'pre-game'
+            and Context.cube_api_client.user.username == lobby.owner
+            and all(
+                user.ready
+                for user in
+                lobby.users.values()
+            )
+        )
+
+        # self._reconnect_button.setVisible(
+        #     lobby.key is not None
+        # )
 
 
 class CreateLobbyDialog(QtWidgets.QDialog):
@@ -486,7 +522,6 @@ class CreateLobbyDialog(QtWidgets.QDialog):
         self._ok_button.clicked.connect(self._create)
 
         self._lobby_name_selector.setFocus()
-        # self.setTabOrder(self._lobby_name_selector, self._ok_button)
 
     def _create(self) -> None:
         self._lobby_view.lobby_model.create_lobby(
@@ -515,7 +550,7 @@ class LobbyTabs(QtWidgets.QTabWidget):
             name: lobby
             for name, lobby in
             self._lobby_view.lobby_model.get_lobbies().items()
-            if Context.username in lobby.users
+            if Context.cube_api_client.user.username in lobby.users
         }
 
         removed = self._tabs_map.keys() - lobbies.keys()
@@ -590,7 +625,7 @@ class LobbiesView(QWidget):
         self._create_lobby_button.clicked.connect(self._create_lobby)
         if not self._lobby_model.is_connected:
             self._create_lobby_button.setEnabled(False)
-        self._lobby_model.connected.connect(self._connection_status_change)
+        self._lobby_model.connected.connect(self._on_connection_status_change)
 
         top_layout = QtWidgets.QHBoxLayout()
 
@@ -602,7 +637,7 @@ class LobbiesView(QWidget):
 
         self.setLayout(layout)
 
-    def _connection_status_change(self, connected: bool) -> None:
+    def _on_connection_status_change(self, connected: bool) -> None:
         self._create_lobby_button.setEnabled(connected)
 
     @property
