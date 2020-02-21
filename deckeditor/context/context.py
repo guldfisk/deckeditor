@@ -45,6 +45,7 @@ class _Context(QObject):
     focus_scene_changed = pyqtSignal(QGraphicsScene)
 
     draft_started = pyqtSignal(object)
+    sealed_started = pyqtSignal(int)
 
     new_pool = pyqtSignal(object, str)
 

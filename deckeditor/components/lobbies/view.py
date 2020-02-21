@@ -40,18 +40,20 @@ class _LobbyClient(LobbyClient):
         self._model.on_disconnected()
 
     def _game_started(self, lobby: Lobby, key: str) -> None:
-        if lobby.options['game_type'] == 'draft':
-            Context.draft_started.emit(
-                DraftModel(
-                    key,
-                    lobby.name,
-                )
-            )
-        else:
-            sealed_pool = Context.cube_api_client.get_sealed_pool(
-                lobby.key
-            )
-            Context.new_pool.emit(sealed_pool.pool)
+        print('game started')
+        # if lobby.options['game_type'] == 'draft':
+        #     Context.draft_started.emit(
+        #         DraftModel(
+        #             key,
+        #             lobby.name,
+        #         )
+        #     )
+        # else:
+        # sealed_pool = Context.cube_api_client.get_sealed_pool(
+        #     lobby.key
+        # )
+        # Context.new_pool.emit(sealed_pool.pool)
+        Context.sealed_started.emit(int(key))
 
 
 class LobbyModelClientConnection(QObject):
@@ -304,8 +306,50 @@ class ReleaseSelector(QWidget):
             )
 
 
+class FormatSelector(QtWidgets.QComboBox):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__()
+        self._lobby_view = lobby_view
+
+        self.addItem('limited_sideboard')
+        self.addItem('limited_15_sideboard')
+
+        self.activated.connect(self._on_activated)
+
+    def update_content(self, game_format: str, enabled: bool) -> None:
+        self.setCurrentText(game_format)
+        self.setEnabled(enabled)
+
+    def _on_activated(self, idx: int) -> None:
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {'format': self.itemText(idx)},
+        )
+
+
+class PoolSizeSelector(QtWidgets.QSpinBox):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__()
+        self._lobby_view = lobby_view
+        self.setRange(1, 180)
+        self.valueChanged.connect(self._on_value_changed)
+
+    def update_content(self, pool_size: int, enabled: bool) -> None:
+        self.blockSignals(True)
+        self.setValue(pool_size)
+        self.blockSignals(False)
+        self.setEnabled(enabled)
+
+    def _on_value_changed(self, value: int) -> None:
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {'pool_size': value},
+        )
+
+
 class OptionsSelector(QWidget):
-    # changed = pyqtSignal()
 
     def __init__(self, lobby_view: LobbyView):
         super().__init__()
@@ -314,12 +358,6 @@ class OptionsSelector(QWidget):
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         pass
 
-    # def _on_changed(self) -> None:
-    #     self._lobby_view.options_changed.emit(self.options())
-    #
-    # def options(self) -> t.Mapping[str, t.Any]:
-    #     pass
-
 
 class SealedOptionsSelector(OptionsSelector):
 
@@ -327,31 +365,25 @@ class SealedOptionsSelector(OptionsSelector):
         super().__init__(lobby_view)
 
         self._release_selector = ReleaseSelector(lobby_view)
+        self._format_selector = FormatSelector(lobby_view)
+        self._pool_size_selector = PoolSizeSelector(lobby_view)
 
         layout = QtWidgets.QVBoxLayout()
 
         layout.addWidget(self._release_selector)
+        layout.addWidget(self._format_selector)
+        layout.addWidget(self._pool_size_selector)
 
         self.setLayout(layout)
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         self._release_selector.update_content(options['release'], enabled)
-
-    # def options(self) -> t.Mapping[str, t.Any]:
-    #     return {
-    #         'relase': self._release_selector.release(),
-    #         'pool_size': 90,
-    #         'format': 'limited_sideboard',
-    #         'game_type': 'sealed'
-    #     }
+        self._format_selector.update_content(options['format'], enabled)
+        self._pool_size_selector.update_content(options['pool_size'], enabled)
 
 
 class DraftOptionsSelector(OptionsSelector):
     pass
-    # def options(self) -> t.Mapping[str, t.Any]:
-    #     return {
-    #         'game_type': 'sealed'
-    #     }
 
 
 class GameOptionsSelector(QtWidgets.QStackedWidget):
@@ -372,11 +404,6 @@ class GameOptionsSelector(QtWidgets.QStackedWidget):
         self.setCurrentWidget(options_selector)
         options_selector.update_content(options, enabled)
 
-        # self.setCurrentWidget(self._options_selectors[self._lobby_view.])
-
-    # def _on_options_changed(self, options: t.Mapping[str, t.Any]) -> None:
-    #     self.setCurrentWidget(self._options_selectors[options['game_type']])
-
 
 class LobbyView(QWidget):
     options_changed = pyqtSignal(dict)
@@ -391,7 +418,7 @@ class LobbyView(QWidget):
         self._ready_button = QtWidgets.QPushButton('ready')
         self._ready_button.clicked.connect(self._toggle_ready)
 
-        self._start_game_button = QtWidgets.QPushButton('start draft')
+        self._start_game_button = QtWidgets.QPushButton('start')
         self._start_game_button.clicked.connect(self._start_game)
 
         self._game_type_selector = QtWidgets.QComboBox()
@@ -543,8 +570,6 @@ class LobbyTabs(QtWidgets.QTabWidget):
 
         self._tabs_map: bidict[str, int] = bidict()
 
-        # self.currentChanged.connect(self._current_changed)
-
     def _update_content(self) -> None:
         lobbies = {
             name: lobby
@@ -583,24 +608,6 @@ class LobbyTabs(QtWidgets.QTabWidget):
                     LobbyView(self._lobby_view.lobby_model, added_name),
                     added_name,
                 )
-
-        # lobbies = sorted(
-        #
-        #     key = lambda l: l.name,
-        # )
-        # username = Context.username
-
-    # def add_deck(self, deck: DeckView) -> None:
-    #     self.addTab(deck, 'a deck')
-    #
-    # def new_deck(self, model: DeckModel) -> DeckView:
-    #     deck_widget = DeckView(model)
-    #     self.add_deck(
-    #         deck_widget
-    #     )
-    #     self._new_decks += 1
-    #
-    #     return deck_widget
 
     def _tab_close_requested(self, index: int) -> None:
         self._lobby_view.lobby_model.leave_lobby(

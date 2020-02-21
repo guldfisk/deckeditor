@@ -211,6 +211,7 @@ class SealedSessionsView(QWidget):
         self.setLayout(layout)
 
         Context.token_changed.connect(self.update)
+        Context.sealed_started.connect(self.update)
         self.update.connect(self._on_update)
 
     def _on_update(self) -> None:

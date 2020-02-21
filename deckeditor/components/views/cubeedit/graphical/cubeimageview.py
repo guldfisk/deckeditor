@@ -446,6 +446,8 @@ class CubeImageView(QtWidgets.QGraphicsView):
         if self._last_press_on_card:
             if mouse_event.buttons() & Qt.LeftButton:
                 self._floating = self.scene().selectedItems()
+                if not self._floating:
+                    return
 
                 drag = QtGui.QDrag(self)
                 mime = QtCore.QMimeData()
