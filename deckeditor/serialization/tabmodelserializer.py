@@ -4,6 +4,7 @@ import re
 import typing as t
 
 from abc import abstractmethod, ABCMeta
+from xml.etree import ElementTree
 
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from yeetlong.multiset import Multiset
@@ -16,12 +17,10 @@ from magiccube.collections.cube import Cube
 from deckeditor.context.context import Context
 from deckeditor.models.deck import Deck, TabModel, Pool
 
-
 T = t.TypeVar('T', bound = TabModel)
 
 
 class _TabModelSerializerMeta(ABCMeta):
-
     extension_to_serializer: t.Mapping[t.Tuple[str, t.Type[T]], TabModelSerializer[T]] = {}
 
     def __new__(mcs, classname, base_classes, attributes):
@@ -34,8 +33,7 @@ class _TabModelSerializerMeta(ABCMeta):
         return klass
 
 
-class TabModelSerializer(t.Generic[T], metaclass=_TabModelSerializerMeta):
-
+class TabModelSerializer(t.Generic[T], metaclass = _TabModelSerializerMeta):
     extensions: t.Sequence[str]
     tab_model_type: t.Type[T]
 
@@ -133,3 +131,16 @@ class PoolJsonSerializer(TabModelSerializer[Pool]):
     @classmethod
     def deserialize(cls, s: t.AnyStr) -> Pool:
         return JsonId(Context.db).deserialize(Pool, s)
+
+
+class CodSerializer(TabModelSerializer[Deck]):
+    extensions = ['.cod']
+    tab_model_type = Deck
+
+    @classmethod
+    def serialize(cls, deck: Deck) -> t.AnyStr:
+        pass
+
+    @classmethod
+    def deserialize(cls, s: t.AnyStr) -> Deck:
+        root = ElementTree.fromstring(s)

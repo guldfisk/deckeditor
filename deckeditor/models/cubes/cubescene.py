@@ -298,7 +298,7 @@ class CubeScene(SelectionScene):
                     cards
                     if (
                         isinstance(card, SceneCard)
-                        and isinstance(card, Printing)
+                        and isinstance(card.cubeable, Printing)
                         and card.cubeable.cardboard in Context.basics
                     )
                 ]
@@ -312,14 +312,6 @@ class CubeScene(SelectionScene):
             removed_physical_cards,
             QPoint() if position is None else position,
         )
-
-        # return CubeSceneModification(
-        #     self,
-        #     new_physical_cards,
-        #     self._aligner.drop(new_physical_cards, QPoint() if position is None else position),
-        #     self._aligner.pick_up(removed_physical_cards),
-        #     removed_physical_cards,
-        # )
 
     def add_physical_cards(self, *physical_cards: SceneCard) -> None:
         for card in physical_cards:

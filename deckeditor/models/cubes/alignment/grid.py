@@ -206,9 +206,9 @@ class GridAligner(Aligner):
     def map_position_to_index(self, position: QPoint) -> int:
         return min(
             int(
-                position.x() // (SizeSlug.ORIGINAL.get_size(False)[0] + self._margin)
+                position.x() // (IMAGE_WIDTH + self._margin)
                 + (
-                    position.y() // (SizeSlug.ORIGINAL.get_size(False)[1] + self._margin) * self._columns
+                    position.y() // (IMAGE_HEIGHT + self._margin) * self._columns
                 )
             ),
             len(self._cards),

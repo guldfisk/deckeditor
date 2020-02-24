@@ -1,5 +1,5 @@
 .idea/
-/.gitignore
 __pycache__
-*.spec
 /dist
+/build
+/build_venv

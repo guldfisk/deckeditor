@@ -92,16 +92,18 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
                 self.setCurrentWidget(editable)
                 return
 
-        self.add_editable(
-            PoolView(
-                PoolModel(
-                    list(map(PhysicalCard.from_cubeable, pool)),
-                )
-            ),
-            EditablesMeta(
-                key,
-                key = key,
-            ),
+        self.setCurrentWidget(
+            self.add_editable(
+                PoolView(
+                    PoolModel(
+                        list(map(PhysicalCard.from_cubeable, pool)),
+                    )
+                ),
+                EditablesMeta(
+                    key,
+                    key = key,
+                ),
+            )
         )
 
     def save_session(self) -> None:
