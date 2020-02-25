@@ -5,8 +5,7 @@ from deckeditor.context.context import Context
 
 
 def login(host: str, username: str, password: str) -> bool:
-    if Context.cube_api_client is None or host != Context.cube_api_client.host:
-        Context.cube_api_client = NativeApiClient(host, Context.db)
+    Context.cube_api_client = NativeApiClient(host, Context.db)
 
     try:
         Context.cube_api_client.login(username, password)

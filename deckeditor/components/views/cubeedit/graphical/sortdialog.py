@@ -33,7 +33,6 @@ class SortSelector(QtWidgets.QLineEdit):
             try:
                 sort_property = SortProperty.names_to_sort_property[self.text()]
             except KeyError:
-                print('{} not a sort prop'.format(self.text()))
                 return
             self._sort_dialog.accept()
             self._sort_dialog.selection_done.emit(

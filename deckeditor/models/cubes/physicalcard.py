@@ -545,10 +545,10 @@ class PhysicalTicket(PhysicalCard[Ticket]):
                             break
                     else:
                         tickets[scene] = (
-                                             sorted(cards, key = lambda c: c != self)
-                                             if scene == self.scene() else
-                                             cards
-                                         )[:remaining_required_printings]
+                            sorted(cards, key = lambda c: c != self)
+                            if scene == self.scene() else
+                            cards
+                        )[:remaining_required_printings]
                         break
 
                 _flatten.triggered.connect(

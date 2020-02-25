@@ -1,18 +1,14 @@
 instead of just "select matching", full search dialog, with option to exit and select matching
 search dialog searching entire tab (all views in pool or deck or whatever)
-dont create empty undo events when attempting to change cubeeditmode.closed view
 
 fix rubberband on windows
 fix style on windows
-fix mouse input problem on windows (prob related to double click)
-cant generate db on windows
 
-error handling of disconnects
-uploading of deckelists when done with draft / sealed pool
 drafting
 
+find out what to do with selections in multiple views at once. it is intuitive enough, but it is really unintuitive when commands that works in a view does not work even though the cards are selected (usecase: double click card, then reconsider and press delete. result: nothing happens. expected result (prob): card should be deleted)
+hard time generating db on windows. only works on 64 bit python.
 remove scenecard, just move physicalcards into same file as cubescene prob
-dont have stacking grid as a default
 sort macroes
 disable change printing for pool except for basics also visually
 sort row/column option in stacking grid aligners?

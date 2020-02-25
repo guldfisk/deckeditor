@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import time
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QPoint, Qt, QRectF
-from PyQt5.QtGui import QPainter
+from PyQt5.QtGui import QPainter, QPolygon, QPolygonF, QBrush, QColor
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
 from deckeditor.components.views.cubeedit.graphical.sortdialog import SortDialog
@@ -510,10 +511,37 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self._rubber_band.hide()
 
-        self._scene.add_selection(
-            self.scene().items(
-                self.mapToScene(
-                    self._rubber_band.geometry()
-                )
+        potential_items = self.scene().items(
+            self.mapToScene(
+                self._rubber_band.geometry()
             )
         )
+
+        cards = []
+        poly = QPolygonF(
+            self.mapToScene(
+                self._rubber_band.geometry()
+            )
+        )
+
+        for card in potential_items:
+            rect = QRectF(card.boundingRect())
+            rect.translate(card.pos())
+
+            if poly.intersects(
+                QPolygonF(rect)
+            ):
+                cards.append(card)
+
+            poly = poly.subtracted(
+                QPolygonF(
+                    QRectF(
+                        rect.x() - 1,
+                        rect.y() - 2,
+                        rect.width() + 2,
+                        rect.height() + 2,
+                    )
+                )
+            )
+
+        self._scene.add_selection(cards)

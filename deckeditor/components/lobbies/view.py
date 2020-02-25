@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 import typing as t
 
 from PyQt5 import QtWidgets
@@ -11,10 +10,9 @@ from frozendict import frozendict
 from bidict import bidict
 
 from cubeclient.models import VersionedCube
-from deckeditor.components.draft.view import DraftModel
-from deckeditor.context.context import Context
-
 from lobbyclient.client import LobbyClient, Lobby
+
+from deckeditor.context.context import Context
 
 
 class _LobbyClient(LobbyClient):
@@ -37,22 +35,8 @@ class _LobbyClient(LobbyClient):
 
     def _on_close(self):
         super()._on_close()
-        self._model.on_disconnected()
 
     def _game_started(self, lobby: Lobby, key: str) -> None:
-        print('game started')
-        # if lobby.options['game_type'] == 'draft':
-        #     Context.draft_started.emit(
-        #         DraftModel(
-        #             key,
-        #             lobby.name,
-        #         )
-        #     )
-        # else:
-        # sealed_pool = Context.cube_api_client.get_sealed_pool(
-        #     lobby.key
-        # )
-        # Context.new_pool.emit(sealed_pool.pool)
         Context.sealed_started.emit(int(key))
 
 
@@ -113,11 +97,6 @@ class LobbyModelClientConnection(QObject):
         if self._lobby_client is None:
             return
         self._lobby_client.set_game_type(name, game_type)
-
-    # def get_options(self, name: str) -> t.Any:
-    #     if self._lobby_client is None:
-    #         return
-    #     return self._lobby_client.get_lobby(name)
 
     def leave_lobby(self, name: str) -> None:
         if self._lobby_client is None:
@@ -517,10 +496,6 @@ class LobbyView(QWidget):
                 lobby.users.values()
             )
         )
-
-        # self._reconnect_button.setVisible(
-        #     lobby.key is not None
-        # )
 
 
 class CreateLobbyDialog(QtWidgets.QDialog):

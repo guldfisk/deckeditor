@@ -75,7 +75,7 @@ class AlignSelector(QtWidgets.QComboBox):
             self.addItem(name, aligner_type)
 
         self.setCurrentIndex(
-            self.findData(StaticStackingGrid)
+            self.findData(type(self._cube_scene.aligner))
         )
 
         self._cube_scene.aligner_changed.connect(self._on_aligner_change)
@@ -134,7 +134,7 @@ class CubeView(QtWidgets.QWidget):
         self._cube_scene = scene
         self._undo_stack = undo_stack
 
-        self._current_aligner_type = StaticStackingGrid
+        self._current_aligner_type = type(self._cube_scene.aligner)
         self._view_layout = cube_view_layout
 
         self._cube_image_view = CubeImageView(
@@ -193,7 +193,7 @@ class CubeView(QtWidgets.QWidget):
             'Static Stacking Grid',
             lambda: self._undo_stack.push(
                 self._cube_scene.get_set_aligner(
-                    StaticStackingGrid
+                    DynamicStackingGrid
                 )
             ),
             'Ł',  # AltGr+L
