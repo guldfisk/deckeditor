@@ -4,6 +4,9 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from magiccube.laps.tickets.ticket import Ticket
+from magiccube.laps.traps.trap import Trap
+from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode
 from mtgorp.models.persistent.card import Card
 from mtgorp.models.persistent.printing import Printing
 
@@ -81,9 +84,19 @@ class CubeableTextView(QtWidgets.QWidget):
 
         self._blank = QtWidgets.QWidget()
         self._printing_view = PrintingTextView()
+        self._ticket_view = TicketTextView()
+        self._trap_view = TrapTextView()
 
         self._stack.addWidget(self._blank)
         self._stack.addWidget(self._printing_view)
+        self._stack.addWidget(self._ticket_view)
+        self._stack.addWidget(self._trap_view)
+
+        self._cubeable_view_map = {
+            Printing: self._printing_view,
+            Ticket: self._ticket_view,
+            Trap: self._trap_view,
+        }
 
         self._stack.setCurrentWidget(self._blank)
 
@@ -101,12 +114,14 @@ class CubeableTextView(QtWidgets.QWidget):
 
         self._latest_cubeable = cubeable
 
-        if isinstance(cubeable, Printing):
-            self._stack.setCurrentWidget(self._printing_view)
-            self._printing_view.set_cubeable(cubeable)
+        view = self._cubeable_view_map.get(type(cubeable))
+
+        if view is None:
+            self._stack.setCurrentWidget(self._blank)
 
         else:
-            self._stack.setCurrentWidget(self._blank)
+            self._stack.setCurrentWidget(view)
+            view.set_cubeable(cubeable)
 
 
 class CardTextView(QtWidgets.QWidget):
@@ -154,9 +169,9 @@ class CardTextView(QtWidgets.QWidget):
 
 class PrintingTextView(QtWidgets.QWidget):
 
-    def __init__(self):
+    def __init__(self, printing: t.Optional[Printing] = None):
         super().__init__()
-        self._printing: t.Optional[Printing] = None
+        self._printing: t.Optional[Printing] = printing
 
         self._name_label = QtWidgets.QLabel()
         self._expansion_label = QtWidgets.QLabel()
@@ -177,6 +192,9 @@ class PrintingTextView(QtWidgets.QWidget):
 
         self.setLayout(layout)
 
+        if self._printing is not None:
+            self.set_cubeable(printing)
+
     def set_cubeable(self, printing: Printing) -> None:
         self._name_label.setText(printing.cardboard.name)
         self._expansion_label.setText(printing.expansion.name)
@@ -191,6 +209,100 @@ class PrintingTextView(QtWidgets.QWidget):
         else:
             self._card_view.set_card(printing.cardboard.front_card)
             self._cards_stack.setCurrentWidget(self._card_view)
+
+
+class TicketTextView(QtWidgets.QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self._ticket: t.Optional[Ticket] = None
+
+        self._name_label = QtWidgets.QLabel()
+        self._printings_tabs = QtWidgets.QTabWidget()
+
+        layout = QtWidgets.QVBoxLayout()
+
+        layout.addWidget(self._name_label)
+        layout.addWidget(self._printings_tabs)
+
+        self.setLayout(layout)
+
+    def set_cubeable(self, ticket: Ticket) -> None:
+        self._name_label.setText(ticket.name)
+        self._printings_tabs.clear()
+        for printing in sorted(ticket.options, key = lambda p: p.cardboard.name):
+            self._printings_tabs.addTab(
+                PrintingTextView(printing),
+                printing.cardboard.name,
+            )
+
+
+class PrintingTreeItem(QtWidgets.QTreeWidgetItem):
+
+    def __init__(self, printing: Printing, _type: str):
+        super().__init__()
+        self._printing = printing
+        self.setData(0, 0, self._printing.cardboard.name)
+        self.setData(1, 0, _type)
+
+    @property
+    def printing(self) -> Printing:
+        return self._printing
+
+
+class TrapTextView(QtWidgets.QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self._trap: t.Optional[Trap] = None
+
+        self._node_tree = QtWidgets.QTreeWidget()
+        self._node_tree.setColumnCount(2)
+        self._node_tree.setHeaderLabels(('name', 'type'))
+        self._node_tree.currentItemChanged.connect(self._on_current_item_changed)
+
+        self._printing_view = PrintingTextView()
+        self._printing_view.hide()
+
+        layout = QtWidgets.QVBoxLayout()
+
+        layout.addWidget(self._node_tree)
+        layout.addWidget(self._printing_view)
+
+        self.setLayout(layout)
+
+    def _on_current_item_changed(self, current, previous) -> None:
+        if isinstance(current, PrintingTreeItem):
+            self._printing_view.set_cubeable(current.printing)
+            self._printing_view.show()
+
+    def _span_tree(self, option: t.Union[Printing, PrintingNode], item: t.Any, is_top_level: bool, _type: str) -> None:
+
+
+        if isinstance(option, Printing):
+            _item = PrintingTreeItem(option, _type)
+
+        else:
+            _item = QtWidgets.QTreeWidgetItem()
+            _item.setData(1, 0, _type)
+            _option_type = 'any' if isinstance(option, AnyNode) else 'all'
+            _item.setData(0, 0, _option_type)
+            for child in option.children:
+                self._span_tree(child, _item, False, _option_type)
+
+        if is_top_level:
+            item.addTopLevelItem(_item)
+        else:
+            item.addChild(_item)
+
+    def set_cubeable(self, trap: Trap) -> None:
+        self._node_tree.clear()
+        self._printing_view.hide()
+        _option_type = 'any' if isinstance(trap.node, AnyNode) else 'all'
+        for child in trap.node.children:
+            self._span_tree(child, self._node_tree, True, _option_type)
+        self._node_tree.resizeColumnToContents(0)
+        self._node_tree.expandAll()
 
 
 class TextImageCubeableView(QtWidgets.QWidget):

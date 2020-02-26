@@ -13,6 +13,7 @@ from cubeclient.models import VersionedCube
 from lobbyclient.client import LobbyClient, Lobby
 
 from deckeditor.context.context import Context
+from mtgorp.models.formats.format import Format, LimitedSideboard
 
 
 class _LobbyClient(LobbyClient):
@@ -291,8 +292,10 @@ class FormatSelector(QtWidgets.QComboBox):
         super().__init__()
         self._lobby_view = lobby_view
 
-        self.addItem('limited_sideboard')
-        self.addItem('limited_15_sideboard')
+        for format_name in sorted(Format.formats_map.keys()):
+            self.addItem(format_name)
+
+        self.setCurrentText(LimitedSideboard.name)
 
         self.activated.connect(self._on_activated)
 
