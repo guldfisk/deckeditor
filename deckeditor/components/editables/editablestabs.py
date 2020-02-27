@@ -247,8 +247,9 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             except KeyError:
                 raise FileSaveException('invalid file type "{}"'.format(extension))
 
-            with open(path, 'w') as f:
-                f.write(serializer.serialize(editable.deck_model.as_deck()))
+            serialized = serializer.serialize(editable.deck_model.as_deck())
+            with open(path, 'w' if isinstance(serialized, str) else 'wb') as f:
+                f.write(serialized)
 
         if clear_undo:
             editable.undo_stack.clear()

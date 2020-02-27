@@ -346,9 +346,18 @@ class SealedOptionsSelector(OptionsSelector):
     def __init__(self, lobby_view: LobbyView):
         super().__init__(lobby_view)
 
+        self._lobby_view = lobby_view
+
         self._release_selector = ReleaseSelector(lobby_view)
         self._format_selector = FormatSelector(lobby_view)
         self._pool_size_selector = PoolSizeSelector(lobby_view)
+        self._open_decks_selector = QtWidgets.QCheckBox()
+        self._open_decks_label = QtWidgets.QLabel('open decks')
+        self._allow_pool_intersection_selector = QtWidgets.QCheckBox()
+        self._allow_pool_intersection_label = QtWidgets.QLabel('allow cube intersection')
+
+        self._open_decks_selector.stateChanged.connect(self._on_open_decks_state_changed)
+        self._allow_pool_intersection_selector.stateChanged.connect(self._on_allow_intersection_changed)
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -356,12 +365,50 @@ class SealedOptionsSelector(OptionsSelector):
         layout.addWidget(self._format_selector)
         layout.addWidget(self._pool_size_selector)
 
+        open_decks_layout = QtWidgets.QHBoxLayout()
+
+        open_decks_layout.addWidget(self._open_decks_label)
+        open_decks_layout.addWidget(self._open_decks_selector)
+        open_decks_layout.addWidget(self._allow_pool_intersection_label)
+        open_decks_layout.addWidget(self._allow_pool_intersection_selector)
+
+        layout.addLayout(open_decks_layout)
+
+        # allow_intersection_layout = QtWidgets.QHBoxLayout()
+        #
+        # allow_intersection_layout.addWidget(self._allow_pool_intersection_label)
+        # allow_intersection_layout.addWidget(self._allow_pool_intersection_selector)
+        #
+        # layout.addLayout(allow_intersection_layout)
+
         self.setLayout(layout)
+
+    def _on_open_decks_state_changed(self, state) -> None:
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {'open_decks': state == 2},
+        )
+
+    def _on_allow_intersection_changed(self, state) -> None:
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {'allow_pool_intersection': state == 2},
+        )
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         self._release_selector.update_content(options['release'], enabled)
         self._format_selector.update_content(options['format'], enabled)
         self._pool_size_selector.update_content(options['pool_size'], enabled)
+
+        self._open_decks_selector.blockSignals(True)
+        self._open_decks_selector.setChecked(options['open_decks'])
+        self._open_decks_selector.setEnabled(enabled)
+        self._open_decks_selector.blockSignals(False)
+
+        self._allow_pool_intersection_selector.blockSignals(True)
+        self._allow_pool_intersection_selector.setChecked(options['allow_pool_intersection'])
+        self._allow_pool_intersection_selector.setEnabled(enabled)
+        self._allow_pool_intersection_selector.blockSignals(False)
 
 
 class DraftOptionsSelector(OptionsSelector):

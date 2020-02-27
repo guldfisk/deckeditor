@@ -5,6 +5,7 @@ import typing as t
 
 from abc import abstractmethod, ABCMeta
 from xml.etree import ElementTree
+from xml.etree.ElementTree import Element
 
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from yeetlong.multiset import Multiset
@@ -134,13 +135,67 @@ class PoolJsonSerializer(TabModelSerializer[Pool]):
 
 
 class CodSerializer(TabModelSerializer[Deck]):
-    extensions = ['.cod']
+    extensions = ['cod']
     tab_model_type = Deck
 
     @classmethod
     def serialize(cls, deck: Deck) -> t.AnyStr:
-        pass
+        root = ElementTree.Element('cockatrice_deck', {'version': '1'})
+        ElementTree.SubElement(root, 'decknames')
+        ElementTree.SubElement(root, 'comments')
+        maindeck = ElementTree.SubElement(root, 'zone', {'name': 'main'})
+        sideboard = ElementTree.SubElement(root, 'zone', {'name': 'side'})
+
+        for element, printings in ((maindeck, deck.maindeck), (sideboard, deck.sideboard)):
+            for printing, multiplicity in printings.printings.items():
+                ElementTree.SubElement(
+                    element,
+                    'card',
+                    {
+                        'number': str(multiplicity),
+                        'price': '0',
+                        'name': printing.cardboard.name,
+                    },
+                )
+
+        return ElementTree.tostring(root)
+
+    @classmethod
+    def _element_to_printings(cls, element: Element) -> t.Tuple[Printing, int]:
+        try:
+            printing = Context.db.cardboards[element.attrib['name']].latest_printing
+        except KeyError:
+            raise SerializationException('unknown printing "{}"'.format(element.attrib.get('name')))
+        try:
+            multiplicity = int(element.attrib.get('number', 1))
+        except ValueError:
+            raise SerializationException('unknown quantity "{}"'.format(element.attrib.get('number')))
+
+        return printing, multiplicity
 
     @classmethod
     def deserialize(cls, s: t.AnyStr) -> Deck:
         root = ElementTree.fromstring(s)
+        deck = Deck(
+            Cube(
+                {
+                    printing: multiplicity
+                    for printing, multiplicity in
+                    map(
+                        cls._element_to_printings,
+                        root.findall('zone[@name="main"]/card'),
+                    )
+                }
+            ),
+            Cube(
+                {
+                    printing: multiplicity
+                    for printing, multiplicity in
+                    map(
+                        cls._element_to_printings,
+                        root.findall('zone[@name="side"]/card'),
+                    )
+                }
+            ),
+        )
+        return deck

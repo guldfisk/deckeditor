@@ -3,3 +3,4 @@ __pycache__
 /dist
 /build
 /build_venv
+test.py
