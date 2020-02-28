@@ -38,7 +38,10 @@ class _LobbyClient(LobbyClient):
         super()._on_close()
 
     def _game_started(self, lobby: Lobby, key: str) -> None:
-        Context.sealed_started.emit(int(key))
+        if lobby.game_type == 'sealed':
+            Context.sealed_started.emit(int(key))
+        elif lobby.game_type == 'draft':
+            Context.draft_started.emit(key)
 
 
 class LobbyModelClientConnection(QObject):
@@ -286,13 +289,15 @@ class ReleaseSelector(QWidget):
             )
 
 
-class FormatSelector(QtWidgets.QComboBox):
+class ComboSelector(QtWidgets.QComboBox):
 
-    def __init__(self, lobby_view: LobbyView):
+    def __init__(self, lobby_view: LobbyView, option: str, options: t.AbstractSet[str]):
         super().__init__()
+        self._option = option
+
         self._lobby_view = lobby_view
 
-        for format_name in sorted(Format.formats_map.keys()):
+        for format_name in sorted(options):
             self.addItem(format_name)
 
         self.setCurrentText(LimitedSideboard.name)
@@ -306,28 +311,29 @@ class FormatSelector(QtWidgets.QComboBox):
     def _on_activated(self, idx: int) -> None:
         self._lobby_view.lobby_model.set_options(
             self._lobby_view.lobby.name,
-            {'format': self.itemText(idx)},
+            {self._option: self.itemText(idx)},
         )
 
 
-class PoolSizeSelector(QtWidgets.QSpinBox):
+class IntegerOptionSelector(QtWidgets.QSpinBox):
 
-    def __init__(self, lobby_view: LobbyView):
+    def __init__(self, lobby_view: LobbyView, option: str, allowed_range: t.Tuple[int, int] = (1, 180)):
         super().__init__()
         self._lobby_view = lobby_view
-        self.setRange(1, 180)
+        self._option = option
+        self.setRange(*allowed_range)
         self.valueChanged.connect(self._on_value_changed)
 
-    def update_content(self, pool_size: int, enabled: bool) -> None:
+    def update_content(self, value: int, enabled: bool) -> None:
         self.blockSignals(True)
-        self.setValue(pool_size)
+        self.setValue(value)
         self.blockSignals(False)
         self.setEnabled(enabled)
 
     def _on_value_changed(self, value: int) -> None:
         self._lobby_view.lobby_model.set_options(
             self._lobby_view.lobby.name,
-            {'pool_size': value},
+            {self._option: value},
         )
 
 
@@ -346,11 +352,9 @@ class SealedOptionsSelector(OptionsSelector):
     def __init__(self, lobby_view: LobbyView):
         super().__init__(lobby_view)
 
-        self._lobby_view = lobby_view
-
         self._release_selector = ReleaseSelector(lobby_view)
-        self._format_selector = FormatSelector(lobby_view)
-        self._pool_size_selector = PoolSizeSelector(lobby_view)
+        self._format_selector = ComboSelector(lobby_view, 'format', Format.formats_map.keys())
+        self._pool_size_selector = IntegerOptionSelector(lobby_view, 'pool_size')
         self._open_decks_selector = QtWidgets.QCheckBox()
         self._open_decks_label = QtWidgets.QLabel('open decks')
         self._allow_pool_intersection_selector = QtWidgets.QCheckBox()
@@ -373,13 +377,6 @@ class SealedOptionsSelector(OptionsSelector):
         open_decks_layout.addWidget(self._allow_pool_intersection_selector)
 
         layout.addLayout(open_decks_layout)
-
-        # allow_intersection_layout = QtWidgets.QHBoxLayout()
-        #
-        # allow_intersection_layout.addWidget(self._allow_pool_intersection_label)
-        # allow_intersection_layout.addWidget(self._allow_pool_intersection_selector)
-        #
-        # layout.addLayout(allow_intersection_layout)
 
         self.setLayout(layout)
 
@@ -412,7 +409,52 @@ class SealedOptionsSelector(OptionsSelector):
 
 
 class DraftOptionsSelector(OptionsSelector):
-    pass
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__(lobby_view)
+
+        self._release_selector = ReleaseSelector(lobby_view)
+        self._format_selector = ComboSelector(lobby_view, 'format', Format.formats_map.keys())
+
+        self._pack_amount_selector = IntegerOptionSelector(lobby_view, 'pack_amount', (1, 32))
+        self._pack_amount_label = QtWidgets.QLabel('pack amount')
+        self._pack_size_selector = IntegerOptionSelector(lobby_view, 'pack_size', (1, 64))
+        self._pack_size_label = QtWidgets.QLabel('pack size')
+        self._draft_format_selector = ComboSelector(lobby_view, 'draft_format', {'single_pick', 'burn'})
+
+        self._total_cards_per_player_label = QtWidgets.QLabel()
+
+        layout = QtWidgets.QVBoxLayout()
+
+        layout.addWidget(self._release_selector)
+        layout.addWidget(self._format_selector)
+
+        pack_dimensions_layout = QtWidgets.QHBoxLayout()
+
+        pack_dimensions_layout.addWidget(self._pack_amount_label)
+        pack_dimensions_layout.addWidget(self._pack_amount_selector)
+        pack_dimensions_layout.addWidget(self._pack_size_label)
+        pack_dimensions_layout.addWidget(self._pack_size_selector)
+        pack_dimensions_layout.addWidget(self._total_cards_per_player_label)
+
+        layout.addLayout(pack_dimensions_layout)
+
+        layout.addWidget(self._draft_format_selector)
+
+        self.setLayout(layout)
+
+    def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
+        self._release_selector.update_content(options['release'], enabled)
+        self._format_selector.update_content(options['format'], enabled)
+        self._pack_amount_selector.update_content(options['pack_amount'], enabled)
+        self._pack_size_selector.update_content(options['pack_size'], enabled)
+        self._draft_format_selector.update_content(options['draft_format'], enabled)
+
+        self._total_cards_per_player_label.setText(
+            '{} cards per player'.format(
+                self._pack_size_selector.value() * self._pack_amount_selector.value()
+            )
+        )
 
 
 class GameOptionsSelector(QtWidgets.QStackedWidget):

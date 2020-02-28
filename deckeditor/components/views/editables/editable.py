@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QUndoStack
 
 
 class Editable(QWidget):
@@ -11,6 +11,10 @@ class Editable(QWidget):
         pass
 
     def persist(self) -> t.Any:
+        pass
+
+    @property
+    def undo_stack(self) -> QUndoStack:
         pass
 
     @classmethod

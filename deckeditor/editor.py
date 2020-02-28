@@ -19,8 +19,6 @@ from mtgorp.db import create
 from mtgorp.db.load import DBLoadException
 from mtgorp.managejson import download
 from mtgorp.managejson.update import check, update_last_updated
-from mtgorp.tools.search.extraction import PrintingStrategy
-from mtgorp.tools.search.pattern import Criteria, Pattern
 
 from magiccube.collections.delta import CubeDeltaOperation
 
@@ -56,7 +54,6 @@ class MainView(QWidget):
 
 
 class MainWindow(QMainWindow, CardAddable):
-    search_select = QtCore.pyqtSignal(Criteria)
     pool_generated = QtCore.pyqtSignal(Multiset)
 
     def __init__(self, parent = None):
@@ -158,8 +155,8 @@ class MainWindow(QMainWindow, CardAddable):
 
             ),
             menu_bar.addMenu('Edit'): (
-                ('Undo', 'Ctrl+Z', self._undo),
-                ('Redo', 'Ctrl+Shift+Z', self._redo),
+                ('Undo', 'Ctrl+Z', Context.undo_group.undo),
+                ('Redo', 'Ctrl+Shift+Z', Context.undo_group.redo),
             ),
             # menu_bar.addMenu('Deck'): (
             #     # ('Maindeck', 'Ctrl+1', lambda: self._focus_deck_zone(DeckZoneType.MAINDECK)),
@@ -195,7 +192,7 @@ class MainWindow(QMainWindow, CardAddable):
             #     ('Test', 'Ctrl+T', self._test),
             # ),
             menu_bar.addMenu('Connect'): (
-                ('Login', 'Ctrl+L', self._login),
+                ('Login', 'Ctrl+L', LoginDialog(self).exec_),
                 ('Logout', None, lambda: None),
             ),
             menu_bar.addMenu('DB'): (
@@ -213,16 +210,7 @@ class MainWindow(QMainWindow, CardAddable):
         self._reset_dock_width = 500
         self._reset_dock_height = 1200
 
-        self.search_select.connect(self._search_selected)
-        # self.pool_generated.connect(self._pool_generated)
-
-        # self._status_bar = QStatusBar()
-        #
-        # self.setStatusBar(self._status_bar)
-        #
-        # self._status_bar.showMessage('LMAO LETS GO BOIS')
-
-        Context.notification_message.connect(self._notify)
+        Context.notification_message.connect(self._notification_frame.notify)
 
         self._load_state()
 
@@ -236,9 +224,6 @@ class MainWindow(QMainWindow, CardAddable):
             tab.undo_stack.push(
                 tab.pool_model.maindeck.get_cube_modification(delta_operation)
             )
-
-    def _login(self):
-        LoginDialog(self).exec_()
 
     @staticmethod
     def _toggle_dock_view(dock: QtWidgets.QDockWidget):
@@ -256,53 +241,6 @@ class MainWindow(QMainWindow, CardAddable):
             self._main_view.editables_tabs.currentIndex()
         )
 
-    def _undo(self):
-        Context.undo_group.undo()
-
-    def _redo(self):
-        Context.undo_group.redo()
-
-    def _notify(self, message: str) -> None:
-        self._notification_frame.notify(message)
-
-    def _exclusive_maindeck(self):
-        self._main_view.active_deck.exclusive_maindeck()
-
-    def _exclusive_sideboard(self):
-        self._main_view.active_deck.exclusive_sideboard()
-
-    def _exclusive_pool(self):
-        self._main_view.active_deck.exclusive_pool()
-
-    def _select_all(self):
-        if (
-            self._main_view.active_deck is None
-            or not self._last_focused_card_container in self._main_view.active_deck.card_containers
-        ):
-            return
-
-        self._last_focused_card_container.cube_scene.select_all()
-
-    def _clear_selection(self):
-        if (
-            not self._main_view.active_deck
-            or not self._last_focused_card_container in self._main_view.active_deck.card_containers
-        ):
-            return
-
-        self._last_focused_card_container.cube_scene.clear_selection()
-
-    def _search_selected(self, criteria: Criteria):
-        if (
-            not self._main_view.active_deck
-            or not self._last_focused_card_container in self._main_view.active_deck.card_containers
-        ):
-            return
-
-        pattern = Pattern(criteria, PrintingStrategy)
-
-        self._last_focused_card_container.cube_scene.add_select_if(lambda card: pattern.match(card.cubeable))
-
     def _add_cards(self):
         self._card_adder_dock.activateWindow()
         if self._card_adder_dock.isHidden():
@@ -318,9 +256,6 @@ class MainWindow(QMainWindow, CardAddable):
 
     def _test(self):
         raise Exception('test')
-        # display_top(tracemalloc.take_snapshot())
-        # print(self._main_view.active_deck, type(self._main_view.active_deck), dir(self._main_view.active_deck))
-        # print(self._main_view.active_deck.deck)
 
     def resizeEvent(self, resize_event: QtGui.QResizeEvent):
         if hasattr(self, '_notification_frame'):

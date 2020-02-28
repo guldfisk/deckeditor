@@ -18,4 +18,4 @@ class Direction(Enum):
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.MEDIUM, False))]
 
-SUPPORTED_EXTENSIONS = '*.deck *.cod *.json *.dck *.dec *.mwDeck *.embd *.embp'
+SUPPORTED_EXTENSIONS = '*.deck *.cod *.json *.dec *.mwDeck *.embd *.embp'

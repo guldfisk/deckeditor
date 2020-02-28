@@ -7,6 +7,7 @@ from pickle import UnpicklingError
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
+from deckeditor.components.draft.view import DraftView, DraftModel
 from deckeditor.components.editables.editor import Editor
 from mtgorp.models.serilization.serializeable import SerializationException
 
@@ -75,6 +76,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
         self.setTabsClosable(True)
 
         Context.new_pool.connect(self.new_pool)
+        Context.draft_started.connect(self.new_draft)
         self.tabCloseRequested.connect(self._tab_close_requested)
         self.currentChanged.connect(self._on_current_changed)
 
@@ -84,6 +86,26 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
     def _on_current_changed(self, idx: int) -> None:
         Context.undo_group.setActiveStack(
             self.widget(idx).undo_stack
+        )
+
+    def new_draft(self, draft_id: str) -> None:
+        for editable, meta in self._metas.items():
+            if meta.key == draft_id:
+                self.setCurrentWidget(editable)
+                return
+
+        self.setCurrentWidget(
+            self.add_editable(
+                DraftView(
+                    DraftModel(
+                        draft_id
+                    )
+                ),
+                EditablesMeta(
+                    'some draft',
+                    key = draft_id,
+                ),
+            )
         )
 
     def new_pool(self, pool: Cube, key: str) -> None:
@@ -111,9 +133,14 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             pickle.dump(
                 {
                     'tabs': [
-                        (editor.persist(), meta)
-                        for editor, meta in
-                        self._metas.items()
+                        (persisted, meta)
+                        for persisted, meta in
+                        (
+                            (editor.persist(), meta)
+                            for editor, meta in
+                            self._metas.items()
+                        )
+                        if persisted is not None
                     ],
                     'current_tab_index': self.currentIndex(),
                 },
@@ -122,15 +149,31 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
 
     def load_session(self) -> None:
         try:
-            previous_session = pickle.load(open(paths.SESSION_PATH, 'rb'))
-        except FileNotFoundError:
-            return
-        except (UnpicklingError, EOFError):
-            Context.notification_message.emit('Failed loading previous session')
-            return
+            try:
+                previous_session = pickle.load(open(paths.SESSION_PATH, 'rb'))
+            except FileNotFoundError:
+                return
+            except (UnpicklingError, EOFError):
+                Context.notification_message.emit('Failed loading previous session')
+                return
+            for state, meta in previous_session['tabs']:
+                self.load_file(state, meta)
 
-        for state, meta in previous_session['tabs']:
-            self.load_file(state, meta)
+        except Exception as e:
+            confirm_dialog = QMessageBox()
+            confirm_dialog.setText('Corrupt session')
+            confirm_dialog.setInformativeText(
+                'Persistent session is corrupt. This may be due to backward incompatible changes in Embargo Edit.\n'
+                'Would you like to delete the session (manual restart still required because good software).'
+            )
+            confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            confirm_dialog.setDefaultButton(QMessageBox.Yes)
+            return_code = confirm_dialog.exec_()
+
+            if return_code == QMessageBox.Yes:
+                os.remove(paths.SESSION_PATH)
+
+            raise e
 
         self.setCurrentIndex(previous_session['current_tab_index'])
 

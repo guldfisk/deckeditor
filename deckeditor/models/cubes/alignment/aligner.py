@@ -8,8 +8,8 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
+from deckeditor.models.cubes.scenecard import SceneCard
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 from deckeditor.sorting.sorting import SortProperty
 
 
@@ -57,15 +57,15 @@ class Aligner(ABC):
         )
 
     @abstractmethod
-    def pick_up(self, cards: t.Iterable[PhysicalCard]) -> AlignmentPickUp:
+    def pick_up(self, cards: t.Iterable[SceneCard]) -> AlignmentPickUp:
         pass
 
     @abstractmethod
-    def drop(self, cards: t.Iterable[PhysicalCard], position: QPoint) -> AlignmentDrop:
+    def drop(self, cards: t.Iterable[SceneCard], position: QPoint) -> AlignmentDrop:
         pass
 
     @abstractmethod
-    def multi_drop(self, drops: t.Iterable[t.Tuple[t.Sequence[PhysicalCard], QPoint]]) -> AlignmentMultiDrop:
+    def multi_drop(self, drops: t.Iterable[t.Tuple[t.Sequence[SceneCard], QPoint]]) -> AlignmentMultiDrop:
         pass
 
     @abstractmethod
@@ -74,24 +74,18 @@ class Aligner(ABC):
 
     @property
     @abstractmethod
-    def cards(self) -> t.Iterable[PhysicalCard]:
+    def cards(self) -> t.Iterable[SceneCard]:
         pass
 
     @abstractmethod
     def realign(self) -> None:
         pass
 
-    # def persist(self) -> t.Any:
-    #     pass
-    #
-    # def load(self, state: t.Any) -> None:
-    #     pass
-
     @abstractmethod
     def sort(
         self,
         sort_property: t.Type[SortProperty],
-        cards: t.Sequence[PhysicalCard],
+        cards: t.Sequence[SceneCard],
         orientation: int,
         in_place: bool = False,
     ) -> QUndoCommand:

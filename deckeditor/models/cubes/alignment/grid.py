@@ -9,12 +9,12 @@ from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop
+from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting.sorting import SortProperty
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from mtgimg.interface import SizeSlug
 
-from deckeditor.garbage.cardcontainers.physicalcard import PhysicalCard
 
 
 class GridAlignmentCommandMixin(object):

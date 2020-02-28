@@ -48,6 +48,7 @@ class _Context(QObject):
     sealed_started = pyqtSignal(int)
 
     new_pool = pyqtSignal(object, str)
+    # new_draft = pyqtSignal(str)
 
     @classmethod
     def init(cls, application: QApplication) -> None:
