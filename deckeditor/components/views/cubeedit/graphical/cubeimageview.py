@@ -244,14 +244,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def dragging(self) -> t.List[PhysicalCard]:
         return self._dragging
 
-    # @property
-    # def keyboard_cursor(self) -> Cursor:
-    #     return self._cursor
-    #
-    # @property
-    # def undo_stack(self) -> UndoStack:
-    #     return self._undo_stack
-    #
     @property
     def cube_scene(self) -> CubeScene:
         return self._scene

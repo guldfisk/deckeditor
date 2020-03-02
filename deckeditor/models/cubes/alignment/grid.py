@@ -13,8 +13,6 @@ from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting.sorting import SortProperty
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
-from mtgimg.interface import SizeSlug
-
 
 
 class GridAlignmentCommandMixin(object):
@@ -144,7 +142,7 @@ class GridSort(QUndoCommand):
         self._sort_property = sort_property
         self._original_order = original_order
         self._in_place = in_place
-        super().__init__('grid sort')
+        super().__init__('Sort {}'.format(self._sort_property.name))
 
     def redo(self) -> None:
         sorted_cards = sorted(
@@ -215,6 +213,7 @@ class GridAligner(Aligner):
         )
 
     def realign(self, from_index: int = 0) -> None:
+        from_index = max(from_index, 0)
         for card, idx in zip(self._cards[from_index:], range(from_index, len(self._cards))):
             card.setPos(
                 self.get_position_at_index(

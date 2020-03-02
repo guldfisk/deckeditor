@@ -208,6 +208,8 @@ class LobbyUserListView(QTableWidget):
 
 
 class ReleaseSelector(QWidget):
+    _versioned_cubes: t.Optional[t.List[VersionedCube]] = None
+    _release_versioned_cube_map: t.Mapping[t.Union[str, int], VersionedCube] = {}
 
     def __init__(self, lobby_view: LobbyView):
         super().__init__()
@@ -223,8 +225,8 @@ class ReleaseSelector(QWidget):
 
         self.setLayout(layout)
 
-        self._versioned_cubes: t.List[VersionedCube] = []
-        self._release_versioned_cube_map: t.Mapping[t.Union[str, int], VersionedCube] = {}
+        if self.__class__._versioned_cubes is None:
+            self.update_releases()
 
         self._update()
 
@@ -250,16 +252,18 @@ class ReleaseSelector(QWidget):
         self._cube_selector.setEnabled(enabled)
         self._release_selector.setEnabled(enabled)
 
-    def _update(self):
-        self._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
-        self._release_versioned_cube_map = {
+    @classmethod
+    def update_releases(cls) -> None:
+        cls._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
+        cls._release_versioned_cube_map = {
             release.id: versioned_cube
             for versioned_cube in
-            self._versioned_cubes
+            cls._versioned_cubes
             for release in
             versioned_cube.releases
         }
 
+    def _update(self):
         self._cube_selector.clear()
         for versioned_cube in self._versioned_cubes:
             self._cube_selector.addItem(versioned_cube.name, versioned_cube.id)
