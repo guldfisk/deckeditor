@@ -4,7 +4,7 @@ import typing as t
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem
+from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
 from frozendict import frozendict
 from bidict import bidict
@@ -503,8 +503,8 @@ class LobbyView(QWidget):
 
         self._options_selector = GameOptionsSelector(self)
 
-        # self._reconnect_button = QtWidgets.QPushButton('reconnect')
-        # self._reconnect_button.clicked.connect(self._reconnect)
+        self._reconnect_button = QtWidgets.QPushButton('reconnect')
+        self._reconnect_button.clicked.connect(self._reconnect)
 
         users_list = LobbyUserListView(self._lobby_model, self._lobby_name)
 
@@ -512,7 +512,7 @@ class LobbyView(QWidget):
 
         top_layout.addWidget(self._ready_button)
         top_layout.addWidget(self._start_game_button)
-        # top_layout.addWidget(self._reconnect_button)
+        top_layout.addWidget(self._reconnect_button)
 
         layout.addLayout(top_layout)
         layout.addWidget(self._game_type_selector)
@@ -554,13 +554,10 @@ class LobbyView(QWidget):
     def _start_game(self) -> None:
         self._lobby_model.start_game(self._lobby_name)
 
-    # def _reconnect(self) -> None:
-    #     lobby = self._lobby_model.get_lobby(self._lobby_name)
-    #     if lobby.options.get('game_type') == 'sealed':
-    #         sealed_pool = Context.cube_api_client.get_sealed_pool(
-    #             lobby.key
-    #         )
-    #         Context.new_pool.emit(sealed_pool.pool)
+    def _reconnect(self) -> None:
+        lobby = self._lobby_model.get_lobby(self._lobby_name)
+        if lobby.game_type == 'draft':
+            Context.draft_started.emit(lobby.key)
 
     def _update_content(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
@@ -577,6 +574,8 @@ class LobbyView(QWidget):
             'unready' if user.ready else 'ready'
         )
         self._ready_button.setVisible(lobby.state == 'pre-game')
+
+        self._reconnect_button.setVisible(lobby.state == 'game')
 
         self._game_type_selector.setEnabled(can_edit_options)
 
@@ -681,6 +680,21 @@ class LobbyTabs(QtWidgets.QTabWidget):
                 )
 
     def _tab_close_requested(self, index: int) -> None:
+        closed_tab: LobbyView = self.widget(index)
+
+        if closed_tab.lobby.state == 'game':
+            confirm_dialog = QMessageBox()
+            confirm_dialog.setText('Confirm close')
+            confirm_dialog.setInformativeText(
+                'You sure you want to disconnect from this ongoing game?\nYou cannot reconnect after leaving.'
+            )
+            confirm_dialog.setStandardButtons(QMessageBox.Close | QMessageBox.Cancel)
+            confirm_dialog.setDefaultButton(QMessageBox.Cancel)
+            return_code = confirm_dialog.exec_()
+
+            if return_code == QMessageBox.Cancel:
+                return
+
         self._lobby_view.lobby_model.leave_lobby(
             self._tabs_map.inverse[index]
         )

@@ -1,7 +1,7 @@
 import typing as t
 
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import QObject, Qt
+from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QUndoStack
 
@@ -39,6 +39,7 @@ class NonEditableItem(QTableWidgetItem):
 
 
 class CubeListView(QTableWidget):
+    cubeable_double_clicked = pyqtSignal(object)
 
     def __init__(
         self,
@@ -68,6 +69,7 @@ class CubeListView(QTableWidget):
         self.setSortingEnabled(True)
         self.setMouseTracking(True)
         self.currentCellChanged.connect(self._handle_current_cell_changed)
+        self.itemDoubleClicked.connect(self._handle_item_double_clicked)
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         pressed_key = key_event.key()
@@ -115,6 +117,9 @@ class CubeListView(QTableWidget):
         else:
             super().keyPressEvent(key_event)
 
+    def _handle_item_double_clicked(self, item: QTableWidgetItem) -> None:
+        self.cubeable_double_clicked.emit(self.item(item.row(), 1).cubeable)
+
     def _handle_current_cell_changed(
             self,
             current_row: int,
@@ -148,14 +153,9 @@ class CubeListView(QTableWidget):
                     key=lambda vs: str(vs[0].id),
                 )
         ):
-            # if self._mode == CubeEditMode.OPEN:
             item = QTableWidgetItem()
             item.setData(0, multiplicity)
             self.setItem(index, 0, item)
-            # else:
-            #     self.setItem(
-            #         index, 0, NonEditableItem(str(multiplicity))
-            #     )
 
             self.setItem(index, 1, CubeableTableItem(cubeable))
 

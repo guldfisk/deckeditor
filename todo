@@ -45,7 +45,7 @@ dont show info only related to image view when in table mode only in cubeview (a
 auto-focus name column when selecting table view to easier look up names
 ctrl / alt / ctrl + alt modifiers for selecting in cubeimageview (something like add, remove, intersect (and negative intersect?))
 dont let table view steal control tabbing priority
-image view in card adder?
+image view in card adder
 make printings filtering in cardadder optional
 
 merge contextmenu overlap when multiple physical cards selected

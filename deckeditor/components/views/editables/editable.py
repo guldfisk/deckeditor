@@ -13,6 +13,9 @@ class Editable(QWidget):
     def persist(self) -> t.Any:
         pass
 
+    def close(self) -> None:
+        pass
+
     @property
     def undo_stack(self) -> QUndoStack:
         pass

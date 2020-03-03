@@ -256,6 +256,8 @@ class TrapTextView(QtWidgets.QWidget):
         super().__init__()
         self._trap: t.Optional[Trap] = None
 
+        self._intention_type_label = QtWidgets.QLabel()
+
         self._node_tree = QtWidgets.QTreeWidget()
         self._node_tree.setColumnCount(2)
         self._node_tree.setHeaderLabels(('name', 'type'))
@@ -266,8 +268,13 @@ class TrapTextView(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout()
 
-        layout.addWidget(self._node_tree)
-        layout.addWidget(self._printing_view)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+
+        splitter.addWidget(self._node_tree)
+        splitter.addWidget(self._printing_view)
+
+        layout.addWidget(self._intention_type_label)
+        layout.addWidget(splitter)
 
         self.setLayout(layout)
 
@@ -277,8 +284,6 @@ class TrapTextView(QtWidgets.QWidget):
             self._printing_view.show()
 
     def _span_tree(self, option: t.Union[Printing, PrintingNode], item: t.Any, is_top_level: bool, _type: str) -> None:
-
-
         if isinstance(option, Printing):
             _item = PrintingTreeItem(option, _type)
 
@@ -296,6 +301,7 @@ class TrapTextView(QtWidgets.QWidget):
             item.addChild(_item)
 
     def set_cubeable(self, trap: Trap) -> None:
+        self._intention_type_label.setText(trap.intention_type.value)
         self._node_tree.clear()
         self._printing_view.hide()
         _option_type = 'any' if isinstance(trap.node, AnyNode) else 'all'
@@ -316,8 +322,12 @@ class TextImageCubeableView(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout()
 
-        layout.addWidget(self._image_view)
-        layout.addWidget(self._text_view)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+
+        splitter.addWidget(self._image_view)
+        splitter.addWidget(self._text_view)
+
+        layout.addWidget(splitter)
 
         self.setLayout(layout)
 

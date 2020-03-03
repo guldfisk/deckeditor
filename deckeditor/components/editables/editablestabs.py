@@ -393,6 +393,8 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
 
         del self._metas[closed_tab]
 
+        closed_tab.close()
+
         if not self.widget(1):
             self.new_deck(DeckModel())
 

@@ -121,6 +121,7 @@ class SelectionIndicator(QtWidgets.QLabel):
 
 class CubeView(QtWidgets.QWidget):
     layout_changed = QtCore.pyqtSignal(CubeViewLayout)
+    cubeable_double_clicked = QtCore.pyqtSignal(object)
 
     def __init__(
         self,
@@ -175,6 +176,9 @@ class CubeView(QtWidgets.QWidget):
         self.setLayout(box)
 
         self.layout_changed.connect(self._on_layout_change)
+
+        self._cube_list_view.cubeable_double_clicked.connect(self.cubeable_double_clicked)
+        self._cube_image_view.card_double_clicked.connect(lambda c, m: self.cubeable_double_clicked.emit(c.cubeable))
 
         self._create_action('View Images', lambda: self.layout_changed.emit(CubeViewLayout.IMAGE), 'Ctrl+Alt+Shift+I')
         self._create_action('View Table', lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'Ctrl+Alt+Shift+T')
