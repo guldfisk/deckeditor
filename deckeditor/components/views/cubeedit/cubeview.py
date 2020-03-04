@@ -129,6 +129,7 @@ class CubeView(QtWidgets.QWidget):
         undo_stack: QUndoStack,
         *,
         cube_view_layout: CubeViewLayout = CubeViewLayout.IMAGE,
+        cube_image_view: t.Optional[CubeImageView] = None,
     ):
         super().__init__()
 
@@ -138,10 +139,14 @@ class CubeView(QtWidgets.QWidget):
         self._current_aligner_type = type(self._cube_scene.aligner)
         self._view_layout = cube_view_layout
 
-        self._cube_image_view = CubeImageView(
-            undo_stack,
-            self._cube_scene,
-        )
+        if cube_image_view is None:
+            self._cube_image_view = CubeImageView(
+                undo_stack,
+                self._cube_scene,
+            )
+        else:
+            self._cube_image_view = cube_image_view
+            self._cube_image_view.undo_stack = self._undo_stack
 
         self._cube_list_view = CubeListView(
             self._cube_scene,

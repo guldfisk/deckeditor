@@ -135,6 +135,14 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self.scale(.3, .3)
         self.translate(self.scene().width(), self.scene().height())
 
+    @property
+    def undo_stack(self) -> QUndoStack:
+        return self._undo_stack
+
+    @undo_stack.setter
+    def undo_stack(self, stack: QUndoStack) -> None:
+        self._undo_stack = stack
+
     def _paste(self):
         mime = Context.clipboard.mimeData()
         cards = mime.data('cards')
@@ -367,7 +375,11 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def dragMoveEvent(self, drag_event: QtGui.QDragMoveEvent):
         pass
 
+    def successful_drop(self, drop_event: QtGui.QDropEvent, image_view: CubeImageView) -> bool:
+        return True
+
     def dropEvent(self, drop_event: QtGui.QDropEvent):
+        drop_event.acceptProposedAction()
         if drop_event.source() == self:
             if self._floating:
                 self._undo_stack.push(
@@ -379,7 +391,13 @@ class CubeImageView(QtWidgets.QGraphicsView):
                     )
                 )
                 self._floating[:] = []
-        else:
+        elif (
+            isinstance(drop_event.source(), self.__class__)
+            and drop_event.source().successful_drop(
+                drop_event,
+                self,
+            )
+        ):
             self._undo_stack.push(
                 drop_event.source().cube_scene.get_inter_move(
                     drop_event.source().floating,

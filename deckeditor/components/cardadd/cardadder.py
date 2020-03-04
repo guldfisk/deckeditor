@@ -108,6 +108,8 @@ class PrintingList(QtWidgets.QListWidget):
             self.scrollTo(self.currentIndex())
 
     def _add_printings(self, amount: int) -> None:
+        if not self.currentItem():
+            return
         self._card_adder.add_printings.emit(
             CubeDeltaOperation(
                 {
