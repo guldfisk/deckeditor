@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 from frozendict import frozendict
 from bidict import bidict
 
-from cubeclient.models import VersionedCube
+from cubeclient.models import VersionedCube, BoosterSpecification
 from lobbyclient.client import LobbyClient, Lobby
 
 from deckeditor.context.context import Context
@@ -293,6 +293,115 @@ class ReleaseSelector(QWidget):
             )
 
 
+class BoosterSpecificationsTable(QtWidgets.QTableWidget):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__(0, 2)
+
+        self._specifications: t.List[t.Mapping[str, t.Any]] = []
+
+    def update_content(self, specifications: t.List[t.Mapping[str, t.Any]], enabled: bool) -> None:
+        self.setEnabled(enabled)
+        self._specifications = specifications
+
+        self.setRowCount(len(self._specifications))
+
+        for idx, specification in enumerate(self._specifications):
+            self.setItem(
+                idx,
+                0,
+                QTableWidgetItem(specification['type']),
+            )
+            self.setItem(
+                idx,
+                1,
+                QTableWidgetItem(str(specification['amount'])),
+            )
+
+        self.resizeColumnsToContents()
+
+
+class CubeBoosterSpecificationSelector(QtWidgets.QWidget):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__()
+
+        self._release_selector = ReleaseSelector(lobby_view)
+        self._size_selector = IntegerOptionSelector(lobby_view, 'xd', allowed_range = (1, 360))
+        self._allow_intersection_label = QtWidgets.QLabel('Allow Intersections')
+        self._allow_intersection_selector = QtWidgets.QCheckBox()
+        self._allow_repeat_label = QtWidgets.QLabel('Allow Repeats')
+        self._allow_repeat_selector = QtWidgets.QCheckBox()
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        layout.addWidget(self._release_selector)
+        layout.addWidget(self._size_selector)
+
+        flags_layout = QtWidgets.QHBoxLayout()
+
+        flags_layout.addWidget(self._allow_intersection_label)
+        flags_layout.addWidget(self._allow_intersection_selector)
+        flags_layout.addWidget(self._allow_repeat_label)
+        flags_layout.addWidget(self._allow_repeat_selector)
+
+        layout.addLayout(flags_layout)
+
+    def update_content(self, specification: t.Mapping[str, t.Any], enabled: bool) -> None:
+        self._release_selector.update_content(specification['release'], enabled)
+        self._size_selector.update_content(specification['size'], enabled)
+        self._allow_intersection_selector.setChecked(specification['allow_intersection'])
+        self._allow_repeat_selector.setChecked(specification['allow_repeat'])
+
+
+class BoosterSpecificationSelector(QtWidgets.QStackedWidget):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__()
+
+        self._cube_booster_specification_selector = CubeBoosterSpecificationSelector(lobby_view)
+
+        self._specification_type_map = {
+            'CubeBoosterSpecification': self._cube_booster_specification_selector,
+        }
+
+        for selector in self._specification_type_map.values():
+            self.addWidget(selector)
+
+    def update_content(self, specification: t.Mapping[str, t.Any], enabled: bool) -> None:
+        selector = self._specification_type_map[specification['type']]
+        self.setCurrentWidget(selector)
+        selector.update_content(specification, enabled)
+
+
+class PoolSpecificationSelector(QtWidgets.QWidget):
+
+    def __init__(self, lobby_view: LobbyView):
+        super().__init__()
+
+        self._specifications: t.List[t.Mapping[str, t.Any]] = []
+
+        self._current_specification_index = 0
+
+        self._booster_specifications_table = BoosterSpecificationsTable(lobby_view)
+        self._booster_specifications_selector = BoosterSpecificationSelector(lobby_view)
+
+        self._add_booster_specification_button = QtWidgets.QPushButton('Add Booster')
+
+        self._add_booster_specification_type_selector = QtWidgets.QComboBox()
+        self._add_booster_specification_type_selector.addItem('Cube')
+
+        layout = QtWidgets.QHBoxLayout(self)
+
+        layout.addWidget(self._booster_specifications_table)
+        layout.addWidget(self._booster_specifications_selector)
+
+    def update_content(self, specifications: t.List[t.Mapping[str, t.Any]], enabled: bool) -> None:
+        self._specifications = specifications
+        self._booster_specifications_table.update_content(specifications, enabled)
+        self._booster_specifications_selector.update_content(specifications[self._current_specification_index], enabled)
+
+
 class ComboSelector(QtWidgets.QComboBox):
 
     def __init__(self, lobby_view: LobbyView, option: str, options: t.AbstractSet[str]):
@@ -356,29 +465,36 @@ class SealedOptionsSelector(OptionsSelector):
     def __init__(self, lobby_view: LobbyView):
         super().__init__(lobby_view)
 
-        self._release_selector = ReleaseSelector(lobby_view)
+        # self._release_selector = ReleaseSelector(lobby_view)
+
         self._format_selector = ComboSelector(lobby_view, 'format', Format.formats_map.keys())
-        self._pool_size_selector = IntegerOptionSelector(lobby_view, 'pool_size')
+
+        # self._pool_size_selector = IntegerOptionSelector(lobby_view, 'pool_size')
+
         self._open_decks_selector = QtWidgets.QCheckBox()
         self._open_decks_label = QtWidgets.QLabel('open decks')
-        self._allow_pool_intersection_selector = QtWidgets.QCheckBox()
-        self._allow_pool_intersection_label = QtWidgets.QLabel('allow cube intersection')
+
+        self._pool_specification_selector = PoolSpecificationSelector(lobby_view)
+
+        # self._allow_pool_intersection_selector = QtWidgets.QCheckBox()
+        # self._allow_pool_intersection_label = QtWidgets.QLabel('allow cube intersection')
 
         self._open_decks_selector.stateChanged.connect(self._on_open_decks_state_changed)
-        self._allow_pool_intersection_selector.stateChanged.connect(self._on_allow_intersection_changed)
+        # self._allow_pool_intersection_selector.stateChanged.connect(self._on_allow_intersection_changed)
 
         layout = QtWidgets.QVBoxLayout()
 
-        layout.addWidget(self._release_selector)
+        # layout.addWidget(self._release_selector)
         layout.addWidget(self._format_selector)
-        layout.addWidget(self._pool_size_selector)
+        # layout.addWidget(self._pool_size_selector)
+        layout.addWidget(self._pool_specification_selector)
 
         open_decks_layout = QtWidgets.QHBoxLayout()
 
         open_decks_layout.addWidget(self._open_decks_label)
         open_decks_layout.addWidget(self._open_decks_selector)
-        open_decks_layout.addWidget(self._allow_pool_intersection_label)
-        open_decks_layout.addWidget(self._allow_pool_intersection_selector)
+        # open_decks_layout.addWidget(self._allow_pool_intersection_label)
+        # open_decks_layout.addWidget(self._allow_pool_intersection_selector)
 
         layout.addLayout(open_decks_layout)
 
@@ -390,26 +506,27 @@ class SealedOptionsSelector(OptionsSelector):
             {'open_decks': state == 2},
         )
 
-    def _on_allow_intersection_changed(self, state) -> None:
-        self._lobby_view.lobby_model.set_options(
-            self._lobby_view.lobby.name,
-            {'allow_pool_intersection': state == 2},
-        )
+    # def _on_allow_intersection_changed(self, state) -> None:
+    #     self._lobby_view.lobby_model.set_options(
+    #         self._lobby_view.lobby.name,
+    #         {'allow_pool_intersection': state == 2},
+    #     )
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
-        self._release_selector.update_content(options['release'], enabled)
+        # self._release_selector.update_content(options['release'], enabled)
         self._format_selector.update_content(options['format'], enabled)
-        self._pool_size_selector.update_content(options['pool_size'], enabled)
+        self._pool_specification_selector.update_content(options['pool_specification'], enabled)
+        # self._pool_size_selector.update_content(options['pool_size'], enabled)
 
         self._open_decks_selector.blockSignals(True)
         self._open_decks_selector.setChecked(options['open_decks'])
         self._open_decks_selector.setEnabled(enabled)
         self._open_decks_selector.blockSignals(False)
 
-        self._allow_pool_intersection_selector.blockSignals(True)
-        self._allow_pool_intersection_selector.setChecked(options['allow_pool_intersection'])
-        self._allow_pool_intersection_selector.setEnabled(enabled)
-        self._allow_pool_intersection_selector.blockSignals(False)
+        # self._allow_pool_intersection_selector.blockSignals(True)
+        # self._allow_pool_intersection_selector.setChecked(options['allow_pool_intersection'])
+        # self._allow_pool_intersection_selector.setEnabled(enabled)
+        # self._allow_pool_intersection_selector.blockSignals(False)
 
 
 class DraftOptionsSelector(OptionsSelector):

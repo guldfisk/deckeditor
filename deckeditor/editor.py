@@ -11,7 +11,7 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
-from deckeditor.components.sealed.view import SealedSessionsView
+from deckeditor.components.sealed.view import LimitedSessionsView
 from deckeditor.components.views.editables.pool import PoolView
 from yeetlong.multiset import Multiset
 
@@ -106,12 +106,12 @@ class MainWindow(QMainWindow, CardAddable):
         self._cube_view_minimap_dock.setWidget(self._cube_view_minimap)
         self._cube_view_minimap_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
-        self._sealed_sessions_view = SealedSessionsView()
+        self._limited_sessions_view = LimitedSessionsView()
 
-        self._sealed_sessions_dock = QtWidgets.QDockWidget('Sealed', self)
-        self._sealed_sessions_dock.setObjectName('sealed')
-        self._sealed_sessions_dock.setWidget(self._sealed_sessions_view)
-        self._sealed_sessions_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        self._limited_sessions_dock = QtWidgets.QDockWidget('Sealed', self)
+        self._limited_sessions_dock.setObjectName('sealed')
+        self._limited_sessions_dock.setWidget(self._limited_sessions_view)
+        self._limited_sessions_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
         # self._deck_list_widget = DeckListWidget(self)
         # self._deck_list_widget.set_deck.emit((), ())
@@ -128,7 +128,7 @@ class MainWindow(QMainWindow, CardAddable):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._cube_view_minimap_dock)
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._sealed_sessions_dock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._limited_sessions_dock)
 
         self._card_adder_dock.hide()
         # self._deck_list_docker.hide()
@@ -186,7 +186,7 @@ class MainWindow(QMainWindow, CardAddable):
                 ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
-                ('Sealed', 'Meta+7', lambda: self._toggle_dock_view(self._sealed_sessions_dock)),
+                ('Sealed', 'Meta+7', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
             ),
             # menu_bar.addMenu('Test'): (
             #     ('Test', 'Ctrl+T', self._test),

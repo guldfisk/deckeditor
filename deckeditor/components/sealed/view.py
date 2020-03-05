@@ -8,30 +8,30 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView
 
-from cubeclient.models import SealedSession, LimitedDeck
+from cubeclient.models import LimitedSession, LimitedDeck
 from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.context.context import Context
 
 
 class SessionsList(QTableWidget):
 
-    def __init__(self, parent: SealedSessionsView):
-        super().__init__(0, 6, parent)
+    def __init__(self, parent: LimitedSessionsView):
+        super().__init__(0, 4, parent)
         self.setHorizontalHeaderLabels(
-            ('name', 'format', 'release', 'players', 'pool size', 'created')
+            ('name', 'format', 'players', 'created')
         )
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         self._sessions_view = parent
 
-        self._sessions: t.List[SealedSession] = []
+        self._sessions: t.List[LimitedSession] = []
 
         self.cellDoubleClicked.connect(self._cell_double_clicked)
 
     def _cell_double_clicked(self, row: int, column: int) -> None:
         self._sessions_view.session_selected.emit(self._sessions[row])
 
-    def set_sessions(self, sessions: t.List[SealedSession]) -> None:
+    def set_sessions(self, sessions: t.List[LimitedSession]) -> None:
         self._sessions = sessions
 
         def _set_data_at(data: str, _row: int, _column: int):
@@ -47,9 +47,7 @@ class SessionsList(QTableWidget):
                 (
                     session.name,
                     session.game_format,
-                    session.release['name'],
                     ', '.join(sorted(player.username for player in session.players)),
-                    session.pool_size,
                     str(session.created_at),
                 )
             ):
@@ -94,12 +92,12 @@ class DeckList(QTableWidget):
         self.resizeColumnsToContents()
 
 
-class SealedSessionView(QWidget):
+class LimitedSessionView(QWidget):
 
-    def __init__(self, parent: SealedSessionsView, session: t.Optional[SealedSession] = None):
+    def __init__(self, parent: LimitedSessionsView, session: t.Optional[LimitedSession] = None):
         super().__init__(parent)
 
-        self._sealed_sessions_view = parent
+        self._limited_sessions_view = parent
         self._session = session
 
         self._name_label = QtWidgets.QLabel()
@@ -119,12 +117,12 @@ class SealedSessionView(QWidget):
         if self._session is not None:
             self._update_content()
 
-        self._sealed_sessions_view.session_selected.connect(self.set_session)
+        self._limited_sessions_view.session_selected.connect(self.set_session)
         self._view_button.clicked.connect(self._on_view)
         self._submit_button.clicked.connect(self._on_submit)
 
     @property
-    def session(self) -> t.Optional[SealedSession]:
+    def session(self) -> t.Optional[LimitedSession]:
         return self._session
 
     def _on_view(self):
@@ -155,7 +153,7 @@ class SealedSessionView(QWidget):
             return
 
         try:
-            Context.cube_api_client.upload_sealed_deck(
+            Context.cube_api_client.upload_limited_deck(
                 pool_id = player_pool.id,
                 name = 'a deck :)',
                 deck = deck,
@@ -174,9 +172,9 @@ class SealedSessionView(QWidget):
             return
 
         Context.notification_message.emit('Deck submitted')
-        self._sealed_sessions_view.update.emit()
+        self._limited_sessions_view.update.emit()
 
-    def set_session(self, session: SealedSession) -> None:
+    def set_session(self, session: LimitedSession) -> None:
         self.show()
         self._session = session
         self._update_content()
@@ -189,24 +187,24 @@ class SealedSessionView(QWidget):
                 break
 
 
-class SealedSessionsView(QWidget):
-    session_selected = pyqtSignal(SealedSession)
+class LimitedSessionsView(QWidget):
+    session_selected = pyqtSignal(LimitedSession)
     update = pyqtSignal()
 
     def __init__(self, parent: t.Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
-        self._sessions: t.List[SealedSession] = []
+        self._sessions: t.List[LimitedSession] = []
 
         self._sessions_list = SessionsList(self)
-        self._sealed_session_view = SealedSessionView(self)
+        self._limited_session_view = LimitedSessionView(self)
 
-        self._sealed_session_view.hide()
+        self._limited_session_view.hide()
 
         layout = QtWidgets.QHBoxLayout()
 
         layout.addWidget(self._sessions_list)
-        layout.addWidget(self._sealed_session_view)
+        layout.addWidget(self._limited_session_view)
 
         self.setLayout(layout)
 
@@ -219,7 +217,7 @@ class SealedSessionsView(QWidget):
             self._sessions = []
         else:
             self._sessions = list(
-                Context.cube_api_client.sealed_sessions(
+                Context.cube_api_client.limited_sessions(
                     limit = 20,
                     filters = {
                         'state_filter': 'DECK_BUILDING',
@@ -229,5 +227,5 @@ class SealedSessionsView(QWidget):
             )
 
         self._sessions_list.set_sessions(self._sessions)
-        if not self._sealed_session_view.session in self._sessions:
-            self._sealed_session_view.hide()
+        if not self._limited_session_view.session in self._sessions:
+            self._limited_session_view.hide()
