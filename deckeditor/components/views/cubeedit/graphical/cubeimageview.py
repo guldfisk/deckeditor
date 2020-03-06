@@ -95,6 +95,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._dragging_move: bool = False
         self._last_move_event_pos = None
         self._last_press_on_card = False
+        self._drag = None
 
         self._sort_actions: t.List[QtWidgets.QAction] = []
 
@@ -451,6 +452,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
                 self._last_press_on_card = True
 
+    def cancel_drags(self) -> None:
+        if self._drag is not None:
+            self._drag.cancel()
+
     def mouseMoveEvent(self, mouse_event: QtGui.QMouseEvent):
         Context.focus_scene_changed.emit(self._scene)
 
@@ -467,8 +472,9 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 mime.setData('cards', stream)
                 drag.setMimeData(mime)
                 drag.setPixmap(self._floating[-1].pixmap().scaledToWidth(100))
-
+                self._drag = drag
                 drag.exec_()
+                self._drag = None
                 return
             else:
                 self._last_press_on_card = False

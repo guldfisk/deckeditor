@@ -8,7 +8,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
 from deckeditor.components.draft.view import DraftView, DraftModel
-from deckeditor.components.editables.editor import Editor
+from deckeditor.components.editables.editor import Editor, EditablesMeta
 from mtgorp.models.serilization.serializeable import SerializationException
 
 from magiccube.collections.cube import Cube
@@ -34,35 +34,6 @@ class FileOpenException(FileIOException):
 
 class FileSaveException(FileIOException):
     pass
-
-
-class EditablesMeta(object):
-
-    def __init__(self, name: str, path: t.Optional[str] = None, key: t.Optional[str] = None):
-        self._path: t.Optional[str] = path
-        self._key = key if key is not None else str(uuid.uuid4())
-        self._name: str = name
-
-    @property
-    def path(self) -> str:
-        return self._path
-
-    @path.setter
-    def path(self, value: str) -> None:
-        self._name = os.path.splitext(os.path.split(value)[1])[0]
-        self._path = value
-
-    @property
-    def key(self) -> str:
-        return self._key
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def truncated_name(self) -> str:
-        return self._name if len(self._name) <= 25 else self._name[:22] + '...'
 
 
 class EditablesTabs(QtWidgets.QTabWidget, Editor):
@@ -375,6 +346,16 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             with open(file_names[0], 'w') as f:
                 f.write(serializer.serialize(current_editable.pool_model.as_deck()))
 
+    def close_editable(self, editable: Editable) -> None:
+        del self._metas[editable]
+
+        editable.close()
+
+        if not self.widget(1):
+            self.new_deck(DeckModel())
+
+        self.removeTab(self.indexOf(editable))
+
     def _tab_close_requested(self, index: int) -> None:
         closed_tab = self.widget(index)
 
@@ -391,11 +372,4 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             elif return_code == QMessageBox.Cancel:
                 return
 
-        del self._metas[closed_tab]
-
-        closed_tab.close()
-
-        if not self.widget(1):
-            self.new_deck(DeckModel())
-
-        self.removeTab(index)
+        self.close_editable(editable = closed_tab)

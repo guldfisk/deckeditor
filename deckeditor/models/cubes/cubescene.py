@@ -297,10 +297,10 @@ class CubeScene(SelectionScene):
                     for card in
                     cards
                     if (
-                        isinstance(card, SceneCard)
-                        and isinstance(card.cubeable, Printing)
-                        and card.cubeable.cardboard in Context.basics
-                    )
+                    isinstance(card, SceneCard)
+                    and isinstance(card.cubeable, Printing)
+                    and card.cubeable.cardboard in Context.basics
+                )
                 ]
                 for cards in
                 (new_physical_cards, removed_physical_cards)

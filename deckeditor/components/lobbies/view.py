@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import copy
+import itertools
 import typing as t
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
@@ -208,8 +210,7 @@ class LobbyUserListView(QTableWidget):
 
 
 class ReleaseSelector(QWidget):
-    _versioned_cubes: t.Optional[t.List[VersionedCube]] = None
-    _release_versioned_cube_map: t.Mapping[t.Union[str, int], VersionedCube] = {}
+    release_selected = pyqtSignal(int)
 
     def __init__(self, lobby_view: LobbyView):
         super().__init__()
@@ -225,8 +226,14 @@ class ReleaseSelector(QWidget):
 
         self.setLayout(layout)
 
-        if self.__class__._versioned_cubes is None:
-            self.update_releases()
+        self._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
+        self._release_versioned_cube_map = {
+            release.id: versioned_cube
+            for versioned_cube in
+            self._versioned_cubes
+            for release in
+            versioned_cube.releases
+        }
 
         self._update()
 
@@ -252,27 +259,13 @@ class ReleaseSelector(QWidget):
         self._cube_selector.setEnabled(enabled)
         self._release_selector.setEnabled(enabled)
 
-    @classmethod
-    def update_releases(cls) -> None:
-        cls._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
-        cls._release_versioned_cube_map = {
-            release.id: versioned_cube
-            for versioned_cube in
-            cls._versioned_cubes
-            for release in
-            versioned_cube.releases
-        }
-
     def _update(self):
         self._cube_selector.clear()
         for versioned_cube in self._versioned_cubes:
             self._cube_selector.addItem(versioned_cube.name, versioned_cube.id)
 
     def _on_release_selected(self, idx: int) -> None:
-        self._lobby_view.lobby_model.set_options(
-            self._lobby_view.lobby.name,
-            {'release': self._release_selector.itemData(idx)},
-        )
+        self.release_selected.emit(self._release_selector.itemData(idx))
 
     def _on_cube_selected(self, idx: int) -> None:
         versioned_cube = self._versioned_cubes[idx]
@@ -287,10 +280,7 @@ class ReleaseSelector(QWidget):
 
             self._release_selector.setCurrentIndex(0)
 
-            self._lobby_view.lobby_model.set_options(
-                self._lobby_view.lobby.name,
-                {'release': self._release_selector.itemData(0)},
-            )
+            self.release_selected.emit(self._release_selector.itemData(0))
 
 
 class BoosterSpecificationsTable(QtWidgets.QTableWidget):
@@ -298,20 +288,66 @@ class BoosterSpecificationsTable(QtWidgets.QTableWidget):
     def __init__(self, lobby_view: LobbyView):
         super().__init__(0, 2)
 
+        self._lobby_view = lobby_view
+
+        self._enabled = True
+
+        self.setHorizontalHeaderLabels(
+            (
+                'Booster Type',
+                'amount',
+            )
+        )
         self._specifications: t.List[t.Mapping[str, t.Any]] = []
 
+        self.itemChanged.connect(self._handle_item_edit)
+
+    def keyPressEvent(self, key_event: QtGui.QKeyEvent):
+        pressed_key = key_event.key()
+
+        if pressed_key == QtCore.Qt.Key_Delete and self._enabled:
+            current_specifications = copy.copy(self._lobby_view.lobby.options['pool_specification'])
+            for idx in sorted(self.selectedIndexes(), reverse = True):
+                if len(current_specifications) > 1:
+                    del current_specifications[idx.column()]
+                else:
+                    break
+
+            self._lobby_view.lobby_model.set_options(
+                self._lobby_view.lobby.name,
+                {'pool_specification': current_specifications},
+            )
+
+    def _handle_item_edit(self, item: QtWidgets.QTableWidgetItem):
+        if not item.column() == 1:
+            return
+
+        current_specifications = copy.copy(self._lobby_view.lobby.options['pool_specification'])
+        current_specifications[item.row()]['amount'] = int(item.data(0))
+
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {'pool_specification': current_specifications},
+        )
+
     def update_content(self, specifications: t.List[t.Mapping[str, t.Any]], enabled: bool) -> None:
-        self.setEnabled(enabled)
+        self.blockSignals(True)
+        self._enabled = enabled
+        self.setEditTriggers(self.DoubleClicked if enabled else self.NoEditTriggers)
+
         self._specifications = specifications
 
         self.setRowCount(len(self._specifications))
 
         for idx, specification in enumerate(self._specifications):
+            item = QTableWidgetItem(specification['type'])
             self.setItem(
                 idx,
                 0,
-                QTableWidgetItem(specification['type']),
+                item,
             )
+            item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
+
             self.setItem(
                 idx,
                 1,
@@ -319,15 +355,18 @@ class BoosterSpecificationsTable(QtWidgets.QTableWidget):
             )
 
         self.resizeColumnsToContents()
+        self.blockSignals(False)
 
 
 class CubeBoosterSpecificationSelector(QtWidgets.QWidget):
 
-    def __init__(self, lobby_view: LobbyView):
+    def __init__(self, lobby_view: LobbyView, booster_specification_selector: BoosterSpecificationSelector):
         super().__init__()
 
+        self._booster_specification_selector = booster_specification_selector
+
         self._release_selector = ReleaseSelector(lobby_view)
-        self._size_selector = IntegerOptionSelector(lobby_view, 'xd', allowed_range = (1, 360))
+        self._size_selector = IntegerOptionSelector(lobby_view, allowed_range = (1, 360))
         self._allow_intersection_label = QtWidgets.QLabel('Allow Intersections')
         self._allow_intersection_selector = QtWidgets.QCheckBox()
         self._allow_repeat_label = QtWidgets.QLabel('Allow Repeats')
@@ -347,29 +386,76 @@ class CubeBoosterSpecificationSelector(QtWidgets.QWidget):
 
         layout.addLayout(flags_layout)
 
+        self._size_selector.valueChanged.connect(
+            lambda v: self._booster_specification_selector.booster_specification_value_changed.emit('size', v)
+        )
+        self._release_selector.release_selected.connect(
+            lambda v: self._booster_specification_selector.booster_specification_value_changed.emit('release', v)
+        )
+        self._allow_intersection_selector.stateChanged.connect(
+            lambda v: self._booster_specification_selector.booster_specification_value_changed.emit(
+                'allow_intersection',
+                v == 2,
+            )
+        )
+        self._allow_repeat_selector.stateChanged.connect(
+            lambda v: self._booster_specification_selector.booster_specification_value_changed.emit(
+                'allow_repeat',
+                v == 2,
+            )
+        )
+
+    def get_default_values(self) -> t.Mapping[str, t.Any]:
+        return {
+            'type': 'CubeBoosterSpecification',
+            'release': sorted(
+                itertools.chain(
+                    *(
+                        versioned_cube.releases
+                        for versioned_cube in
+                        Context.cube_api_client.versioned_cubes()
+                    )
+                ),
+                key = lambda release: release.created_at,
+            )[-1].id,
+            'size': 90,
+            'allow_intersection': False,
+            'allow_repeat': False,
+            'amount': 1,
+        }
+
     def update_content(self, specification: t.Mapping[str, t.Any], enabled: bool) -> None:
         self._release_selector.update_content(specification['release'], enabled)
         self._size_selector.update_content(specification['size'], enabled)
+
+        self._allow_intersection_selector.blockSignals(True)
+        self._allow_intersection_selector.setEnabled(enabled)
         self._allow_intersection_selector.setChecked(specification['allow_intersection'])
+        self._allow_intersection_selector.blockSignals(False)
+
+        self._allow_repeat_selector.blockSignals(True)
+        self._allow_repeat_selector.setEnabled(enabled)
         self._allow_repeat_selector.setChecked(specification['allow_repeat'])
+        self._allow_repeat_selector.blockSignals(False)
 
 
 class BoosterSpecificationSelector(QtWidgets.QStackedWidget):
+    booster_specification_value_changed = pyqtSignal(str, object)
 
     def __init__(self, lobby_view: LobbyView):
         super().__init__()
 
-        self._cube_booster_specification_selector = CubeBoosterSpecificationSelector(lobby_view)
+        self._cube_booster_specification_selector = CubeBoosterSpecificationSelector(lobby_view, self)
 
-        self._specification_type_map = {
+        self.specification_type_map = {
             'CubeBoosterSpecification': self._cube_booster_specification_selector,
         }
 
-        for selector in self._specification_type_map.values():
+        for selector in self.specification_type_map.values():
             self.addWidget(selector)
 
     def update_content(self, specification: t.Mapping[str, t.Any], enabled: bool) -> None:
-        selector = self._specification_type_map[specification['type']]
+        selector = self.specification_type_map[specification['type']]
         self.setCurrentWidget(selector)
         selector.update_content(specification, enabled)
 
@@ -379,9 +465,12 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
     def __init__(self, lobby_view: LobbyView):
         super().__init__()
 
+        self._lobby_view = lobby_view
+
         self._specifications: t.List[t.Mapping[str, t.Any]] = []
 
         self._current_specification_index = 0
+        self._enabled = True
 
         self._booster_specifications_table = BoosterSpecificationsTable(lobby_view)
         self._booster_specifications_selector = BoosterSpecificationSelector(lobby_view)
@@ -389,17 +478,75 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
         self._add_booster_specification_button = QtWidgets.QPushButton('Add Booster')
 
         self._add_booster_specification_type_selector = QtWidgets.QComboBox()
-        self._add_booster_specification_type_selector.addItem('Cube')
+        self._add_booster_specification_type_selector.addItem('CubeBoosterSpecification')
 
         layout = QtWidgets.QHBoxLayout(self)
 
-        layout.addWidget(self._booster_specifications_table)
+        add_booster_layout = QtWidgets.QHBoxLayout()
+
+        add_booster_layout.addWidget(self._add_booster_specification_type_selector)
+        add_booster_layout.addWidget(self._add_booster_specification_button)
+
+        right_side_layout = QtWidgets.QVBoxLayout()
+
+        right_side_layout.addWidget(self._booster_specifications_table)
+        right_side_layout.addLayout(add_booster_layout)
+
+        layout.addLayout(right_side_layout)
         layout.addWidget(self._booster_specifications_selector)
 
+        self._add_booster_specification_button.clicked.connect(self._on_add_booster_specification)
+        self._booster_specifications_table.currentCellChanged.connect(self._on_booster_specification_index_change)
+        self._booster_specifications_selector.booster_specification_value_changed.connect(
+            self._on_booster_specification_value_change
+        )
+
+    def _on_booster_specification_value_change(self, option: str, value: t.Any) -> None:
+        current_options = copy.copy(self._lobby_view.lobby.options['pool_specification'])
+        current_options[self._current_specification_index][option] = value
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {'pool_specification': current_options},
+        )
+
+    def _on_booster_specification_index_change(
+        self,
+        current_row: int,
+        current_column: int,
+        previous_row: int,
+        previous_column: int,
+    ) -> None:
+        if current_row == self._current_specification_index:
+            return
+        self._current_specification_index = current_row
+        self._booster_specifications_selector.update_content(
+            self._lobby_view.lobby.options['pool_specification'][self._current_specification_index],
+            self._enabled
+        )
+
+    def _on_add_booster_specification(self) -> None:
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {
+                'pool_specification': self._lobby_view.lobby.options['pool_specification'] + [
+                    self._booster_specifications_selector.specification_type_map[
+                        self._add_booster_specification_type_selector.currentText()
+                    ].get_default_values()
+                ],
+            },
+        )
+
     def update_content(self, specifications: t.List[t.Mapping[str, t.Any]], enabled: bool) -> None:
+        self._enabled = enabled
         self._specifications = specifications
         self._booster_specifications_table.update_content(specifications, enabled)
-        self._booster_specifications_selector.update_content(specifications[self._current_specification_index], enabled)
+        self._current_specification_index = min(self._current_specification_index, len(specifications) - 1)
+        self._booster_specifications_selector.update_content(
+            specifications[self._current_specification_index],
+            enabled,
+        )
+        self._add_booster_specification_type_selector.setVisible(enabled)
+        self._add_booster_specification_button.setVisible(enabled)
 
 
 class ComboSelector(QtWidgets.QComboBox):
@@ -430,12 +577,11 @@ class ComboSelector(QtWidgets.QComboBox):
 
 class IntegerOptionSelector(QtWidgets.QSpinBox):
 
-    def __init__(self, lobby_view: LobbyView, option: str, allowed_range: t.Tuple[int, int] = (1, 180)):
+    def __init__(self, lobby_view: LobbyView, allowed_range: t.Tuple[int, int] = (1, 180)):
         super().__init__()
         self._lobby_view = lobby_view
-        self._option = option
         self.setRange(*allowed_range)
-        self.valueChanged.connect(self._on_value_changed)
+        # self.valueChanged.connect(self._on_value_changed)
 
     def update_content(self, value: int, enabled: bool) -> None:
         self.blockSignals(True)
@@ -443,11 +589,11 @@ class IntegerOptionSelector(QtWidgets.QSpinBox):
         self.blockSignals(False)
         self.setEnabled(enabled)
 
-    def _on_value_changed(self, value: int) -> None:
-        self._lobby_view.lobby_model.set_options(
-            self._lobby_view.lobby.name,
-            {self._option: value},
-        )
+    # def _on_value_changed(self, value: int) -> None:
+    #     self._lobby_view.lobby_model.set_options(
+    #         self._lobby_view.lobby.name,
+    #         {self._option: value},
+    #     )
 
 
 class OptionsSelector(QWidget):
@@ -465,40 +611,26 @@ class SealedOptionsSelector(OptionsSelector):
     def __init__(self, lobby_view: LobbyView):
         super().__init__(lobby_view)
 
-        # self._release_selector = ReleaseSelector(lobby_view)
-
         self._format_selector = ComboSelector(lobby_view, 'format', Format.formats_map.keys())
-
-        # self._pool_size_selector = IntegerOptionSelector(lobby_view, 'pool_size')
 
         self._open_decks_selector = QtWidgets.QCheckBox()
         self._open_decks_label = QtWidgets.QLabel('open decks')
 
         self._pool_specification_selector = PoolSpecificationSelector(lobby_view)
 
-        # self._allow_pool_intersection_selector = QtWidgets.QCheckBox()
-        # self._allow_pool_intersection_label = QtWidgets.QLabel('allow cube intersection')
-
         self._open_decks_selector.stateChanged.connect(self._on_open_decks_state_changed)
-        # self._allow_pool_intersection_selector.stateChanged.connect(self._on_allow_intersection_changed)
 
-        layout = QtWidgets.QVBoxLayout()
+        self._layout = QtWidgets.QVBoxLayout(self)
 
-        # layout.addWidget(self._release_selector)
-        layout.addWidget(self._format_selector)
-        # layout.addWidget(self._pool_size_selector)
-        layout.addWidget(self._pool_specification_selector)
+        self._layout.addWidget(self._format_selector, QtCore.Qt.AlignTop)
+        self._layout.addWidget(self._pool_specification_selector, QtCore.Qt.AlignTop)
 
         open_decks_layout = QtWidgets.QHBoxLayout()
 
         open_decks_layout.addWidget(self._open_decks_label)
         open_decks_layout.addWidget(self._open_decks_selector)
-        # open_decks_layout.addWidget(self._allow_pool_intersection_label)
-        # open_decks_layout.addWidget(self._allow_pool_intersection_selector)
 
-        layout.addLayout(open_decks_layout)
-
-        self.setLayout(layout)
+        self._layout.addLayout(open_decks_layout)
 
     def _on_open_decks_state_changed(self, state) -> None:
         self._lobby_view.lobby_model.set_options(
@@ -506,76 +638,28 @@ class SealedOptionsSelector(OptionsSelector):
             {'open_decks': state == 2},
         )
 
-    # def _on_allow_intersection_changed(self, state) -> None:
-    #     self._lobby_view.lobby_model.set_options(
-    #         self._lobby_view.lobby.name,
-    #         {'allow_pool_intersection': state == 2},
-    #     )
-
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
-        # self._release_selector.update_content(options['release'], enabled)
         self._format_selector.update_content(options['format'], enabled)
         self._pool_specification_selector.update_content(options['pool_specification'], enabled)
-        # self._pool_size_selector.update_content(options['pool_size'], enabled)
 
         self._open_decks_selector.blockSignals(True)
         self._open_decks_selector.setChecked(options['open_decks'])
         self._open_decks_selector.setEnabled(enabled)
         self._open_decks_selector.blockSignals(False)
 
-        # self._allow_pool_intersection_selector.blockSignals(True)
-        # self._allow_pool_intersection_selector.setChecked(options['allow_pool_intersection'])
-        # self._allow_pool_intersection_selector.setEnabled(enabled)
-        # self._allow_pool_intersection_selector.blockSignals(False)
 
-
-class DraftOptionsSelector(OptionsSelector):
+class DraftOptionsSelector(SealedOptionsSelector):
 
     def __init__(self, lobby_view: LobbyView):
         super().__init__(lobby_view)
 
-        self._release_selector = ReleaseSelector(lobby_view)
-        self._format_selector = ComboSelector(lobby_view, 'format', Format.formats_map.keys())
-
-        self._pack_amount_selector = IntegerOptionSelector(lobby_view, 'pack_amount', (1, 32))
-        self._pack_amount_label = QtWidgets.QLabel('pack amount')
-        self._pack_size_selector = IntegerOptionSelector(lobby_view, 'pack_size', (1, 64))
-        self._pack_size_label = QtWidgets.QLabel('pack size')
         self._draft_format_selector = ComboSelector(lobby_view, 'draft_format', {'single_pick', 'burn'})
 
-        self._total_cards_per_player_label = QtWidgets.QLabel()
-
-        layout = QtWidgets.QVBoxLayout()
-
-        layout.addWidget(self._release_selector)
-        layout.addWidget(self._format_selector)
-
-        pack_dimensions_layout = QtWidgets.QHBoxLayout()
-
-        pack_dimensions_layout.addWidget(self._pack_amount_label)
-        pack_dimensions_layout.addWidget(self._pack_amount_selector)
-        pack_dimensions_layout.addWidget(self._pack_size_label)
-        pack_dimensions_layout.addWidget(self._pack_size_selector)
-        pack_dimensions_layout.addWidget(self._total_cards_per_player_label)
-
-        layout.addLayout(pack_dimensions_layout)
-
-        layout.addWidget(self._draft_format_selector)
-
-        self.setLayout(layout)
+        self._layout.insertWidget(0, self._draft_format_selector)
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
-        self._release_selector.update_content(options['release'], enabled)
-        self._format_selector.update_content(options['format'], enabled)
-        self._pack_amount_selector.update_content(options['pack_amount'], enabled)
-        self._pack_size_selector.update_content(options['pack_size'], enabled)
+        super().update_content(options, enabled)
         self._draft_format_selector.update_content(options['draft_format'], enabled)
-
-        self._total_cards_per_player_label.setText(
-            '{} cards per player'.format(
-                self._pack_size_selector.value() * self._pack_amount_selector.value()
-            )
-        )
 
 
 class GameOptionsSelector(QtWidgets.QStackedWidget):
@@ -619,6 +703,8 @@ class LobbyView(QWidget):
         self._game_type_selector.activated.connect(self._on_game_type_selected)
 
         self._options_selector = GameOptionsSelector(self)
+        self._options_selector_area = QtWidgets.QScrollArea()
+        self._options_selector_area.setWidget(self._options_selector)
 
         self._reconnect_button = QtWidgets.QPushButton('reconnect')
         self._reconnect_button.clicked.connect(self._reconnect)
@@ -633,7 +719,7 @@ class LobbyView(QWidget):
 
         layout.addLayout(top_layout)
         layout.addWidget(self._game_type_selector)
-        layout.addWidget(self._options_selector)
+        layout.addWidget(self._options_selector_area)
         layout.addWidget(users_list)
 
         self._update_content()
@@ -836,12 +922,12 @@ class LobbiesView(QWidget):
             self._create_lobby_button.setEnabled(False)
         self._lobby_model.connected.connect(self._on_connection_status_change)
 
-        top_layout = QtWidgets.QHBoxLayout()
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
 
-        top_layout.addWidget(lobbies_list_view)
-        top_layout.addWidget(self._lobby_tabs)
+        splitter.addWidget(lobbies_list_view)
+        splitter.addWidget(self._lobby_tabs)
 
-        layout.addLayout(top_layout)
+        layout.addWidget(splitter)
         layout.addWidget(self._create_lobby_button)
 
         self.setLayout(layout)

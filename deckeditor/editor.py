@@ -11,6 +11,7 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
+from deckeditor.components.draft.view import DraftView
 from deckeditor.components.sealed.view import LimitedSessionsView
 from deckeditor.components.views.editables.pool import PoolView
 from yeetlong.multiset import Multiset
@@ -108,8 +109,8 @@ class MainWindow(QMainWindow, CardAddable):
 
         self._limited_sessions_view = LimitedSessionsView()
 
-        self._limited_sessions_dock = QtWidgets.QDockWidget('Sealed', self)
-        self._limited_sessions_dock.setObjectName('sealed')
+        self._limited_sessions_dock = QtWidgets.QDockWidget('Limited', self)
+        self._limited_sessions_dock.setObjectName('Limited')
         self._limited_sessions_dock.setWidget(self._limited_sessions_view)
         self._limited_sessions_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
 
@@ -186,7 +187,7 @@ class MainWindow(QMainWindow, CardAddable):
                 ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
-                ('Sealed', 'Meta+7', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
+                ('Limited', 'Meta+7', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
             ),
             # menu_bar.addMenu('Test'): (
             #     ('Test', 'Ctrl+T', self._test),
@@ -221,6 +222,10 @@ class MainWindow(QMainWindow, CardAddable):
                 tab.deck_model.maindeck.get_cube_modification(delta_operation)
             )
         elif isinstance(tab, PoolView):
+            tab.undo_stack.push(
+                tab.pool_model.maindeck.get_cube_modification(delta_operation)
+            )
+        elif isinstance(tab, DraftView):
             tab.undo_stack.push(
                 tab.pool_model.maindeck.get_cube_modification(delta_operation)
             )

@@ -6,6 +6,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
+from deckeditor.components.editables.editor import EditablesMeta
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from mtgorp.db.database import CardDatabase
@@ -39,8 +40,8 @@ class _DraftClient(DraftClient):
     def _picked(self, pick: Cubeable) -> None:
         self._draft_model.on_pick(pick)
 
-    def _completed(self) -> None:
-        pass
+    def _completed(self, pool_id: int, session_name: str) -> None:
+        self._draft_model.draft_completed.emit(pool_id, session_name)
 
     def _on_start(self) -> None:
         self._draft_model.draft_started.emit()
@@ -55,6 +56,7 @@ class DraftModel(QObject):
     cubeable_picked = pyqtSignal(object, tuple)
     draft_started = pyqtSignal()
     round_started = pyqtSignal(DraftRound)
+    draft_completed = pyqtSignal(int, str)
 
     def __init__(self, key: str) -> None:
         super().__init__()
@@ -99,16 +101,6 @@ class DraftModel(QObject):
         self._pending_picked_scene = scene
         self._pending_picked_position = position
         self._draft_client.pick(cubeable)
-
-
-# class DraftInfo(QtWidgets.QWidget):
-#
-#     def __init__(self):
-#         super().__init__()
-#
-#         self._players_list
-#
-#         layout = QtWidgets.QVBoxLayout()
 
 
 class BoosterImageView(CubeImageView):
@@ -205,11 +197,12 @@ class BoosterWidget(QtWidgets.QWidget):
         self._pack_counter_label.setText(
             'Pack: {}/{}'.format(
                 draft_round.pack,
-                self._draft_model.draft_client.pack_amount,
+                '?',
             )
         )
 
     def _on_receive_booster(self, booster: Booster) -> None:
+        self._booster_view.cube_image_view.cancel_drags()
         self._booster_scene.get_cube_modification(
             add = list(
                 map(
@@ -237,8 +230,6 @@ class DraftView(Editable):
         super().__init__()
         self._draft_model = draft_model
 
-        self._undo_stack = Context.get_undo_stack()
-
         self._booster_widget = BoosterWidget(draft_model)
 
         self._pool_model = PoolModel()
@@ -258,6 +249,11 @@ class DraftView(Editable):
 
         self._draft_model.connect()
         self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
+        self._draft_model.draft_completed.connect(self._on_draft_completed)
+
+    @property
+    def pool_model(self) -> PoolModel:
+        return self._pool_model
 
     def _on_cubeable_picked(
         self,
@@ -274,12 +270,23 @@ class DraftView(Editable):
             position = position,
         ).redo()
 
+    def _on_draft_completed(self, pool_id: int, session_name: str):
+        Context.sealed_started.emit(pool_id)
+        Context.editor.add_editable(
+            self._pool_view,
+            EditablesMeta(
+                session_name,
+                key = session_name,
+            ),
+        )
+        Context.editor.close_editable(self)
+
     def close(self) -> None:
         self._draft_model.close()
 
     @property
     def undo_stack(self) -> QUndoStack:
-        return self._undo_stack
+        return self._pool_view.undo_stack
 
     def is_empty(self) -> bool:
         return super().is_empty()

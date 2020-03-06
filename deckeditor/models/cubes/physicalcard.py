@@ -315,7 +315,7 @@ class PhysicalTrap(PhysicalCard[Trap]):
                         closed_operation = True,
                     )
                     if scene == child.scene() else
-                    scene.get_cube_modification(remove = cards)
+                    scene.get_cube_modification(remove = cards, closed_operation = True)
                     for scene, cards in
                     scene_remove_map.items()
                     if scene is not None
