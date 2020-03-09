@@ -1,18 +1,17 @@
 import typing as t
 import pickle
 import os
-import uuid
 from pickle import UnpicklingError
 
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
-from deckeditor.components.draft.view import DraftView, DraftModel
-from deckeditor.components.editables.editor import Editor, EditablesMeta
 from mtgorp.models.serilization.serializeable import SerializationException
 
 from magiccube.collections.cube import Cube
 
+from deckeditor.components.draft.view import DraftView, DraftModel
+from deckeditor.components.editables.editor import Editor, EditablesMeta
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.values import SUPPORTED_EXTENSIONS
 from deckeditor.components.views.editables.deck import DeckView

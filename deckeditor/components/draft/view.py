@@ -289,11 +289,11 @@ class DraftView(Editable):
         return self._pool_view.undo_stack
 
     def is_empty(self) -> bool:
-        return super().is_empty()
+        return False
 
     def persist(self) -> t.Any:
-        return super().persist()
+        return None
 
     @classmethod
     def load(cls, state: t.Any) -> Editable:
-        return super().load(state)
+        raise NotImplemented()

@@ -534,30 +534,52 @@ class CubeImageView(QtWidgets.QGraphicsView):
         )
 
         cards = []
-        poly = QPolygonF(
+        rubber_band_polygon = QPolygonF(
             self.mapToScene(
                 self._rubber_band.geometry()
             )
         )
 
+        covered_polygon = None
+
         for card in potential_items:
             rect = QRectF(card.boundingRect())
             rect.translate(card.pos())
 
-            if poly.intersects(
+            if rubber_band_polygon.intersects(
+                QPolygonF(rect).subtracted(covered_polygon)
+                if covered_polygon is not None else
                 QPolygonF(rect)
             ):
                 cards.append(card)
 
-            poly = poly.subtracted(
-                QPolygonF(
-                    QRectF(
-                        rect.x() - 1,
-                        rect.y() - 2,
-                        rect.width() + 2,
-                        rect.height() + 2,
-                    )
+            current_cover_area = QPolygonF(
+                QRectF(
+                    rect.x() - 1,
+                    rect.y() - 1,
+                    rect.width() + 2,
+                    rect.height() + 2,
                 )
             )
 
+            if covered_polygon is None:
+                covered_polygon = current_cover_area
+            else:
+                covered_polygon = covered_polygon.united(current_cover_area)
+
         self._scene.add_selection(cards)
+
+# class DebugPoly(QtWidgets.QGraphicsObject):
+#
+#     def __init__(self, poly: QPolygonF, color: QColor):
+#         super().__init__()
+#         self._poly = poly
+#         self._color = color
+#
+#     def boundingRect(self):
+#         return self._poly.boundingRect()
+#
+#     def paint(self, painter: QtGui.QPainter, options, widget = None):
+#         painter.setBrush(QtGui.QBrush(self._color))
+#         painter.setPen(QtGui.QPen(self._color))
+#         painter.drawPolygon(self._poly)

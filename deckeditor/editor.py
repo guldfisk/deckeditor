@@ -189,9 +189,9 @@ class MainWindow(QMainWindow, CardAddable):
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
                 ('Limited', 'Meta+7', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
             ),
-            # menu_bar.addMenu('Test'): (
-            #     ('Test', 'Ctrl+T', self._test),
-            # ),
+            menu_bar.addMenu('Test'): (
+                ('Test', 'Ctrl+T', self._test),
+            ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', LoginDialog(self).exec_),
                 ('Logout', None, lambda: None),
@@ -260,7 +260,9 @@ class MainWindow(QMainWindow, CardAddable):
         self._card_adder.query_edit.setFocus()
 
     def _test(self):
-        raise Exception('test')
+        time.sleep(2)
+        print(Context.main_window.isActiveWindow())
+        print(Context.application.activeWindow())
 
     def resizeEvent(self, resize_event: QtGui.QResizeEvent):
         if hasattr(self, '_notification_frame'):
@@ -427,6 +429,8 @@ def run():
         Context.init(app)
 
     main_window = MainWindow()
+
+    Context.main_window = main_window
 
     sys.excepthook = _get_exception_hook(main_window)
 

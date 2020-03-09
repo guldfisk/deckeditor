@@ -21,6 +21,14 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
         if pixmap is not None:
             self.set_pixmap(pixmap)
 
+        self._highlight: t.Optional[QtGui.QColor] = None
+
+    def set_highlight(self, color: QtGui.QColor) -> None:
+        self._highlight = color
+
+    def clear_highlight(self) -> None:
+        self._highlight = None
+
     def pixmap(self):
         return self._pixmap
 
@@ -38,6 +46,11 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
 
     def paint(self, painter: QtGui.QPainter, options, widget=None):
         painter.drawPixmap(self._zero_point, self._pixmap)
+
+        if self._highlight is not None:
+            painter.setBrush(QtGui.QBrush(self._highlight))
+            painter.setPen(QtGui.QPen(self._highlight))
+            painter.drawRect(self._bounding_rect)
 
         if self.isSelected():
             pen_width = math.ceil(self._selection_highlight_pen.width() / 2) - 1

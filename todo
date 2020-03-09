@@ -2,8 +2,17 @@ fix rubberband on windows
 fix style on windows
 fix image loading sometimes breaking on compiled version (primarily windows?)
 
-drafting
+burn draft
+picks log view
+seen cards view
+add unpickable ghost cards of known non wheels from booster
+current pick info
+current pack # info
+remember card positions in pool on draft reconnect
 
+dont add cards to hidden views on doubble click? (so when pool is hidden, default double click on card in maindeck moves to sideboard and vice versa)
+insert column/row before/after option on grid aligner
+when clicking card, set as only selected card
 ability to shrink card view more
 instead of just "select matching", full search dialog, with option to exit and select matching
 search dialog searching entire tab (all views in pool or deck or whatever)
@@ -11,8 +20,6 @@ find out what to do with selections in multiple views at once. it is intuitive e
 hard time generating db on windows. only works on 64 bit python.
 remove scenecard, just move physicalcards into same file as cubescene prob
 sort macroes
-disable change printing for pool except for basics also visually
-sort row/column option in stacking grid aligners?
 make dynamic stacking grid able no handle arbitrary row amount
 option for visual menu when selecting printing (also for cardboards with many printing, espcially relevant for basics)
 visual indicator of logged in status
@@ -20,16 +27,15 @@ ability to log out
 make tickets work with cards in traps
 auto sort non emb files on open?
 fix bunchview drop card on last card in first column puts it in first in second.
-what is natural when going through a bunched pile? when you double click a card, to move to or from pool, how should the other cards be rearranged?
-on cubeable view thing, set image to card back when loading instead of using previous image?
+on cubeable view thing, set image to card back when loading instead of using previous image
 ability to point dbbuilder at exising db/json / download db directly
 db info view (checksum, latest expansion etc)
 only ask about saving when closing tab when changes has actually modified it (not just a bunch of intra scene moves)
+dont ask about saving for limited pools when it does not make sense. like, after submitting a pool and closing tab. (maybe still remember layout on reopen?)
 auto sorted mode in cubeimage view (cant move cards in view, sort selected for both directions, auto updated)
     also option to merge identical cards like arena
 save cubeimageview transform state in session
 move cards retaining structure in stacking grid option
-proper undo command names
 should flatten all be recursive? should it be an option? (or maybe just in general)
 right click -> move to -> (maindeck etc.) on physical card
 right click -> move to -> (maindeck etc.) on table view row
@@ -40,7 +46,7 @@ flatten etc from table
 intention type in table?
 customize hotkeys
 settings editor in general
-some sort of groupes list view. doesnt necessarily have to be editable, but hoverable at least.
+some sort of groupes list view. doesnt necessarily have to be editable, but hoverable at least. something like a standard web view of a deck for an easy text based overview.
 dont show info only related to image view when in table mode only in cubeview (align selector etc)
 auto-focus name column when selecting table view to easier look up names
 ctrl / alt / ctrl + alt modifiers for selecting in cubeimageview (something like add, remove, intersect (and negative intersect?))
@@ -48,6 +54,8 @@ dont let table view steal control tabbing priority
 image view in card adder
 make printings filtering in cardadder optional
 
+proper undo command names
+what is natural when going through a bunched pile? when you double click a card, to move to or from pool, how should the other cards be rearranged?
 merge contextmenu overlap when multiple physical cards selected
 ability to resize graphicsscenes
 save session on qt error, or at elast periodically. is it saved on computer shutdown?

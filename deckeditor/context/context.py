@@ -3,7 +3,7 @@ import typing as t
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QClipboard
-from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack
+from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack, QMainWindow
 
 from cubeclient.endpoints import NativeApiClient
 from deckeditor.components.editables.editor import Editor
@@ -29,7 +29,9 @@ class _Context(QObject):
     cardboard_names: t.List[str]
     search_pattern_parser: SearchParser
     undo_group: QUndoGroup
-    clipboard : QClipboard
+    clipboard: QClipboard
+    main_window: QMainWindow
+    application: QApplication
 
     editor: Editor
 
@@ -57,6 +59,8 @@ class _Context(QObject):
             for name in
             ('Plains', 'Island', 'Swamp', 'Mountain', 'Forest')
         ]
+
+        cls.application = application
 
         cls.clipboard = application.clipboard()
 
