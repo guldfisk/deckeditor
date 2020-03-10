@@ -433,6 +433,8 @@ class CubeImageView(QtWidgets.QGraphicsView):
             super().wheelEvent(event)
 
     def mousePressEvent(self, mouse_event: QtGui.QMouseEvent):
+        self._last_move_event_pos = None
+
         if (
             mouse_event.button() == QtCore.Qt.LeftButton and mouse_event.modifiers() & QtCore.Qt.ControlModifier
             or mouse_event.button() == QtCore.Qt.MiddleButton
@@ -443,12 +445,13 @@ class CubeImageView(QtWidgets.QGraphicsView):
             item = self.itemAt(mouse_event.pos())
 
             if item is None:
-                self._scene.clear_selection()
+                if mouse_event.modifiers() == Qt.NoModifier:
+                    self._scene.clear_selection()
                 self._last_press_on_card = False
 
             else:
                 if not item.isSelected():
-                    self._scene.set_selection((item,))
+                    self._scene.set_selection((item,), mouse_event.modifiers())
 
                 self._last_press_on_card = True
 
@@ -460,7 +463,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
         Context.focus_scene_changed.emit(self._scene)
 
         if self._last_press_on_card:
-            if mouse_event.buttons() & Qt.LeftButton:
+            if mouse_event.buttons() & Qt.LeftButton and mouse_event.modifiers() == Qt.NoModifier:
                 self._floating = self.scene().selectedItems()
                 if not self._floating:
                     return
@@ -517,10 +520,16 @@ class CubeImageView(QtWidgets.QGraphicsView):
             )
 
     def mouseReleaseEvent(self, mouse_event: QtGui.QMouseEvent):
+        modifiers = mouse_event.modifiers()
         self._dragging_move = False
 
         if not mouse_event.button() == QtCore.Qt.LeftButton:
             return
+
+        if self._last_move_event_pos is None:
+            item = self.itemAt(mouse_event.pos())
+            if item is not None:
+                self._scene.set_selection((item,), modifiers)
 
         if self._rubber_band.isHidden():
             return
@@ -567,7 +576,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
             else:
                 covered_polygon = covered_polygon.united(current_cover_area)
 
-        self._scene.add_selection(cards)
+        self._scene.add_selection(cards, modifiers)
 
 # class DebugPoly(QtWidgets.QGraphicsObject):
 #
