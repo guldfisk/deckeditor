@@ -64,11 +64,19 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
                 self.setCurrentWidget(editable)
                 return
 
+        saved_draft = Context.saved_drafts.get(draft_id)
+        if saved_draft is not None:
+            del Context.saved_drafts[draft_id]
+
         self.setCurrentWidget(
             self.add_editable(
-                DraftView(
-                    DraftModel(
-                        draft_id
+                (
+                    DraftView.load(saved_draft)
+                    if saved_draft is not None else
+                    DraftView(
+                        DraftModel(
+                            draft_id
+                        )
                     )
                 ),
                 EditablesMeta(
@@ -100,18 +108,17 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
 
     def save_session(self) -> None:
         with open(paths.SESSION_PATH, 'wb') as session_file:
+            tabs = []
+            drafts = {}
+            for editor, meta in self._metas.items():
+                if isinstance(editor, DraftView):
+                    drafts[meta.key] = editor.persist()
+                else:
+                    tabs.append((editor.persist(), meta))
             pickle.dump(
                 {
-                    'tabs': [
-                        (persisted, meta)
-                        for persisted, meta in
-                        (
-                            (editor.persist(), meta)
-                            for editor, meta in
-                            self._metas.items()
-                        )
-                        if persisted is not None
-                    ],
+                    'tabs': tabs,
+                    'drafts': drafts,
                     'current_tab_index': self.currentIndex(),
                 },
                 session_file,
@@ -126,8 +133,11 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             except (UnpicklingError, EOFError):
                 Context.notification_message.emit('Failed loading previous session')
                 return
+
             for state, meta in previous_session['tabs']:
                 self.load_file(state, meta)
+
+            Context.saved_drafts = previous_session.get('drafts', {})
 
         except Exception as e:
             confirm_dialog = QMessageBox()

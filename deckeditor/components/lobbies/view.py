@@ -4,18 +4,18 @@ import copy
 import itertools
 import typing as t
 
+from frozendict import frozendict
+from bidict import bidict
+
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
-from frozendict import frozendict
-from bidict import bidict
+from mtgorp.models.formats.format import Format
 
-from cubeclient.models import VersionedCube, BoosterSpecification
 from lobbyclient.client import LobbyClient, Lobby
 
 from deckeditor.context.context import Context
-from mtgorp.models.formats.format import Format, LimitedSideboard
 
 
 class _LobbyClient(LobbyClient):
@@ -35,6 +35,11 @@ class _LobbyClient(LobbyClient):
     def _on_error(self, error):
         super()._on_error(error)
         self._model.on_disconnected()
+
+    def _on_client_error(self, message: t.Mapping[str, t.Any]) -> None:
+        message = message.get('message')
+        if message is not None:
+            Context.notification_message.emit(message)
 
     def _on_close(self):
         super()._on_close()
@@ -439,6 +444,41 @@ class CubeBoosterSpecificationSelector(QtWidgets.QWidget):
         self._allow_repeat_selector.blockSignals(False)
 
 
+class ExpansionBoosterSpecificationSelector(QtWidgets.QWidget):
+
+    def __init__(self, lobby_view: LobbyView, booster_specification_selector: BoosterSpecificationSelector):
+        super().__init__()
+
+        self._booster_specification_selector = booster_specification_selector
+
+        self._expansion_code_selector = QtWidgets.QComboBox()
+
+        for expansion in sorted(Context.db.expansions.values(), key = lambda e: e.release_date, reverse = True):
+            self._expansion_code_selector.addItem(expansion.code)
+
+        self._expansion_code_selector.activated.connect(
+            lambda v: self._booster_specification_selector.booster_specification_value_changed.emit(
+                'expansion_code',
+                self._expansion_code_selector.itemText(v),
+            )
+        )
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        layout.addWidget(self._expansion_code_selector)
+
+    def get_default_values(self) -> t.Mapping[str, t.Any]:
+        return {
+            'type': 'ExpansionBoosterSpecification',
+            'expansion_code': self._expansion_code_selector.itemText(0),
+            'amount': 1,
+        }
+
+    def update_content(self, specification: t.Mapping[str, t.Any], enabled: bool) -> None:
+        self._expansion_code_selector.setCurrentText(specification['expansion_code'])
+        self._expansion_code_selector.setEnabled(enabled)
+
+
 class BoosterSpecificationSelector(QtWidgets.QStackedWidget):
     booster_specification_value_changed = pyqtSignal(str, object)
 
@@ -446,9 +486,11 @@ class BoosterSpecificationSelector(QtWidgets.QStackedWidget):
         super().__init__()
 
         self._cube_booster_specification_selector = CubeBoosterSpecificationSelector(lobby_view, self)
+        self._expansion_booster_specification_selector = ExpansionBoosterSpecificationSelector(lobby_view, self)
 
         self.specification_type_map = {
             'CubeBoosterSpecification': self._cube_booster_specification_selector,
+            'ExpansionBoosterSpecification': self._expansion_booster_specification_selector,
         }
 
         for selector in self.specification_type_map.values():
@@ -479,6 +521,7 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
 
         self._add_booster_specification_type_selector = QtWidgets.QComboBox()
         self._add_booster_specification_type_selector.addItem('CubeBoosterSpecification')
+        self._add_booster_specification_type_selector.addItem('ExpansionBoosterSpecification')
 
         layout = QtWidgets.QHBoxLayout(self)
 
@@ -557,10 +600,8 @@ class ComboSelector(QtWidgets.QComboBox):
 
         self._lobby_view = lobby_view
 
-        for format_name in sorted(options):
-            self.addItem(format_name)
-
-        self.setCurrentText(LimitedSideboard.name)
+        for option in sorted(options):
+            self.addItem(option)
 
         self.activated.connect(self._on_activated)
 
@@ -581,19 +622,12 @@ class IntegerOptionSelector(QtWidgets.QSpinBox):
         super().__init__()
         self._lobby_view = lobby_view
         self.setRange(*allowed_range)
-        # self.valueChanged.connect(self._on_value_changed)
 
     def update_content(self, value: int, enabled: bool) -> None:
         self.blockSignals(True)
         self.setValue(value)
         self.blockSignals(False)
         self.setEnabled(enabled)
-
-    # def _on_value_changed(self, value: int) -> None:
-    #     self._lobby_view.lobby_model.set_options(
-    #         self._lobby_view.lobby.name,
-    #         {self._option: value},
-    #     )
 
 
 class OptionsSelector(QWidget):

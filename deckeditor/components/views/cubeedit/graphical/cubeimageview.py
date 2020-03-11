@@ -1,28 +1,29 @@
 from __future__ import annotations
 
-import time
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QPoint, Qt, QRectF
-from PyQt5.QtGui import QPainter, QPolygon, QPolygonF, QBrush, QColor
+from PyQt5.QtGui import QPainter, QPolygonF
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
-from deckeditor.components.views.cubeedit.graphical.sortdialog import SortDialog
-from deckeditor.utils.undo import CommandPackage
+from yeetlong.multiset import Multiset
+
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
+
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.serilization.strategies.picklestrategy import PickleStrategy
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
 
+from deckeditor.components.views.cubeedit.graphical.sortdialog import SortDialog
+from deckeditor.utils.undo import CommandPackage
 from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting import sorting
-from yeetlong.multiset import Multiset
 
 
 class QueryEdit(QtWidgets.QLineEdit):

@@ -1,5 +1,5 @@
-import os
 import typing as t
+import os
 import uuid
 
 from deckeditor.components.views.editables.editable import Editable
@@ -31,7 +31,16 @@ class EditablesMeta(object):
 
     @property
     def truncated_name(self) -> str:
-        return self._name if len(self._name) <= 25 else self._name[:22] + '...'
+        return self._name if len(self._name) <= 25 else self._name[:11] + '...' + self._name[:-11]
+
+    def __hash__(self) -> int:
+        return hash(self._key)
+
+    def __eq__(self, other) -> bool:
+        return (
+            isinstance(other, self.__class__)
+            and self._key == other._key
+        )
 
 
 class Editor(object):

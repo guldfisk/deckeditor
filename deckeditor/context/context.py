@@ -51,6 +51,8 @@ class _Context(QObject):
 
     new_pool = pyqtSignal(object, str)
 
+    saved_drafts: t.Mapping[str, t.Any]
+
     @classmethod
     def init(cls, application: QApplication) -> None:
         cls.db = Loader.load()

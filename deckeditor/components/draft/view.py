@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -37,8 +38,8 @@ class _DraftClient(DraftClient):
     def _received_booster(self, booster: Booster) -> None:
         self._draft_model.received_booster.emit(booster)
 
-    def _picked(self, pick: Cubeable) -> None:
-        self._draft_model.on_pick(pick)
+    def _picked(self, pick: Cubeable, pick_number: int) -> None:
+        self._draft_model.on_pick(pick, pick_number)
 
     def _completed(self, pool_id: int, session_name: str) -> None:
         self._draft_model.draft_completed.emit(pool_id, session_name)
@@ -67,7 +68,15 @@ class DraftModel(QObject):
         self._pending_picked_scene: t.Optional[CubeScene] = None
         self._pending_picked_position: t.Optional[QtCore.QPoint] = None
 
-    def on_pick(self, cubeable: Cubeable) -> None:
+        self._pick_number_lock = threading.Lock()
+        self._pick_number = 0
+
+    def on_pick(self, cubeable: Cubeable, pick_number: int) -> None:
+        with self._pick_number_lock:
+            if pick_number <= self._pick_number:
+                return
+            else:
+                self._pick_number = pick_number
         self.cubeable_picked.emit(cubeable, (self._pending_picked_scene, self._pending_picked_position))
         self._pending_picked_scene = None
         self._pending_picked_position = None
@@ -101,6 +110,18 @@ class DraftModel(QObject):
         self._pending_picked_scene = scene
         self._pending_picked_position = position
         self._draft_client.pick(cubeable)
+
+    def persist(self) -> t.Any:
+        return {
+            'pick_number': self._pick_number,
+            'key': self._key,
+        }
+
+    @classmethod
+    def load(cls, state: t.Any) -> DraftModel:
+        draft_model = cls(key = state['key'])
+        draft_model._pick_number = state['pick_number']
+        return draft_model
 
 
 class BoosterImageView(CubeImageView):
@@ -226,26 +247,26 @@ class DraftView(Editable):
     def __init__(
         self,
         draft_model: DraftModel,
+        *,
+        pool_view: t.Optional[PoolView] = None,
     ) -> None:
         super().__init__()
         self._draft_model = draft_model
 
         self._booster_widget = BoosterWidget(draft_model)
 
-        self._pool_model = PoolModel()
+        self._pool_model = PoolModel() if pool_view is None else pool_view.pool_model
 
-        self._pool_view = PoolView(
-            self._pool_model
-        )
+        self._pool_view = PoolView(self._pool_model) if pool_view is None else pool_view
 
-        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        self._splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         layout = QtWidgets.QVBoxLayout(self)
 
-        splitter.addWidget(self._booster_widget)
-        splitter.addWidget(self._pool_view)
+        self._splitter.addWidget(self._booster_widget)
+        self._splitter.addWidget(self._pool_view)
 
-        layout.addWidget(splitter)
+        layout.addWidget(self._splitter)
 
         self._draft_model.connect()
         self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
@@ -292,8 +313,17 @@ class DraftView(Editable):
         return False
 
     def persist(self) -> t.Any:
-        return None
+        return {
+            'pool_view': self._pool_view.persist(),
+            'splitter': self._splitter.saveState(),
+            'draft_model': self._draft_model.persist(),
+        }
 
     @classmethod
-    def load(cls, state: t.Any) -> Editable:
-        raise NotImplemented()
+    def load(cls, state: t.Any) -> DraftView:
+        draft_view = cls(
+            draft_model = DraftModel.load(state['draft_model']),
+            pool_view = PoolView.load(state['pool_view']),
+        )
+        draft_view._splitter.restoreState(state['splitter'])
+        return draft_view
