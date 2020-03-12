@@ -4,8 +4,9 @@ import threading
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QUndoStack
+from PyQt5.QtCore import QObject, pyqtSignal, Qt
+from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem
 
 from deckeditor.components.editables.editor import EditablesMeta
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
@@ -16,7 +17,7 @@ from magiccube.collections.cubeable import Cubeable
 
 from cubeclient.models import ApiClient
 
-from mtgdraft.client import DraftClient
+from mtgdraft.client import DraftClient, SinglePick, Burn
 from mtgdraft.models import Booster, DraftRound
 
 from deckeditor.components.views.cubeedit.cubeview import CubeView
@@ -38,7 +39,7 @@ class _DraftClient(DraftClient):
     def _received_booster(self, booster: Booster) -> None:
         self._draft_model.received_booster.emit(booster)
 
-    def _picked(self, pick: Cubeable, pick_number: int) -> None:
+    def _picked(self, pick: t.Any, pick_number: int) -> None:
         self._draft_model.on_pick(pick, pick_number)
 
     def _completed(self, pool_id: int, session_name: str) -> None:
@@ -71,13 +72,30 @@ class DraftModel(QObject):
         self._pick_number_lock = threading.Lock()
         self._pick_number = 0
 
-    def on_pick(self, cubeable: Cubeable, pick_number: int) -> None:
+        self._pick: t.Optional[PhysicalCard] = None
+        self._burn: t.Optional[PhysicalCard] = None
+        self._booster: t.Optional[Booster] = None
+
+        self.received_booster.connect(self._on_received_booster)
+
+    def _on_received_booster(self, booster: Booster) -> None:
+        self._booster = booster
+
+    def on_pick(self, pick: t.Any, pick_number: int) -> None:
         with self._pick_number_lock:
             if pick_number <= self._pick_number:
                 return
             else:
                 self._pick_number = pick_number
-        self.cubeable_picked.emit(cubeable, (self._pending_picked_scene, self._pending_picked_position))
+
+        self.cubeable_picked.emit(
+            (
+                pick
+                if isinstance(self._draft_client.draft_format, SinglePick) else
+                pick['pick']
+            ),
+            (self._pending_picked_scene, self._pending_picked_position)
+        )
         self._pending_picked_scene = None
         self._pending_picked_position = None
 
@@ -103,13 +121,84 @@ class DraftModel(QObject):
 
     def pick(
         self,
-        cubeable: Cubeable,
+        card: PhysicalCard,
         scene: t.Optional[CubeScene] = None,
         position: t.Optional[QtCore.QPoint] = None,
+        burn: bool = False,
+        infer: bool = True,
+        toggle: bool = False,
     ) -> None:
-        self._pending_picked_scene = scene
-        self._pending_picked_position = position
-        self._draft_client.pick(cubeable)
+        if isinstance(self._draft_client.draft_format, SinglePick):
+            self._pending_picked_scene = scene
+            self._pending_picked_position = position
+            self._draft_client.draft_format.pick(card.cubeable)
+
+        elif isinstance(self._draft_client.draft_format, Burn):
+            if infer:
+                if burn:
+                    if self._burn is None:
+                        _burn = True
+                    elif self._pick is None:
+                        _burn = False
+                    else:
+                        _burn = True
+                else:
+                    if self._pick is None:
+                        _burn = False
+                    elif self._burn is None:
+                        _burn = True
+                    else:
+                        _burn = False
+            else:
+                _burn = burn
+
+            if toggle and infer:
+                if self._burn == card:
+                    self._burn.clear_highlight()
+                    self._burn = None
+                    return
+                if self._pick == card:
+                    self._pick.clear_highlight()
+                    self._pick = None
+                    return
+
+            if _burn:
+                if self._burn:
+                    self._burn.clear_highlight()
+                    if toggle and card == self._burn:
+                        self._burn = None
+                        return
+                if self._pick == card:
+                    self._pick.clear_highlight()
+                    self._pick = None
+                self._burn = card
+                self._burn.set_highlight(QColor(255, 0, 0, 100))
+            else:
+                if self._pick:
+                    self._pick.clear_highlight()
+                    if toggle and card == self._pick:
+                        self._pick = None
+                        self._pending_picked_scene = None
+                        self._pending_picked_position = None
+                        return
+                if self._burn == card:
+                    self._burn.clear_highlight()
+                    self._burn = None
+                self._pick = card
+                self._pick.set_highlight(QColor(0, 255, 0, 100))
+                self._pending_picked_position = position
+                self._pending_picked_scene = scene
+
+            if self._pick and (self._burn or self._booster is not None and len(self._booster.cubeables) == 1):
+                self._pick.clear_highlight()
+                if self._burn:
+                    self._burn.clear_highlight()
+                self._draft_client.draft_format.pick(
+                    self._pick.cubeable,
+                    self._burn.cubeable if self._burn is not None else None,
+                )
+                self._pick = None
+                self._burn = None
 
     def persist(self) -> t.Any:
         return {
@@ -136,9 +225,12 @@ class BoosterImageView(CubeImageView):
             return False
 
         self._draft_model.pick(
-            self.floating[0].cubeable,
+            self.floating[0],
             image_view.scene(),
             image_view.mapToScene(drop_event.pos()),
+            burn = False,
+            infer = False,
+            toggle = False,
         )
 
         self.floating[:] = []
@@ -146,6 +238,24 @@ class BoosterImageView(CubeImageView):
 
     def _context_menu_event(self, position: QtCore.QPoint):
         menu = QtWidgets.QMenu(self)
+
+        item: QGraphicsItem = self.itemAt(position)
+
+        if item and isinstance(item, PhysicalCard):
+            menu.addSeparator()
+
+            pick_action = QtWidgets.QAction('Pick', menu)
+            pick_action.triggered.connect(
+                lambda: self._draft_model.pick(item, burn = False, infer = True, toggle = False)
+            )
+            menu.addAction(pick_action)
+
+            if isinstance(self._draft_model.draft_client.draft_format, Burn):
+                burn_action = QtWidgets.QAction('Burn', menu)
+                burn_action.triggered.connect(
+                    lambda: self._draft_model.pick(item, burn = True, infer = True, toggle = False)
+                )
+                menu.addAction(burn_action)
 
         menu.addAction(self._fit_action)
 
@@ -201,7 +311,16 @@ class BoosterWidget(QtWidgets.QWidget):
         self._draft_model.received_booster.connect(self._on_receive_booster)
         self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
         self._draft_model.round_started.connect(self._on_round_started)
-        self._booster_view.cubeable_double_clicked.connect(self._draft_model.pick)
+        # self._booster_view.cubeable_double_clicked.connect(self._draft_model.pick)
+        self._booster_view.cube_image_view.card_double_clicked.connect(self._on_card_double_clicked)
+
+    def _on_card_double_clicked(self, card: PhysicalCard, modifiers: Qt.KeyboardModifiers):
+        self._draft_model.pick(
+            card = card,
+            burn = modifiers == Qt.ShiftModifier,
+            infer = True,
+            toggle = True,
+        )
 
     def _on_round_started(self, draft_round: DraftRound) -> None:
         self._players_list.setText(

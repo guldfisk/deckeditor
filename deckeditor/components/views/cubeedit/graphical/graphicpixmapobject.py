@@ -25,9 +25,11 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
 
     def set_highlight(self, color: QtGui.QColor) -> None:
         self._highlight = color
+        self.update()
 
     def clear_highlight(self) -> None:
         self._highlight = None
+        self.update()
 
     def pixmap(self):
         return self._pixmap

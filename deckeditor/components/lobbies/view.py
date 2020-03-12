@@ -12,6 +12,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
 from mtgorp.models.formats.format import Format
+from mtgorp.models.persistent.attributes.expansiontype import ExpansionType
 
 from lobbyclient.client import LobbyClient, Lobby
 
@@ -454,7 +455,8 @@ class ExpansionBoosterSpecificationSelector(QtWidgets.QWidget):
         self._expansion_code_selector = QtWidgets.QComboBox()
 
         for expansion in sorted(Context.db.expansions.values(), key = lambda e: e.release_date, reverse = True):
-            self._expansion_code_selector.addItem(expansion.code)
+            if expansion.expansion_type == ExpansionType.SET:
+                self._expansion_code_selector.addItem(expansion.code)
 
         self._expansion_code_selector.activated.connect(
             lambda v: self._booster_specification_selector.booster_specification_value_changed.emit(
@@ -479,6 +481,42 @@ class ExpansionBoosterSpecificationSelector(QtWidgets.QWidget):
         self._expansion_code_selector.setEnabled(enabled)
 
 
+class AllCardsBoosterSpecificationSelector(QtWidgets.QWidget):
+
+    def __init__(self, lobby_view: LobbyView, booster_specification_selector: BoosterSpecificationSelector):
+        super().__init__()
+
+        self._booster_specification_selector = booster_specification_selector
+
+        self._respect_printings_selector = QtWidgets.QCheckBox()
+        self._respect_printings_label = QtWidgets.QLabel('Respect Printings')
+
+        layout = QtWidgets.QHBoxLayout(self)
+
+        layout.addWidget(self._respect_printings_label)
+        layout.addWidget(self._respect_printings_selector)
+
+        self._respect_printings_selector.stateChanged.connect(
+            lambda v: self._booster_specification_selector.booster_specification_value_changed.emit(
+                'respect_printings',
+                v == 2,
+            )
+        )
+
+    def get_default_values(self) -> t.Mapping[str, t.Any]:
+        return {
+            'type': 'AllCardsBoosterSpecification',
+            'amount': 1,
+            'respect_printings': True,
+        }
+
+    def update_content(self, specification: t.Mapping[str, t.Any], enabled: bool) -> None:
+        self._respect_printings_selector.blockSignals(True)
+        self._respect_printings_selector.setChecked(specification['respect_printings'])
+        self._respect_printings_selector.setEnabled(enabled)
+        self._respect_printings_selector.blockSignals(False)
+
+
 class BoosterSpecificationSelector(QtWidgets.QStackedWidget):
     booster_specification_value_changed = pyqtSignal(str, object)
 
@@ -487,10 +525,12 @@ class BoosterSpecificationSelector(QtWidgets.QStackedWidget):
 
         self._cube_booster_specification_selector = CubeBoosterSpecificationSelector(lobby_view, self)
         self._expansion_booster_specification_selector = ExpansionBoosterSpecificationSelector(lobby_view, self)
+        self._all_cards_booster_selector = AllCardsBoosterSpecificationSelector(lobby_view, self)
 
         self.specification_type_map = {
             'CubeBoosterSpecification': self._cube_booster_specification_selector,
             'ExpansionBoosterSpecification': self._expansion_booster_specification_selector,
+            'AllCardsBoosterSpecification': self._all_cards_booster_selector,
         }
 
         for selector in self.specification_type_map.values():
@@ -522,6 +562,7 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
         self._add_booster_specification_type_selector = QtWidgets.QComboBox()
         self._add_booster_specification_type_selector.addItem('CubeBoosterSpecification')
         self._add_booster_specification_type_selector.addItem('ExpansionBoosterSpecification')
+        self._add_booster_specification_type_selector.addItem('AllCardsBoosterSpecification')
 
         layout = QtWidgets.QHBoxLayout(self)
 
