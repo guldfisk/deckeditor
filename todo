@@ -2,13 +2,15 @@ fix rubberband on windows
 fix style on windows
 fix image loading sometimes breaking on compiled version (primarily windows?)
 
-burn draft
-picks log view
+burns in pick log
+filter / search pick log
+"go back in time", so select previous pick from table or whatever, and booster view displays how booster looked at that point, with picked (and burned or whatever applicable) card highlighted.
+booster arrived notification when minimized (problem here is just finding out how to detect application is minimized)
 seen cards view
 add unpickable ghost cards of known non wheels from booster
 current pick info
 current pack # info
-remember card positions in pool on draft reconnect
+draft bots
 
 dont add cards to hidden views on doubble click? (so when pool is hidden, default double click on card in maindeck moves to sideboard and vice versa)
 insert column/row before/after option on grid aligner
