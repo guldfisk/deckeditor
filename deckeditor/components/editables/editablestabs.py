@@ -252,7 +252,18 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
                     (extension, Pool)
                 ]
             except KeyError:
-                raise FileSaveException('invalid file type "{}"'.format(extension))
+                try:
+                    serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
+                        (extension, Deck)
+                    ]
+                except KeyError:
+                    raise FileSaveException('invalid file type "{}"'.format(extension))
+
+                serialized = serializer.serialize(editable.pool_model.as_deck())
+                with open(path, 'w' if isinstance(serialized, str) else 'wb') as f:
+                    f.write(serialized)
+
+                return
 
             with open(path, 'w') as f:
                 f.write(serializer.serialize(editable.pool_model.as_pool()))
