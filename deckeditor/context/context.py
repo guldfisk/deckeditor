@@ -4,6 +4,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QClipboard
 from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack, QMainWindow
+from promise import promise
 
 from cubeclient.endpoints import NativeApiClient
 from deckeditor.components.editables.editor import Editor
@@ -71,6 +72,9 @@ class _Context(QObject):
         cls.host = Context.settings.value('host_name', 'localhost:7000')
         cls.username = Context.settings.value('username', 'root')
         cls.cube_api_client = NativeApiClient(host = cls.host, db = cls.db)
+
+        # https://github.com/syrusakbary/promise/issues/57
+        promise.async_instance.disable_trampoline()
 
         cls.pixmap_loader = PixmapLoader(
             pixmap_executor = 30,

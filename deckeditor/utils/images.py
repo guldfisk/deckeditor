@@ -11,6 +11,8 @@ class ScaledImageLabel(QtWidgets.QLabel):
         self.setScaledContents(False)
         self._pixmap: t.Optional[QtGui.QPixmap] = None
 
+        self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignHCenter)
+
     @property
     def pixmap(self) -> QtGui.QPixmap:
         return self._pixmap

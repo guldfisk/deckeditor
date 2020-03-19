@@ -4,7 +4,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoStack
+from PyQt5.QtWidgets import QUndoStack, QGraphicsScene
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubeview import CubeView
@@ -61,6 +61,15 @@ class PoolView(Editable):
             )
         )
 
+        self._all_scenes = {
+            self._maindeck_cube_view.cube_scene,
+            self._sideboard_cube_view.cube_scene,
+            self._pool_cube_view.cube_scene,
+        }
+
+        for scene in self._all_scenes:
+            scene.selection_cleared.connect(self._on_cube_scene_selection_cleared)
+
         self._horizontal_splitter.addWidget(self._maindeck_cube_view)
         self._horizontal_splitter.addWidget(self._sideboard_cube_view)
 
@@ -74,6 +83,11 @@ class PoolView(Editable):
         self._connect_move_cubeable(self._maindeck_cube_view, self._pool_cube_view, self._sideboard_cube_view)
         self._connect_move_cubeable(self._sideboard_cube_view, self._pool_cube_view, self._maindeck_cube_view)
         self._connect_move_cubeable(self._pool_cube_view, self._maindeck_cube_view, self._sideboard_cube_view)
+
+    def _on_cube_scene_selection_cleared(self, scene: QGraphicsScene) -> None:
+        for _scene in self._all_scenes:
+            if _scene != scene:
+                _scene.clear_selection(propagate = False)
 
     def _connect_move_cubeable(
         self,

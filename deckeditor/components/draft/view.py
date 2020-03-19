@@ -293,6 +293,7 @@ class BoosterWidget(QtWidgets.QWidget):
         self._players_list = QtWidgets.QLabel()
         self._players_list.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
         self._pack_counter_label = QtWidgets.QLabel()
+        self._pick_counter_label = QtWidgets.QLabel()
         self._booster_scene = CubeScene(GridAligner, mode = CubeEditMode.CLOSED)
         self._booster_view = CubeView(
             scene = self._booster_scene,
@@ -310,6 +311,7 @@ class BoosterWidget(QtWidgets.QWidget):
 
         info_bar_layout.addWidget(self._players_list)
         info_bar_layout.addWidget(self._pack_counter_label)
+        info_bar_layout.addWidget(self._pick_counter_label)
 
         layout.addLayout(info_bar_layout)
         layout.addWidget(self._booster_view)
@@ -317,7 +319,6 @@ class BoosterWidget(QtWidgets.QWidget):
         self._draft_model.received_booster.connect(self._on_receive_booster)
         self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
         self._draft_model.round_started.connect(self._on_round_started)
-        # self._booster_view.cubeable_double_clicked.connect(self._draft_model.pick)
         self._booster_view.cube_image_view.card_double_clicked.connect(self._on_card_double_clicked)
 
     def _on_card_double_clicked(self, card: PhysicalCard, modifiers: Qt.KeyboardModifiers):
@@ -343,7 +344,11 @@ class BoosterWidget(QtWidgets.QWidget):
         self._pack_counter_label.setText(
             'Pack: {}/{}'.format(
                 draft_round.pack,
-                '?',
+                sum(
+                    spec.amount
+                    for spec in
+                    self._draft_model.draft_client.pool_specification.booster_specifications
+                ),
             )
         )
 
@@ -367,8 +372,6 @@ class BoosterWidget(QtWidgets.QWidget):
         booster: Booster,
         new: bool,
     ) -> None:
-        if not new:
-            return
         self._booster_scene.get_cube_modification(
             remove = self._booster_scene.items(),
             closed_operation = True,
