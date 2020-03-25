@@ -1,24 +1,40 @@
 from __future__ import annotations
 
 import typing as t
+from abc import abstractmethod
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from deckeditor.models.cubes.alignment.dynamicstackinggrid import DynamicStackingGrid
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 from mtgorp.models.collections.deck import Deck as OrpDeck
 
 from magiccube.collections.cube import Cube
 
+from deckeditor.models.cubes.alignment.dynamicstackinggrid import DynamicStackingGrid
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
-from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.models.cubes.cubescene import CubeScene
 
 
 class TabModel(Serializeable):
-    pass
+
+    @abstractmethod
+    def serialize(self) -> serialization_model:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deserialize(cls, value: serialization_model, inflator: Inflator) -> Serializeable:
+        pass
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        pass
+
+    @abstractmethod
+    def __eq__(self, other: object) -> bool:
+        pass
 
 
 class Deck(TabModel):
@@ -52,6 +68,13 @@ class Deck(TabModel):
         return OrpDeck(
             self._maindeck.printings,
             self._sideboard.printings,
+        )
+
+    @classmethod
+    def from_primitive_deck(cls, deck: OrpDeck) -> Deck:
+        return cls(
+            Cube(deck.maindeck),
+            Cube(deck.sideboard),
         )
 
     def __hash__(self) -> int:

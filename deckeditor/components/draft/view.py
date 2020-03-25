@@ -448,6 +448,36 @@ class PicksTable(QtWidgets.QTableWidget):
         self.resizeColumnsToContents()
 
 
+class BotsView(QtWidgets.QWidget):
+
+    def __init__(
+        self,
+        draft_model: DraftModel,
+    ) -> None:
+        super().__init__()
+        self._draft_model = draft_model
+
+        self._active_button = QtWidgets.QPushButton('activate')
+
+        self._mode_picker = QtWidgets.QComboBox()
+        self._mode_picker.addItems(('Pick', 'Recommend'))
+
+        self._delay_pick = QtWidgets.QSpinBox()
+        self._delay_pick.setRange(0, 60)
+
+        self._bot_picker
+
+        layout = QtWidgets.QHBoxLayout(self)
+
+        options_layout = QtWidgets.QFormLayout()
+
+        options_layout.addWidget(self._active_button)
+        options_layout.addRow('mode', self._mode_picker)
+        options_layout.addRow('delay', self._delay_pick)
+
+        layout.addLayout(options_layout)
+
+
 class DraftView(Editable):
 
     def __init__(
@@ -467,9 +497,11 @@ class DraftView(Editable):
 
         self._pool_view = PoolView(self._pool_model) if pool_view is None else pool_view
         self._picks_table = PicksTable(self._draft_model)
+        self._bots_view = BotsView(self._draft_model)
 
         self._bottom_tabs.addTab(self._pool_view, 'pool')
         self._bottom_tabs.addTab(self._picks_table, 'picks')
+        self._bottom_tabs.addTab(self._bots_view, 'bots')
 
         self._splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 

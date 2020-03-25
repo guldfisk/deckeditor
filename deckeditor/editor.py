@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBo
 from deckeditor.components.draft.view import DraftView
 from deckeditor.components.sealed.view import LimitedSessionsView
 from deckeditor.components.views.editables.pool import PoolView
+from deckeditor.serialization.tabmodelserializer import init_deck_serializers
 from yeetlong.multiset import Multiset
 
 from mtgorp.db import create
@@ -289,8 +290,8 @@ class MainWindow(QMainWindow, CardAddable):
 
         try:
             self._main_view.editables_tabs.open_file(file_path, target)
-        except FileOpenException:
-            Context.notification_message.emit('Corrupt file or wrong inferred type')
+        except FileOpenException as e:
+            Context.notification_message.emit('Corrupt file or wrong inferred type.\n{}'.format(e))
 
     def _save(self):
         try:
@@ -427,6 +428,8 @@ def run():
         if not MtgOrpDialog().exec_() == QDialog.Accepted:
             return
         Context.init(app)
+
+    init_deck_serializers()
 
     main_window = MainWindow()
 

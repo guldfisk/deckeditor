@@ -4,10 +4,9 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QClipboard
 from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack, QMainWindow
+
 from promise import promise
 
-from cubeclient.endpoints import NativeApiClient
-from deckeditor.components.editables.editor import Editor
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
 from mtgorp.models.interfaces import Cardboard
@@ -16,8 +15,11 @@ from mtgorp.tools.parsing.search.parse import SearchParser
 from mtgimg.load import Loader as ImageLoader
 
 from cubeclient.models import ApiClient
+from cubeclient.endpoints import NativeApiClient
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
+
+from deckeditor.components.editables.editor import Editor
 
 
 class _Context(QObject):
