@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import threading
 import typing as t
+from concurrent.futures import Future
+from concurrent.futures.thread import ThreadPoolExecutor
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
 
 from mtgorp.db.database import CardDatabase
 
@@ -29,6 +31,7 @@ from deckeditor.components.views.cubeedit.cubelistview import CubeableTableItem
 from deckeditor.components.editables.editor import EditablesMeta
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
+from deckeditor.components.draft.draftbots import collect_bots, bot_pick
 
 
 class _DraftClient(DraftClient):
@@ -321,6 +324,10 @@ class BoosterWidget(QtWidgets.QWidget):
         self._draft_model.round_started.connect(self._on_round_started)
         self._booster_view.cube_image_view.card_double_clicked.connect(self._on_card_double_clicked)
 
+    @property
+    def booster_scene(self) -> CubeScene:
+        return self._booster_scene
+
     def _on_card_double_clicked(self, card: PhysicalCard, modifiers: Qt.KeyboardModifiers):
         self._draft_model.pick(
             card = card,
@@ -449,6 +456,7 @@ class PicksTable(QtWidgets.QTableWidget):
 
 
 class BotsView(QtWidgets.QWidget):
+    picked = pyqtSignal(object, bool)
 
     def __init__(
         self,
@@ -457,7 +465,9 @@ class BotsView(QtWidgets.QWidget):
         super().__init__()
         self._draft_model = draft_model
 
+        self._active = False
         self._active_button = QtWidgets.QPushButton('activate')
+        self._active_button.clicked.connect(self._activate_toggle)
 
         self._mode_picker = QtWidgets.QComboBox()
         self._mode_picker.addItems(('Pick', 'Recommend'))
@@ -465,7 +475,14 @@ class BotsView(QtWidgets.QWidget):
         self._delay_pick = QtWidgets.QSpinBox()
         self._delay_pick.setRange(0, 60)
 
-        self._bot_picker
+        self._bots = collect_bots()
+        self._bot_picker = QtWidgets.QComboBox()
+        self._bot_picker.addItems(self._bots)
+
+        self._executor: t.Optional[ThreadPoolExecutor] = None
+        self._pending_pick: t.Optional[Future] = None
+
+        self._draft_model.received_booster.connect(self._submit_booster)
 
         layout = QtWidgets.QHBoxLayout(self)
 
@@ -475,7 +492,73 @@ class BotsView(QtWidgets.QWidget):
         options_layout.addRow('mode', self._mode_picker)
         options_layout.addRow('delay', self._delay_pick)
 
+        bot_select_layout = QtWidgets.QVBoxLayout()
+
+        bot_select_layout.addWidget(self._bot_picker)
+
         layout.addLayout(options_layout)
+        layout.addLayout(bot_select_layout)
+
+    def _activate_toggle(self) -> None:
+        if self._active:
+            self.deactivate()
+        else:
+            self.activate()
+
+    def deactivate(self) -> None:
+        if not self._active:
+            return
+
+        self._active = False
+        self._active_button.setText('activate')
+        if self._pending_pick is not None:
+            self._pending_pick.cancel()
+            self._pending_pick = None
+
+    def _on_bot_complete(self, pick: Cubeable, booster: Booster) -> None:
+        if booster == self._draft_model.draft_client.current_booster:
+            self.picked.emit(pick, self._mode_picker.currentText() == 'Recommend')
+
+    def _submit_booster(self, booster: Booster) -> None:
+        if not self._active:
+            return
+
+        self._pending_pick = self._executor.submit(
+            bot_pick,
+            self._bots[self._bot_picker.currentText()],
+            booster,
+            self._draft_model.draft_client.pool,
+            self._delay_pick.value(),
+            self._on_bot_complete,
+        )
+
+    def activate(self) -> None:
+        if self._active:
+            return
+
+        if self._mode_picker.currentText() == 'Pick':
+            confirm_dialog = QMessageBox()
+            confirm_dialog.setText('Confirm bot draft')
+            confirm_dialog.setInformativeText(
+                'You sure you want to activate bot with mode: {}'.format(self._mode_picker.currentText())
+            )
+            confirm_dialog.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+            confirm_dialog.setDefaultButton(QMessageBox.No)
+            return_code = confirm_dialog.exec_()
+
+            if return_code == QMessageBox.No:
+                return
+
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers = 3)
+
+        self._active = True
+        self._active_button.setText('deactivate')
+
+        current_booster = self._draft_model.draft_client.current_booster
+
+        if current_booster is not None and self._pending_pick is None:
+            self._submit_booster(current_booster)
 
 
 class DraftView(Editable):
@@ -512,13 +595,35 @@ class DraftView(Editable):
 
         layout.addWidget(self._splitter)
 
-        self._draft_model.connect()
+        self._draft_model.draft_started.connect(self._on_draft_started)
         self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
         self._draft_model.draft_completed.connect(self._on_draft_completed)
+        self._bots_view.picked.connect(self._on_bot_picked)
+
+        self._draft_model.connect()
 
     @property
     def pool_model(self) -> PoolModel:
         return self._pool_model
+
+    def _on_draft_started(self) -> None:
+        if isinstance(self._draft_model.draft_client.draft_format, Burn):
+            self._bottom_tabs.setTabEnabled(self._bottom_tabs.indexOf(self._bots_view), False)
+
+    def _on_bot_picked(self, pick: Cubeable, recommend: bool):
+        if recommend:
+            found = False
+            for card in self._booster_widget.booster_scene.items():
+                if not found and card.cubeable == pick:
+                    card.set_highlight(QColor(0, 0, 255, 100))
+                    found = True
+                else:
+                    card.clear_highlight()
+        else:
+            for card in self._booster_widget.booster_scene.items():
+                if card.cubeable == pick:
+                    self._draft_model.pick(card)
+                    return
 
     def _on_cubeable_picked(
         self,

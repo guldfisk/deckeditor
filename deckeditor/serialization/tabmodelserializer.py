@@ -11,6 +11,7 @@ from mtgorp.tools import deckio
 from deckeditor.context.context import Context
 from deckeditor.models.deck import Deck, TabModel, Pool
 
+
 T = t.TypeVar('T', bound = TabModel)
 
 
@@ -64,36 +65,6 @@ def init_deck_serializers():
         )
 
 
-# class DecSerializer(TabModelSerializer[Deck]):
-#     extensions = ['dec', 'mwDeck']
-#     tab_model_type = Deck
-#
-#     _serializer = deckio.DecSerializer(Context.db)
-#
-#     @classmethod
-#     def serialize(cls, tab_model: Deck) -> t.AnyStr:
-#         return cls._serializer.serialize(tab_model.as_primitive_deck())
-#
-#     @classmethod
-#     def deserialize(cls, s: t.AnyStr) -> Deck:
-#         return Deck.from_primitive_deck(cls._serializer.deserialize(s))
-#
-#
-# class DeckJsonSerializer(TabModelSerializer[Deck]):
-#     extensions = ['json', 'JSON']
-#     tab_model_type = Deck
-#
-#     _serializer = deckio.JsonSerializer(Context.db)
-#
-#     @classmethod
-#     def serialize(cls, tab_model: Deck) -> t.AnyStr:
-#         return cls._serializer.serialize(tab_model.as_primitive_deck())
-#
-#     @classmethod
-#     def deserialize(cls, s: t.AnyStr) -> Deck:
-#         return Deck.from_primitive_deck(cls._serializer.deserialize(s))
-#
-#
 class PoolJsonSerializer(TabModelSerializer[Pool]):
     extensions = ['json', 'JSON']
     tab_model_type = Pool
@@ -105,18 +76,3 @@ class PoolJsonSerializer(TabModelSerializer[Pool]):
     @classmethod
     def deserialize(cls, s: t.AnyStr) -> Pool:
         return JsonId(Context.db).deserialize(Pool, s)
-#
-#
-# class CodSerializer(TabModelSerializer[Deck]):
-#     extensions = ['cod']
-#     tab_model_type = Deck
-#
-#     _serializer = deckio.CodSerializer(Context.db)
-#
-#     @classmethod
-#     def serialize(cls, tab_model: Deck) -> t.AnyStr:
-#         return cls._serializer.serialize(tab_model.as_primitive_deck())
-#
-#     @classmethod
-#     def deserialize(cls, s: t.AnyStr) -> Deck:
-#         return Deck.from_primitive_deck(cls._serializer.deserialize(s))
