@@ -9,6 +9,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
+from mtgorp.models.persistent.printing import Printing
 
 from mtgorp.db.database import CardDatabase
 
@@ -59,7 +60,7 @@ class _DraftClient(DraftClient):
 class DraftModel(QObject):
     connected = pyqtSignal(bool)
     received_booster = pyqtSignal(Booster)
-    cubeable_picked = pyqtSignal(object, tuple, Booster, bool)
+    picked = pyqtSignal(object, tuple, Booster, bool)
     draft_started = pyqtSignal()
     round_started = pyqtSignal(DraftRound)
     draft_completed = pyqtSignal(int, str)
@@ -93,12 +94,8 @@ class DraftModel(QObject):
             else:
                 self._pick_number = pick_number
 
-        self.cubeable_picked.emit(
-            (
-                pick.cubeable
-                if isinstance(pick, SinglePickPick) else
-                pick.pick
-            ),
+        self.picked.emit(
+            pick,
             (self._pending_picked_scene, self._pending_picked_position),
             booster,
             new,
@@ -320,7 +317,7 @@ class BoosterWidget(QtWidgets.QWidget):
         layout.addWidget(self._booster_view)
 
         self._draft_model.received_booster.connect(self._on_receive_booster)
-        self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
+        self._draft_model.picked.connect(self._on_picked)
         self._draft_model.round_started.connect(self._on_round_started)
         self._booster_view.cube_image_view.card_double_clicked.connect(self._on_card_double_clicked)
 
@@ -372,9 +369,9 @@ class BoosterWidget(QtWidgets.QWidget):
             closed_operation = True,
         ).redo()
 
-    def _on_cubeable_picked(
+    def _on_picked(
         self,
-        cubeable: Cubeable,
+        pick: Pick,
         target: t.Tuple[t.Optional[CubeScene], t.Optional[QtCore.QPoint]],
         booster: Booster,
         new: bool,
@@ -388,7 +385,7 @@ class BoosterWidget(QtWidgets.QWidget):
 class PicksTable(QtWidgets.QTableWidget):
 
     def __init__(self, draft_model: DraftModel):
-        super().__init__(0, 4)
+        super().__init__(0, 5)
 
         self._draft_model = draft_model
 
@@ -398,6 +395,7 @@ class PicksTable(QtWidgets.QTableWidget):
                 'Pick Number',
                 'Pick',
                 'Burn',
+                'Booster',
             )
         )
 
@@ -409,7 +407,7 @@ class PicksTable(QtWidgets.QTableWidget):
         self.currentCellChanged.connect(self._handle_current_cell_changed)
 
         self._draft_model.round_started.connect(self._on_round_started)
-        self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
+        self._draft_model.picked.connect(self._on_picked)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         super().mouseMoveEvent(event)
@@ -429,9 +427,9 @@ class PicksTable(QtWidgets.QTableWidget):
     def _on_round_started(self, draft_round: DraftRound) -> None:
         self._current_pack = draft_round.pack
 
-    def _on_cubeable_picked(
+    def _on_picked(
         self,
-        cubeable: Cubeable,
+        pick: Pick,
         target: t.Tuple[t.Optional[CubeScene], t.Optional[QtCore.QPoint]],
         booster: Booster,
         new: bool,
@@ -447,10 +445,38 @@ class PicksTable(QtWidgets.QTableWidget):
             1,
             QtWidgets.QTableWidgetItem(str(booster.pick)),
         )
+        if isinstance(pick, SinglePickPick):
+            self.setItem(
+                0,
+                2,
+                CubeableTableItem(pick.cubeable),
+            )
+        elif isinstance(pick, BurnPick):
+            self.setItem(
+                0,
+                2,
+                CubeableTableItem(pick.pick),
+            )
+            if pick.burn is not None:
+                self.setItem(
+                    0,
+                    3,
+                    CubeableTableItem(pick.burn),
+                )
         self.setItem(
             0,
-            2,
-            CubeableTableItem(cubeable),
+            4,
+            QtWidgets.QTableWidgetItem(
+                ', '.join(
+                    (
+                        cubeable.cardboard.name
+                        if isinstance(cubeable, Printing) else
+                        cubeable.description
+                    )
+                    for cubeable in
+                    booster.cubeables
+                )
+            ),
         )
         self.resizeColumnsToContents()
 
@@ -596,7 +622,7 @@ class DraftView(Editable):
         layout.addWidget(self._splitter)
 
         self._draft_model.draft_started.connect(self._on_draft_started)
-        self._draft_model.cubeable_picked.connect(self._on_cubeable_picked)
+        self._draft_model.picked.connect(self._on_picked)
         self._draft_model.draft_completed.connect(self._on_draft_completed)
         self._bots_view.picked.connect(self._on_bot_picked)
 
@@ -625,9 +651,9 @@ class DraftView(Editable):
                     self._draft_model.pick(card)
                     return
 
-    def _on_cubeable_picked(
+    def _on_picked(
         self,
-        cubeable: Cubeable,
+        pick: Pick,
         target: t.Tuple[t.Optional[CubeScene], t.Optional[QtCore.QPoint]],
         booster: Booster,
         new: bool,
@@ -640,7 +666,7 @@ class DraftView(Editable):
         scene, position = target
 
         (self._pool_view.pool_model.pool if scene is None else scene).get_cube_modification(
-            add = (PhysicalCard.from_cubeable(cubeable),),
+            add = list(map(PhysicalCard.from_cubeable, pick.added_cubeables)),
             closed_operation = True,
             position = position,
         ).redo()
