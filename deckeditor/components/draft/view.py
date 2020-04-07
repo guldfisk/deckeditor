@@ -9,6 +9,8 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
+
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from mtgorp.models.persistent.printing import Printing
 
 from mtgorp.db.database import CardDatabase
@@ -413,7 +415,7 @@ class PicksTable(QtWidgets.QTableWidget):
         super().mouseMoveEvent(event)
         item = self.itemAt(event.pos())
         if item is not None:
-            Context.focus_card_changed.emit(self.item(item.row(), 2).cubeable)
+            Context.focus_card_changed.emit(CubeableFocusEvent(self.item(item.row(), 2).cubeable))
 
     def _handle_current_cell_changed(
         self,
@@ -422,7 +424,7 @@ class PicksTable(QtWidgets.QTableWidget):
         previous_row: int,
         previous_column: int,
     ):
-        Context.focus_card_changed.emit(self.item(current_row, 2).cubeable)
+        Context.focus_card_changed.emit(CubeableFocusEvent(self.item(current_row, 2).cubeable))
 
     def _on_round_started(self, draft_round: DraftRound) -> None:
         self._current_pack = draft_round.pack
@@ -542,7 +544,7 @@ class BotsView(QtWidgets.QWidget):
             self._pending_pick = None
 
     def _on_bot_complete(self, pick: Cubeable, booster: Booster) -> None:
-        if booster == self._draft_model.draft_client.current_booster:
+        if booster == self._draft_model.draft_client.current_booster and self._active:
             self.picked.emit(pick, self._mode_picker.currentText() == 'Recommend')
 
     def _submit_booster(self, booster: Booster) -> None:

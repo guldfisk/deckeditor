@@ -5,6 +5,7 @@ from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QUndoStack
 
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from mtgorp.models.persistent.printing import Printing
 
@@ -127,7 +128,7 @@ class CubeListView(QTableWidget):
             previous_row: int,
             previous_column: int,
     ):
-        Context.focus_card_changed.emit(self.item(current_row, 1).cubeable)
+        Context.focus_card_changed.emit(CubeableFocusEvent(self.item(current_row, 1).cubeable))
 
     def _handle_item_edit(self, item: CubeableTableItem):
         if item.column() == 0:
@@ -212,4 +213,4 @@ class CubeListView(QTableWidget):
         super().mouseMoveEvent(event)
         item = self.itemAt(event.pos())
         if item is not None:
-            Context.focus_card_changed.emit(self.item(item.row(), 1).cubeable)
+            Context.focus_card_changed.emit(CubeableFocusEvent(self.item(item.row(), 1).cubeable))

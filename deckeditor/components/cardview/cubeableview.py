@@ -4,6 +4,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode
@@ -39,7 +40,12 @@ class CubeableImageView(ScaledImageLabel):
         if image_request == self._image_request:
             self.setPixmap(pixmap)
 
-    def _set_cubeable(self, cubeable: Cubeable) -> None:
+    def _set_cubeable(self, focus: CubeableFocusEvent) -> None:
+        if isinstance(focus.cubeable, Trap) and focus.size is not None and focus.position is not None:
+            cubeable = focus.cubeable.get_printing_at(*focus.position, *focus.size)
+        else:
+            cubeable = focus.cubeable
+
         if cubeable == self._cubeable:
             return
 
@@ -57,19 +63,19 @@ class CubeableImageView(ScaledImageLabel):
             )
         )
 
-    def fit_image(self) -> None:
-        self.resize(self.pixmap.size())
+    # def fit_image(self) -> None:
+    #     self.resize(self.pixmap.size())
 
-    def contextMenuEvent(self, context_event: QtGui.QContextMenuEvent):
-        menu = QtWidgets.QMenu(self)
-
-        resize = QtWidgets.QAction('100%', self)
-
-        resize.triggered.connect(self.fit_image)
-
-        menu.addAction(resize)
-
-        menu.exec_(self.mapToGlobal(context_event.pos()))
+    # def contextMenuEvent(self, context_event: QtGui.QContextMenuEvent):
+    #     menu = QtWidgets.QMenu(self)
+    #
+    #     resize = QtWidgets.QAction('100%', self)
+    #
+    #     resize.triggered.connect(self.fit_image)
+    #
+    #     menu.addAction(resize)
+    #
+    #     menu.exec_(self.mapToGlobal(context_event.pos()))
 
 
 class CubeableTextView(QtWidgets.QWidget):
@@ -108,20 +114,20 @@ class CubeableTextView(QtWidgets.QWidget):
 
         self._cubeable_view.new_cubeable.connect(self._on_new_cubeable)
 
-    def _on_new_cubeable(self, cubeable: Cubeable) -> None:
-        if self._latest_cubeable == cubeable:
+    def _on_new_cubeable(self, focus: CubeableFocusEvent) -> None:
+        if self._latest_cubeable == focus.cubeable:
             return
 
-        self._latest_cubeable = cubeable
+        self._latest_cubeable = focus.cubeable
 
-        view = self._cubeable_view_map.get(type(cubeable))
+        view = self._cubeable_view_map.get(type(focus.cubeable))
 
         if view is None:
             self._stack.setCurrentWidget(self._blank)
 
         else:
             self._stack.setCurrentWidget(view)
-            view.set_cubeable(cubeable)
+            view.set_cubeable(focus.cubeable)
 
 
 class CardTextView(QtWidgets.QWidget):
@@ -333,7 +339,7 @@ class TextImageCubeableView(QtWidgets.QWidget):
 
 
 class CubeableView(QtWidgets.QWidget):
-    new_cubeable = QtCore.pyqtSignal(object)
+    new_cubeable = QtCore.pyqtSignal(CubeableFocusEvent)
 
     def __init__(self, parent: t.Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)

@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack
 
 from promise import promise
 
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from magiccube.collections.cubeable import Cubeable
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
 from mtgorp.models.interfaces import Cardboard
@@ -46,7 +48,7 @@ class _Context(QObject):
 
     notification_message = pyqtSignal(str)
 
-    focus_card_changed = pyqtSignal(object)
+    focus_card_changed = pyqtSignal(CubeableFocusEvent)
     focus_scene_changed = pyqtSignal(QGraphicsScene)
 
     draft_started = pyqtSignal(object)

@@ -6,6 +6,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCompleter, QInputDialog
 
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
 from mtgorp.tools.parsing.exceptions import ParseException
@@ -103,7 +104,7 @@ class PrintingList(QtWidgets.QListWidget):
 
         if current is not None:
             Context.focus_card_changed.emit(
-                current.printing
+                CubeableFocusEvent(current.printing)
             )
             self.scrollTo(self.currentIndex())
 
@@ -189,9 +190,7 @@ class CardboardList(QtWidgets.QListWidget):
             self._printing_list.set_printings(printings)
             self._printing_list.setCurrentIndex(self._printing_list.model().index(0, 0))
             self.scrollTo(self.currentIndex())
-            Context.focus_card_changed.emit(
-                current.cardboard.latest_printing
-            )
+            Context.focus_card_changed.emit(CubeableFocusEvent(current.cardboard.latest_printing))
 
     def _select_cardboard(self):
         self._printing_list.setFocus()

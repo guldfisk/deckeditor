@@ -7,6 +7,7 @@ from PyQt5.QtCore import QPoint, Qt, QRectF
 from PyQt5.QtGui import QPainter, QPolygonF
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from yeetlong.multiset import Multiset
 
 from magiccube.collections.cube import Cube
@@ -500,7 +501,21 @@ class CubeImageView(QtWidgets.QGraphicsView):
             item = self.itemAt(mouse_event.pos())
 
             if isinstance(item, PhysicalCard):
-                Context.focus_card_changed.emit(item.cubeable)
+                card_mapped_position = self.mapToScene(mouse_event.pos()) - item.pos()
+
+                Context.focus_card_changed.emit(
+                    CubeableFocusEvent(
+                        item.cubeable,
+                        (
+                            item.boundingRect().width(),
+                            item.boundingRect().height(),
+                        ),
+                        (
+                            card_mapped_position.x(),
+                            card_mapped_position.y(),
+                        ),
+                    )
+                )
 
             if mouse_event.buttons():
                 self._rubber_band_origin = mouse_event.pos()
