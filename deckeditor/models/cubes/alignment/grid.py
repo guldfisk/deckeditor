@@ -240,7 +240,7 @@ class GridAligner(Aligner):
         cards: t.Sequence[PhysicalCard],
         orientation: int,
         in_place: bool = False,
-    ) -> QUndoCommand:
+    ) -> GridSort:
         return GridSort(
             self,
             sort_property,

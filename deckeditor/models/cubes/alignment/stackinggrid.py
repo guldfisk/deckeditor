@@ -164,6 +164,9 @@ class CardStacker(ABC):
             self._aligner.remove_card(card)
         self._cards.clear()
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({id(self)})'
+
 
 class StackingDrop(AlignmentPickUp):
 
@@ -231,11 +234,9 @@ class StackingPickUp(AlignmentDrop):
         for stacker, cards in self._stacker_map.items():
             if stacker:
                 stacker.remove_cards(
-                    (
-                        card
-                        for position, card in
-                        cards
-                    )
+                    card
+                    for position, card in
+                    cards
                 )
 
     def undo(self):
@@ -357,9 +358,9 @@ class _StackingSort(QUndoCommand):
 
     def _card_sorted_indexes(self) -> t.Iterator[t.Tuple[PhysicalCard, int, int]]:
         info_extractor = (
-            (lambda i, info: (i + self._smallest_index, info[0].index[1]))
+            (lambda _i, info: (_i + self._smallest_index, info[0].index[1]))
             if self._orientation == QtCore.Qt.Horizontal else
-            (lambda i, info: (info[0].index[0], i + self._smallest_index))
+            (lambda _i, info: (info[0].index[0], _i + self._smallest_index))
         )
 
         for card, i in self._cards_separated:
@@ -493,6 +494,98 @@ class ExpansionSort(_ValueToPositionSort):
 
 class CollectorsNumberSort(_StackingSort):
     sort_property_extractor = sorting.CollectorNumberExtractor
+
+
+class RowColumnInsert(QUndoCommand):
+
+    def __init__(self, grid: StackingGrid, idx: int):
+        super().__init__('Insert row/column')
+        self._grid = grid
+        self._idx = idx
+
+
+class ColumnInsert(RowColumnInsert):
+
+    def __init__(self, grid: StackingGrid, idx: int):
+        super().__init__(grid, idx)
+
+        if self._idx >= self._grid.stacker_map.row_length:
+            self.setObsolete(True)
+
+        self._stackers: t.List[t.List[t.List[PhysicalCard]]] = []
+
+    def _setup(self):
+        self._stackers = [
+            [
+                list(stacker.cards)
+                for stacker in
+                column
+            ] for column in
+            self._grid.stacker_map.columns[self._idx:-1]
+        ]
+
+    def redo(self) -> None:
+        if not self._stackers:
+            self._setup()
+
+        for column in self._grid.stacker_map.columns[self._idx:-1]:
+            for stacker in column:
+                stacker.clear_no_restack()
+
+        for x, column in enumerate(self._stackers):
+            for y, cards in enumerate(column):
+                self._grid.stacker_map.get_stacker(self._idx + x + 1, y).add_cards(cards)
+
+    def undo(self) -> None:
+        for x, column in enumerate(self._stackers):
+            for y, cards in enumerate(column):
+                self._grid.stacker_map.get_stacker(self._idx + x + 1, y).remove_cards_no_restack(cards)
+
+        for x, column in enumerate(self._stackers):
+            for y, cards in enumerate(column):
+                self._grid.stacker_map.get_stacker(self._idx + x, y).add_cards(cards)
+
+
+class RowInsert(RowColumnInsert):
+
+    def __init__(self, grid: StackingGrid, idx: int):
+        super().__init__(grid, idx)
+
+        if self._idx >= self._grid.stacker_map.column_height:
+            self.setObsolete(True)
+
+        self._stackers: t.List[t.List[t.List[PhysicalCard]]] = []
+
+    def _setup(self):
+        self._stackers = [
+            [
+                list(stacker.cards)
+                for stacker in
+                rows
+            ] for rows in
+            list(self._grid.stacker_map.rows)[self._idx:-1]
+        ]
+
+    def redo(self) -> None:
+        if not self._stackers:
+            self._setup()
+
+        for row in list(self._grid.stacker_map.rows)[self._idx:-1]:
+            for stacker in row:
+                stacker.clear_no_restack()
+
+        for y, row in enumerate(self._stackers):
+            for x, cards in enumerate(row):
+                self._grid.stacker_map.get_stacker(x, self._idx + y + 1).add_cards(cards)
+
+    def undo(self) -> None:
+        for y, row in enumerate(self._stackers):
+            for x, cards in enumerate(row):
+                self._grid.stacker_map.get_stacker(x, self._idx + y + 1).remove_cards_no_restack(cards)
+
+        for y, row in enumerate(self._stackers):
+            for x, cards in enumerate(row):
+                self._grid.stacker_map.get_stacker(x, self._idx + y).add_cards(cards)
 
 
 class _CardInfo(object):
@@ -1061,6 +1154,12 @@ class StackingGrid(Aligner):
 
         return _sort_all_stackers
 
+    def insert_row(self, idx: int) -> QUndoCommand:
+        pass
+
+    def insert_column(self, idx: int) -> QUndoCommand:
+        pass
+
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
         stacker = self.get_card_stacker(position.x(), position.y())
 
@@ -1078,11 +1177,12 @@ class StackingGrid(Aligner):
             all_sort_action.triggered.connect(self._get_all_sort_stacker(sort_property, undo_stack))
             all_stacker_sort_menu.addAction(all_sort_action)
 
-    # def persist(self) -> t.Any:
-    #     return {
-    #         'stacker_map': self._stacker_map.persist(),
-    #     }
-    #
-    # @classmethod
-    # def load(cls, state: t.Any) -> StackingGrid:
-    #     pass
+        insert_stacker_menu = menu.addMenu('Insert')
+
+        add_column_action = QtWidgets.QAction('Column', insert_stacker_menu)
+        add_column_action.triggered.connect(lambda: undo_stack.push(ColumnInsert(self, stacker.x_index)))
+        insert_stacker_menu.addAction(add_column_action)
+
+        add_row_action = QtWidgets.QAction('Row', insert_stacker_menu)
+        add_row_action.triggered.connect(lambda: undo_stack.push(RowInsert(self, stacker.y_index)))
+        insert_stacker_menu.addAction(add_row_action)
