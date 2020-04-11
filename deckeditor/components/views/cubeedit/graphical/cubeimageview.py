@@ -78,8 +78,6 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._scene = scene
         self._undo_stack = undo_stack
 
-        self._auto_sort = False
-
         self.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
         self.setRenderHints(QPainter.SmoothPixmapTransform)
 
@@ -387,15 +385,14 @@ class CubeImageView(QtWidgets.QGraphicsView):
         drop_event.acceptProposedAction()
         if drop_event.source() == self:
             if self._floating:
-                if not self._auto_sort:
-                    self._undo_stack.push(
-                        self._scene.get_intra_move(
-                            self._floating,
-                            self.mapToScene(
-                                drop_event.pos()
-                            ),
-                        )
+                self._undo_stack.push(
+                    self._scene.get_intra_move(
+                        self._floating,
+                        self.mapToScene(
+                            drop_event.pos()
+                        ),
                     )
+                )
                 self._floating[:] = []
         elif (
             isinstance(drop_event.source(), self.__class__)

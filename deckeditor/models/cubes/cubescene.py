@@ -8,6 +8,7 @@ from PyQt5.QtCore import QPoint, pyqtSignal
 from PyQt5.QtWidgets import QUndoCommand
 
 from deckeditor.models.cubes.scenecard import SceneCard
+from deckeditor.sorting.sorting import SortProperty
 from magiccube.collections import cubeable as Cubeable
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
@@ -56,6 +57,7 @@ class InterCubeSceneMove(QUndoCommand):
         self._pick_up = pick_up
         self._to_scene = to_scene
         self._drop = drop
+
         super().__init__('Inter scene move')
 
     def redo(self) -> None:
@@ -166,6 +168,10 @@ class CubeScene(SelectionScene):
                 QPoint(),
             ).redo()
 
+        self._last_horizontal_sort: t.Optional[t.Type[SortProperty]] = None
+        self._last_vertical_sort: t.Optional[t.Type[SortProperty]] = None
+        self._auto_sort = False
+
         self.aligner_changed.connect(self._on_aligner_changed)
 
     @property
@@ -188,6 +194,10 @@ class CubeScene(SelectionScene):
     @related_scenes.setter
     def related_scenes(self, scenes: t.AbstractSet[CubeScene]) -> None:
         self._related_scenes = scenes
+
+    @property
+    def auto_sort(self) -> bool:
+        return self._auto_sort
 
     def _on_aligner_changed(self, aligner: Aligner) -> None:
         self._aligner = aligner
