@@ -66,12 +66,8 @@ class DeckList(QTableWidget):
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         self._decks: t.List[LimitedDeck] = [] if decks is None else decks
-        self.cellDoubleClicked.connect(self._cell_double_clicked)
 
         self._update_content()
-
-    def _cell_double_clicked(self, row: int, column: int) -> None:
-        print('double clicked', self._sessions[row])
 
     def set_decks(self, decks: t.List[LimitedDeck]) -> None:
         self._decks = decks
@@ -183,7 +179,7 @@ class LimitedSessionView(QWidget):
         self._name_label.setText(self._session.name)
         for pool in self._session.pools:
             if pool.user == Context.cube_api_client.user:
-                self._deck_list.set_decks(pool.decks)
+                self._deck_list.set_decks([pool.deck] if pool.deck is not None else [])
                 break
 
 

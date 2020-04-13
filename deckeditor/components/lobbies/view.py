@@ -646,14 +646,37 @@ class ComboSelector(QtWidgets.QComboBox):
 
         self.activated.connect(self._on_activated)
 
-    def update_content(self, game_format: str, enabled: bool) -> None:
-        self.setCurrentText(game_format)
+    def update_content(self, value: str, enabled: bool) -> None:
+        self.setCurrentText(value)
         self.setEnabled(enabled)
 
     def _on_activated(self, idx: int) -> None:
         self._lobby_view.lobby_model.set_options(
             self._lobby_view.lobby.name,
             {self._option: self.itemText(idx)},
+        )
+
+
+class CheckboxSelector(QtWidgets.QCheckBox):
+
+    def __init__(self, lobby_view: LobbyView, option: str):
+        super().__init__()
+        self._option = option
+
+        self._lobby_view = lobby_view
+
+        self.stateChanged.connect(self._on_activated)
+
+    def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
+        self.blockSignals(True)
+        self.setChecked(options[self._option])
+        self.setEnabled(enabled)
+        self.blockSignals(False)
+
+    def _on_activated(self, state: int) -> None:
+        self._lobby_view.lobby_model.set_options(
+            self._lobby_view.lobby.name,
+            {self._option: state == 2},
         )
 
 
@@ -688,24 +711,22 @@ class SealedOptionsSelector(OptionsSelector):
 
         self._format_selector = ComboSelector(lobby_view, 'format', Format.formats_map.keys())
 
-        self._open_decks_selector = QtWidgets.QCheckBox()
-        self._open_decks_label = QtWidgets.QLabel('open decks')
+        self._open_decks_selector = CheckboxSelector(lobby_view, 'open_decks')
+        self._open_pools_selector = CheckboxSelector(lobby_view, 'open_pools')
 
         self._pool_specification_selector = PoolSpecificationSelector(lobby_view)
-
-        self._open_decks_selector.stateChanged.connect(self._on_open_decks_state_changed)
 
         self._layout = QtWidgets.QVBoxLayout(self)
 
         self._layout.addWidget(self._format_selector, QtCore.Qt.AlignTop)
         self._layout.addWidget(self._pool_specification_selector, QtCore.Qt.AlignTop)
 
-        open_decks_layout = QtWidgets.QHBoxLayout()
+        information_layout = QtWidgets.QFormLayout()
 
-        open_decks_layout.addWidget(self._open_decks_label)
-        open_decks_layout.addWidget(self._open_decks_selector)
+        information_layout.addRow('open decks', self._open_decks_selector)
+        information_layout.addRow('open pools', self._open_pools_selector)
 
-        self._layout.addLayout(open_decks_layout)
+        self._layout.addLayout(information_layout)
 
     def _on_open_decks_state_changed(self, state) -> None:
         self._lobby_view.lobby_model.set_options(
@@ -717,10 +738,8 @@ class SealedOptionsSelector(OptionsSelector):
         self._format_selector.update_content(options['format'], enabled)
         self._pool_specification_selector.update_content(options['pool_specification'], enabled)
 
-        self._open_decks_selector.blockSignals(True)
-        self._open_decks_selector.setChecked(options['open_decks'])
-        self._open_decks_selector.setEnabled(enabled)
-        self._open_decks_selector.blockSignals(False)
+        self._open_decks_selector.update_content(options, enabled)
+        self._open_pools_selector.update_content(options, enabled)
 
 
 class DraftOptionsSelector(SealedOptionsSelector):
