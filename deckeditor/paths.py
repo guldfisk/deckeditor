@@ -7,6 +7,7 @@ APP_DATA_PATH = AppDirs('embargoedit', 'embargoedit').user_data_dir
 
 LOGS_PATH = os.path.join(APP_DATA_PATH, 'errors.log')
 SESSION_PATH = os.path.join(APP_DATA_PATH, 'session.dmp')
+CUSTOM_SORT_MAP_PATH = os.path.join(APP_DATA_PATH, 'sort_map.dmp')
 
 
 RESOURCE_PATH = os.path.join(

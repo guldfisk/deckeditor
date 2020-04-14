@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack
 from promise import promise
 
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
-from magiccube.collections.cubeable import Cubeable
+from deckeditor.sorting.custom import CustomSortMap
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
 from mtgorp.models.interfaces import Cardboard
@@ -58,6 +58,8 @@ class _Context(QObject):
 
     saved_drafts: t.Mapping[str, t.Any]
 
+    sort_map: CustomSortMap
+
     @classmethod
     def init(cls, application: QApplication) -> None:
         cls.db = Loader.load()
@@ -93,6 +95,8 @@ class _Context(QObject):
 
         cls.search_pattern_parser = SearchParser(cls.db)
         cls.undo_group = QUndoGroup()
+
+        cls.sort_map = CustomSortMap.empty()
 
     @classmethod
     def get_undo_stack(cls) -> QUndoStack:

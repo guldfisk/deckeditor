@@ -41,7 +41,15 @@ class CubeableImageView(ScaledImageLabel):
             self.setPixmap(pixmap)
 
     def _set_cubeable(self, focus: CubeableFocusEvent) -> None:
-        if isinstance(focus.cubeable, Trap) and focus.size is not None and focus.position is not None:
+        if (
+            isinstance(focus.cubeable, Trap)
+            and focus.size is not None
+            and focus.position is not None
+            and bool(
+                focus.modifiers is not None
+                and focus.modifiers & QtCore.Qt.ShiftModifier
+            ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
+        ):
             cubeable = focus.cubeable.get_printing_at(*focus.position, *focus.size)
         else:
             cubeable = focus.cubeable
@@ -62,20 +70,6 @@ class CubeableImageView(ScaledImageLabel):
                 image_request, pixmap
             )
         )
-
-    # def fit_image(self) -> None:
-    #     self.resize(self.pixmap.size())
-
-    # def contextMenuEvent(self, context_event: QtGui.QContextMenuEvent):
-    #     menu = QtWidgets.QMenu(self)
-    #
-    #     resize = QtWidgets.QAction('100%', self)
-    #
-    #     resize.triggered.connect(self.fit_image)
-    #
-    #     menu.addAction(resize)
-    #
-    #     menu.exec_(self.mapToGlobal(context_event.pos()))
 
 
 class CubeableTextView(QtWidgets.QWidget):

@@ -354,6 +354,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
         ):
             select_menu.addAction(action)
 
+        flatten_all = QAction('Flatten All', menu)
+        flatten_all.triggered.connect(self._flatten_all_traps)
+        menu.addAction(flatten_all)
+
         menu.addSeparator()
 
         item: QGraphicsItem = self.itemAt(position)
@@ -363,11 +367,9 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
             item.context_menu(menu, self._undo_stack)
 
-        self._scene.aligner.context_menu(menu, self.mapToScene(position), self._undo_stack)
+        menu.addSeparator()
 
-        flatten_all = QAction('Flatten All', menu)
-        flatten_all.triggered.connect(self._flatten_all_traps)
-        menu.addAction(flatten_all)
+        self._scene.aligner.context_menu(menu, self.mapToScene(position), self._undo_stack)
 
         menu.exec_(self.mapToGlobal(position))
 
@@ -505,15 +507,16 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
                 Context.focus_card_changed.emit(
                     CubeableFocusEvent(
-                        item.cubeable,
-                        (
+                        cubeable = item.cubeable,
+                        size = (
                             item.boundingRect().width(),
                             item.boundingRect().height(),
                         ),
-                        (
+                        position = (
                             card_mapped_position.x(),
                             card_mapped_position.y(),
                         ),
+                        modifiers = mouse_event.modifiers()
                     )
                 )
 

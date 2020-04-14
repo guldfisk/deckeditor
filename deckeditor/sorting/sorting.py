@@ -5,12 +5,15 @@ import typing as t
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 
+
+from mtgorp.models.persistent.attributes import typeline, colors
+from mtgorp.models.persistent.printing import Printing
+
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
-from mtgorp.models.persistent.attributes import typeline, colors
+from magiccube.collections.cubeable import Cubeable
 
-from magiccube.collections import cubeable as Cubeable
-from mtgorp.models.persistent.printing import Printing
+from deckeditor.context.context import Context
 
 
 class _SortPropertyMeta(ABCMeta):
@@ -68,6 +71,9 @@ class CMCExtractor(SortProperty):
     def extract(cls, cubeable: Cubeable) -> int:
         if not isinstance(cubeable, Printing):
             return -2
+        custom_cmc = Context.sort_map.chained_get(('cardboards', cubeable.cardboard.name, 'cmc'))
+        if custom_cmc is not None:
+            return custom_cmc
         if typeline.LAND in cubeable.cardboard.front_card.type_line:
             return -1
         return cubeable.cardboard.front_card.cmc

@@ -144,7 +144,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             confirm_dialog.setText('Corrupt session')
             confirm_dialog.setInformativeText(
                 'Persistent session is corrupt. This may be due to backward incompatible changes in Embargo Edit.\n'
-                'Would you like to delete the session (manual restart still required because good software).'
+                'Would you like to delete the session? (manual restart still required because good software).'
             )
             confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             confirm_dialog.setDefaultButton(QMessageBox.Yes)

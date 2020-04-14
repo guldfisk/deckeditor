@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import itertools
 import typing as t
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu
+from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu, QInputDialog
 
 from deckeditor.models.cubes.scenecard import SceneCard, C
+from deckeditor.sorting.sorting import CMCExtractor
 from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 from magiccube.laps.purples.purple import Purple
@@ -222,12 +223,51 @@ class PhysicalPrinting(PhysicalCard[Printing]):
 
         return _change_all_cardboards_to_printing
 
+    def choose_custom_sort_cmc(self) -> None:
+        amount, ok = QInputDialog.getInt(
+            Context.main_window,
+            'Choose custom cmc',
+            '-1 is land',
+            CMCExtractor.extract(self.cubeable),
+            -1,
+            99,
+        )
+        if ok:
+            Context.sort_map.set_cardboard_value(self.cubeable.cardboard, 'cmc', amount)
+
+    def choose_custom_colors(self) -> None:
+        pass
+
+    _CUSTOM_SORT_CHOOSER_MAP = OrderedDict(
+        (
+            ('cmc', choose_custom_sort_cmc),
+            ('colors', choose_custom_colors),
+        )
+    )
+
+    def _create_custom_sort_menu(
+        self,
+        custom_sort_menu: QtWidgets.QMenu,
+        sort_key: str,
+        custom_sort_selector: t.Callable[[PhysicalPrinting], None],
+    ) -> None:
+        custom_sort_value_menu = custom_sort_menu.addMenu(sort_key.capitalize())
+
+        set_custom_value = QtWidgets.QAction(f'Custom {sort_key.capitalize()}', custom_sort_value_menu)
+        set_custom_value.triggered.connect(lambda: custom_sort_selector(self))
+        custom_sort_value_menu.addAction(set_custom_value)
+
+        if Context.sort_map.get_cardboard_value(self.cubeable.cardboard, sort_key) is not None:
+            unset_custom_cmc = QtWidgets.QAction(f'Unset {sort_key.capitalize()}', custom_sort_value_menu)
+            unset_custom_cmc.triggered.connect(
+                lambda: Context.sort_map.unset_cardboard_value(self.cubeable.cardboard, sort_key)
+            )
+            custom_sort_value_menu.addAction(unset_custom_cmc)
+
     def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         super().context_menu(menu, undo_stack)
 
-        change_this_menu = menu.addMenu('Change Printing')
-        change_printings_like_this_menu = menu.addMenu('Change All Printing')
-        change_cardboards_like_this_menu = menu.addMenu('Change All Cardboards')
+        printing_reselection_menu = menu.addMenu('Change Printing Of')
 
         def _add_action_to_menu(_menu: QMenu, action: t.Callable[[], None], name: str):
             _action = QtWidgets.QAction(name, _menu)
@@ -235,6 +275,10 @@ class PhysicalPrinting(PhysicalCard[Printing]):
             _menu.addAction(_action)
 
         if len(self.cubeable.cardboard.printings) > 1:
+            change_this_menu = printing_reselection_menu.addMenu('This')
+            change_printings_like_this_menu = printing_reselection_menu.addMenu('All of This Printing')
+            change_cardboards_like_this_menu = printing_reselection_menu.addMenu('All of This Cardboard')
+
             for printing in sorted(
                 (
                     p
@@ -261,9 +305,12 @@ class PhysicalPrinting(PhysicalCard[Printing]):
                 )
 
         else:
-            change_this_menu.setEnabled(False)
-            change_printings_like_this_menu.setEnabled(False)
-            change_cardboards_like_this_menu.setEnabled(False)
+            printing_reselection_menu.setEnabled(False)
+
+        custom_sort_menu = menu.addMenu('Custom Sort')
+
+        for sort_key, custom_value_selector in self._CUSTOM_SORT_CHOOSER_MAP.items():
+            self._create_custom_sort_menu(custom_sort_menu, sort_key, custom_value_selector)
 
         if self.cubeable.cardboard.back_cards:
             transform = QtWidgets.QAction('Transform', menu)
@@ -399,7 +446,7 @@ class PhysicalAnyCard(PhysicalTrap):
         compress.triggered.connect(lambda: self._compress(child, undo_stack))
         menu.addAction(compress)
 
-        reselection_menu = menu.addMenu('Reselect')
+        reselection_menu = menu.addMenu('Reselect option')
 
         for _child in self.node_children:
             if _child.cubeable != child.cubeable:
@@ -414,7 +461,7 @@ class PhysicalAnyCard(PhysicalTrap):
 
     def context_menu(self, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:
         super().context_menu(menu, undo_stack)
-        flatten = menu.addMenu('Select')
+        flatten = menu.addMenu('Select Option')
 
         if not self.node_children:
             self._generate_children()

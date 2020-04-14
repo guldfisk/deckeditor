@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import os
+import pickle
 import sys
 import time
 import traceback
@@ -15,6 +16,7 @@ from deckeditor.components.draft.view import DraftView
 from deckeditor.components.sealed.view import LimitedSessionsView
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.serialization.tabmodelserializer import init_deck_serializers
+from deckeditor.sorting.custom import CustomSortMap
 from yeetlong.multiset import Multiset
 
 from mtgorp.db import create
@@ -315,6 +317,7 @@ class MainWindow(QMainWindow, CardAddable):
         Context.settings.setValue('geometry', self.saveGeometry())
         Context.settings.setValue('window_state', self.saveState(0))
         self._main_view.editables_tabs.save_session()
+        Context.sort_map.save()
 
     def _load_state(self):
         geometry = Context.settings.value('geometry', None)
@@ -324,6 +327,11 @@ class MainWindow(QMainWindow, CardAddable):
         if state is not None:
             self.restoreState(state, 0)
         self._main_view.editables_tabs.load_session()
+        try:
+            Context.sort_map = CustomSortMap.load()
+        except (pickle.UnpicklingError, EOFError):
+            Context.notification_message.emit('Failed loading custom sort map')
+            return CustomSortMap.empty()
 
     def closeEvent(self, close_event):
         self._save_state()
