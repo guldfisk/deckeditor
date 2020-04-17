@@ -42,13 +42,17 @@ class ColorExtractor(SortProperty):
     name = 'Color'
 
     @classmethod
+    def extract_color(cls, cubeable: Printing):
+        return Context.sort_map.get_cardboard_value(cubeable.cardboard, 'colors', cubeable.cardboard.front_card.color)
+
+    @classmethod
     def extract(cls, cubeable: Cubeable) -> int:
         if not isinstance(cubeable, Printing):
             return -2
         if typeline.LAND in cubeable.cardboard.front_card.type_line:
             return -1
         return colors.color_set_sort_value_len_first(
-            cubeable.cardboard.front_card.color
+            cls.extract_color(cubeable)
         )
 
 
@@ -56,11 +60,19 @@ class ColorIdentityExtractor(SortProperty):
     name = 'Color Identity'
 
     @classmethod
+    def extract_color_identity(cls, cubeable: Printing):
+        return Context.sort_map.get_cardboard_value(
+            cubeable.cardboard,
+            'color_identity',
+            cubeable.cardboard.front_card.color_identity,
+        )
+
+    @classmethod
     def extract(cls, cubeable: Cubeable) -> int:
         if not isinstance(cubeable, Printing):
             return -1
         return colors.color_set_sort_value_len_first(
-            cubeable.cardboard.front_card.color_identity
+            cls.extract_color_identity(cubeable)
         )
 
 
@@ -71,7 +83,7 @@ class CMCExtractor(SortProperty):
     def extract(cls, cubeable: Cubeable) -> int:
         if not isinstance(cubeable, Printing):
             return -2
-        custom_cmc = Context.sort_map.chained_get(('cardboards', cubeable.cardboard.name, 'cmc'))
+        custom_cmc = Context.sort_map.get_cardboard_value(cubeable.cardboard, 'cmc')
         if custom_cmc is not None:
             return custom_cmc
         if typeline.LAND in cubeable.cardboard.front_card.type_line:

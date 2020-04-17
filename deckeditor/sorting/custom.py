@@ -9,7 +9,7 @@ from deckeditor import paths
 
 
 class CustomSortMap(dict):
-    enabled_properties = ('cmc', 'colors')
+    enabled_properties = ('cmc', 'colors', 'color_identity')
 
     def chained_get(self, keys: t.Iterable[str], default: t.Any = None) -> t.Any:
         v = self

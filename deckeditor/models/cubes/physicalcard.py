@@ -9,7 +9,8 @@ from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu, QInputDialog
 
 from deckeditor.models.cubes.scenecard import SceneCard, C
-from deckeditor.sorting.sorting import CMCExtractor
+from deckeditor.sorting.sorting import CMCExtractor, ColorExtractor, ColorIdentityExtractor
+from deckeditor.utils.dialogs import ColorSelector
 from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 from magiccube.laps.purples.purple import Purple
@@ -236,12 +237,20 @@ class PhysicalPrinting(PhysicalCard[Printing]):
             Context.sort_map.set_cardboard_value(self.cubeable.cardboard, 'cmc', amount)
 
     def choose_custom_colors(self) -> None:
-        pass
+        colors, ok = ColorSelector.get_colors(ColorExtractor.extract_color(self.cubeable))
+        if ok:
+            Context.sort_map.set_cardboard_value(self.cubeable.cardboard, 'colors', colors)
+
+    def choose_custom_color_identity(self) -> None:
+        colors, ok = ColorSelector.get_colors(ColorIdentityExtractor.extract_color_identity(self.cubeable))
+        if ok:
+            Context.sort_map.set_cardboard_value(self.cubeable.cardboard, 'color_identity', colors)
 
     _CUSTOM_SORT_CHOOSER_MAP = OrderedDict(
         (
             ('cmc', choose_custom_sort_cmc),
             ('colors', choose_custom_colors),
+            ('color_identity', choose_custom_color_identity),
         )
     )
 
@@ -251,14 +260,16 @@ class PhysicalPrinting(PhysicalCard[Printing]):
         sort_key: str,
         custom_sort_selector: t.Callable[[PhysicalPrinting], None],
     ) -> None:
-        custom_sort_value_menu = custom_sort_menu.addMenu(sort_key.capitalize())
+        display_key_string = ' '.join(s.capitalize() for s in sort_key.split('_'))
 
-        set_custom_value = QtWidgets.QAction(f'Custom {sort_key.capitalize()}', custom_sort_value_menu)
+        custom_sort_value_menu = custom_sort_menu.addMenu(display_key_string)
+
+        set_custom_value = QtWidgets.QAction(f'Custom {display_key_string}', custom_sort_value_menu)
         set_custom_value.triggered.connect(lambda: custom_sort_selector(self))
         custom_sort_value_menu.addAction(set_custom_value)
 
         if Context.sort_map.get_cardboard_value(self.cubeable.cardboard, sort_key) is not None:
-            unset_custom_cmc = QtWidgets.QAction(f'Unset {sort_key.capitalize()}', custom_sort_value_menu)
+            unset_custom_cmc = QtWidgets.QAction(f'Unset {display_key_string}', custom_sort_value_menu)
             unset_custom_cmc.triggered.connect(
                 lambda: Context.sort_map.unset_cardboard_value(self.cubeable.cardboard, sort_key)
             )
