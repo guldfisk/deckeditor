@@ -5,14 +5,14 @@ import typing as t
 from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
 
+import plyer
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from mtgorp.models.persistent.printing import Printing
-
 from mtgorp.db.database import CardDatabase
 
 from magiccube.collections.cubeable import Cubeable
@@ -35,6 +35,7 @@ from deckeditor.components.editables.editor import EditablesMeta
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.components.draft.draftbots import collect_bots, bot_pick
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 
 
 class _DraftClient(DraftClient):
@@ -87,6 +88,11 @@ class DraftModel(QObject):
 
     def _on_received_booster(self, booster: Booster) -> None:
         self._booster = booster
+        if not Context.main_window.isActiveWindow():
+            plyer.notification.notify(
+                title = 'New pack',
+                message = f'pack {self._draft_client.round.pack} pick {booster.pick}',
+            )
 
     def on_pick(self, pick: Pick, pick_number: int, booster: Booster) -> None:
         new = True

@@ -1,3 +1,4 @@
+plyer
 appdirs
 mtgorp @ https://github.com/guldfisk/mtgorp/tarball/master#egg=mtgorp-1.0
 mtgimg @ https://github.com/guldfisk/mtgimg/tarball/master#egg=mtgimg-1.0
