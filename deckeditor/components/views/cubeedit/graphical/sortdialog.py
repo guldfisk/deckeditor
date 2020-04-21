@@ -50,6 +50,7 @@ class SortDialog(QtWidgets.QDialog):
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
+        self.setWindowTitle('Sort')
 
         layout = QtWidgets.QVBoxLayout()
 

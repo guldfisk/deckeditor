@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBo
 
 from deckeditor.components.draft.view import DraftView
 from deckeditor.components.sealed.view import LimitedSessionsView
+from deckeditor.components.settings.dialog import SettingsDialog
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.serialization.tabmodelserializer import init_deck_serializers
 from deckeditor.sorting.custom import CustomSortMap
@@ -62,6 +63,8 @@ class MainWindow(QMainWindow, CardAddable):
 
     def __init__(self, parent = None):
         super().__init__(parent)
+
+        self.setWindowIcon(QtGui.QIcon(paths.ICON_PATH))
 
         self._notification_frame = NotificationFrame(self)
 
@@ -147,20 +150,22 @@ class MainWindow(QMainWindow, CardAddable):
 
         all_menus = {
             menu_bar.addMenu('File'): (
-                ('Exit', 'Ctrl+Q', self.close),
                 ('New Deck', 'Ctrl+N', self._new_deck),
                 ('Open Deck', 'Ctrl+O', lambda: self._open(Deck)),
                 ('Open Pool', 'Ctrl+P', lambda: self._open(Pool)),
                 ('Save', 'Ctrl+S', self._save),
                 ('Save As', 'Ctrl+Shift+S', self._save_as),
                 ('Export Deck', 'Ctrl+Shift+E', self._export_deck),
-                # ('Save pool', 'Ctrl+l', self.save_pool),
                 ('Close Tab', 'Ctrl+W', self._close_tab),
+                'line',
+                ('Exit', 'Ctrl+Q', self.close),
 
             ),
             menu_bar.addMenu('Edit'): (
                 ('Undo', 'Ctrl+Z', Context.undo_group.undo),
                 ('Redo', 'Ctrl+Shift+Z', Context.undo_group.redo),
+                'line',
+                ('Add cards', 'Ctrl+F', self._add_cards),
             ),
             # menu_bar.addMenu('Deck'): (
             #     # ('Maindeck', 'Ctrl+1', lambda: self._focus_deck_zone(DeckZoneType.MAINDECK)),
@@ -174,10 +179,6 @@ class MainWindow(QMainWindow, CardAddable):
             #     # ('Sealed pool', 'Ctrl+G', self._generate_pool),
             #     # ('Cube Pools', 'Ctrl+C', self.generate_cube_pools),
             # ),
-            menu_bar.addMenu('Add'): (
-                # ('Test Add', 'Ctrl+W', self._test_add),
-                ('Add cards', 'Ctrl+F', self._add_cards),
-            ),
             # menu_bar.addMenu('Select'): (
             #     # ('All', 'Ctrl+A', self._select_all),
             #     # ('Clear Selection', 'Ctrl+D', self._clear_selection),
@@ -192,24 +193,31 @@ class MainWindow(QMainWindow, CardAddable):
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
                 ('Limited', 'Meta+7', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
             ),
-            menu_bar.addMenu('Test'): (
-                ('Test', 'Ctrl+T', self._test),
-            ),
+            # menu_bar.addMenu('Test'): (
+            #     ('Test', 'Ctrl+T', self._test),
+            # ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', LoginDialog(self).exec_),
                 ('Logout', None, lambda: None),
+            ),
+            menu_bar.addMenu('Preferences'): (
+                ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog().exec_()),
             ),
             menu_bar.addMenu('DB'): (
             ),
         }
 
         for menu in all_menus:
-            for name, shortcut, action in all_menus[menu]:
-                _action = QAction(name, self)
-                if shortcut:
-                    _action.setShortcut(shortcut)
-                _action.triggered.connect(action)
-                menu.addAction(_action)
+            for line in all_menus[menu]:
+                if line == 'line':
+                    menu.addSeparator()
+                else:
+                    name, shortcut, action = line
+                    _action = QAction(name, self)
+                    if shortcut:
+                        _action.setShortcut(shortcut)
+                    _action.triggered.connect(action)
+                    menu.addAction(_action)
 
         self._reset_dock_width = 500
         self._reset_dock_height = 1200

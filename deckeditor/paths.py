@@ -17,6 +17,11 @@ RESOURCE_PATH = os.path.join(
     'resources',
 )
 
+ICON_PATH = os.path.join(
+    RESOURCE_PATH,
+    'icon.png',
+)
+
 ICONS_PATH = os.path.join(
     RESOURCE_PATH,
     'icons',

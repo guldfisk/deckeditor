@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QPoint, Qt, QRectF
+from PyQt5.QtCore import QPoint, Qt, QRectF, QRect
 from PyQt5.QtGui import QPainter, QPolygonF
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
@@ -41,6 +41,7 @@ class SearchSelectionDialog(QtWidgets.QDialog):
 
     def __init__(self, parent: CubeImageView):
         super().__init__(parent)
+        self.setWindowTitle('Select Matching')
 
         self._query_edit = QueryEdit(self)
 
@@ -137,6 +138,19 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self.scale(.3, .3)
         self.translate(self.scene().width(), self.scene().height())
+
+        self._selected_info_text = ''
+
+        self._scene.selectionChanged.connect(self._update_selected_info_text)
+        self._scene.changed.connect(self._update_selected_info_text)
+
+    def _update_selected_info_text(self, *args, **kwargs) -> None:
+        self._selected_info_text = (
+            '{}/{}'.format(
+                len(self._scene.selectedItems()),
+                len(self._scene.items()),
+            )
+        )
 
     @property
     def undo_stack(self) -> QUndoStack:
@@ -399,9 +413,9 @@ class CubeImageView(QtWidgets.QGraphicsView):
         elif (
             isinstance(drop_event.source(), self.__class__)
             and drop_event.source().successful_drop(
-                drop_event,
-                self,
-            )
+            drop_event,
+            self,
+        )
         ):
             self._undo_stack.push(
                 drop_event.source().cube_scene.get_inter_move(
@@ -597,17 +611,29 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self._scene.add_selection(cards, modifiers)
 
-# class DebugPoly(QtWidgets.QGraphicsObject):
-#
-#     def __init__(self, poly: QPolygonF, color: QColor):
-#         super().__init__()
-#         self._poly = poly
-#         self._color = color
-#
-#     def boundingRect(self):
-#         return self._poly.boundingRect()
-#
-#     def paint(self, painter: QtGui.QPainter, options, widget = None):
-#         painter.setBrush(QtGui.QBrush(self._color))
-#         painter.setPen(QtGui.QPen(self._color))
-#         painter.drawPolygon(self._poly)
+    # def paintEvent(self, event: QtGui.QPaintEvent) -> None:
+    #     super().paintEvent(event)
+    #
+    #     rect = self.rect()
+    #
+    #     font = QtGui.QFont()
+    #     font.setPointSize(16)
+    #     metric = QtGui.QFontMetrics(font, self)
+    #
+    #     painter = QtGui.QPainter(self.viewport())
+    #     color = QtGui.QColor(self.backgroundBrush().color())
+    #     color.setAlpha(127)
+    #
+    #     text_rect = QRect(
+    #         rect.width() - metric.horizontalAdvance(self._selected_info_text) - 50,
+    #         20,
+    #         metric.horizontalAdvance(self._selected_info_text),
+    #         font.pointSize(),
+    #     )
+    #
+    #     painter.fillRect(text_rect, color)
+    #
+    #     painter.setPen(QtGui.QColor(200, 200, 200))
+    #     painter.setFont(font)
+    #     painter.drawText(text_rect.x(), text_rect.y() + text_rect.height(), self._selected_info_text)
+

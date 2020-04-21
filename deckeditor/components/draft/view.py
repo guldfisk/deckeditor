@@ -88,11 +88,16 @@ class DraftModel(QObject):
 
     def _on_received_booster(self, booster: Booster) -> None:
         self._booster = booster
-        if not Context.main_window.isActiveWindow():
-            plyer.notification.notify(
-                title = 'New pack',
-                message = f'pack {self._draft_client.round.pack} pick {booster.pick}',
-            )
+        if not Context.main_window.isActiveWindow() and Context.settings.value('notify_on_booster_arrived', True, bool):
+            try:
+                plyer.notification.notify(
+                    title = 'New pack',
+                    message = f'pack {self._draft_client.round.pack} pick {booster.pick}',
+                )
+            except ImportError:
+                Context.notification_message.emit('OS notifications not available')
+                Context.settings.setValue('notify_on_booster_arrived', False)
+
 
     def on_pick(self, pick: Pick, pick_number: int, booster: Booster) -> None:
         new = True

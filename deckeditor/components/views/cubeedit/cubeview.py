@@ -169,6 +169,9 @@ class CubeView(QtWidgets.QWidget):
         self._tool_bar.addWidget(self._selection_indicator)
         self._tool_bar.addWidget(self._layout_selector)
 
+        # self._spoiler = Spoiler('tools')
+        # self._spoiler.set_content_layout(self._tool_bar)
+
         box.addLayout(self._tool_bar)
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
