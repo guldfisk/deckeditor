@@ -139,18 +139,18 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self.scale(.3, .3)
         self.translate(self.scene().width(), self.scene().height())
 
-        self._selected_info_text = ''
+        # self._selected_info_text = ''
 
-        self._scene.selectionChanged.connect(self._update_selected_info_text)
-        self._scene.changed.connect(self._update_selected_info_text)
-
-    def _update_selected_info_text(self, *args, **kwargs) -> None:
-        self._selected_info_text = (
-            '{}/{}'.format(
-                len(self._scene.selectedItems()),
-                len(self._scene.items()),
-            )
-        )
+    #     self._scene.selectionChanged.connect(self._update_selected_info_text)
+    #     self._scene.changed.connect(self._update_selected_info_text)
+    #
+    # def _update_selected_info_text(self, *args, **kwargs) -> None:
+    #     self._selected_info_text = (
+    #         '{}/{}'.format(
+    #             len(self._scene.selectedItems()),
+    #             len(self._scene.items()),
+    #         )
+    #     )
 
     @property
     def undo_stack(self) -> QUndoStack:
@@ -611,29 +611,34 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         self._scene.add_selection(cards, modifiers)
 
-    # def paintEvent(self, event: QtGui.QPaintEvent) -> None:
-    #     super().paintEvent(event)
-    #
-    #     rect = self.rect()
-    #
-    #     font = QtGui.QFont()
-    #     font.setPointSize(16)
-    #     metric = QtGui.QFontMetrics(font, self)
-    #
-    #     painter = QtGui.QPainter(self.viewport())
-    #     color = QtGui.QColor(self.backgroundBrush().color())
-    #     color.setAlpha(127)
-    #
-    #     text_rect = QRect(
-    #         rect.width() - metric.horizontalAdvance(self._selected_info_text) - 50,
-    #         20,
-    #         metric.horizontalAdvance(self._selected_info_text),
-    #         font.pointSize(),
-    #     )
-    #
-    #     painter.fillRect(text_rect, color)
-    #
-    #     painter.setPen(QtGui.QColor(200, 200, 200))
-    #     painter.setFont(font)
-    #     painter.drawText(text_rect.x(), text_rect.y() + text_rect.height(), self._selected_info_text)
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
+        super().paintEvent(event)
+
+        rect = self.rect()
+
+        text = '{}/{}'.format(
+            len(self._scene.selectedItems()),
+            len(self._scene.items()),
+        )
+
+        font = QtGui.QFont()
+        font.setPointSize(16)
+        metric = QtGui.QFontMetrics(font, self)
+
+        painter = QtGui.QPainter(self.viewport())
+        color = QtGui.QColor(self.backgroundBrush().color())
+        color.setAlpha(127)
+
+        text_rect = QRect(
+            rect.width() - metric.horizontalAdvance(text) - 50,
+            20,
+            metric.horizontalAdvance(text),
+            font.pointSize(),
+        )
+
+        painter.fillRect(text_rect, color)
+
+        painter.setPen(QtGui.QColor(200, 200, 200))
+        painter.setFont(font)
+        painter.drawText(text_rect.x(), text_rect.y() + text_rect.height(), text)
 

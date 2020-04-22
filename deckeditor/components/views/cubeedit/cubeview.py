@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor import paths
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
+from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.models.cubes.alignment.bunchingstackinggrid import BunchingStackingGrid
 from deckeditor.models.cubes.alignment.dynamicstackinggrid import DynamicStackingGrid
@@ -19,7 +20,7 @@ from deckeditor.models.cubes.alignment.grid import GridAligner
 from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.models.cubes.cubescene import CubeScene
-
+from deckeditor.utils.spoiler import Spoiler
 
 ALIGNER_TYPE_MAP = OrderedDict(
     (
@@ -156,23 +157,25 @@ class CubeView(QtWidgets.QWidget):
 
         self._aligner_selector = AlignSelector(self._cube_scene, self._undo_stack)
 
-        self._selection_indicator = SelectionIndicator(self._cube_scene)
+        # self._selection_indicator = SelectionIndicator(self._cube_scene)
 
         self._layout_selector = LayoutSelector(self)
         self._layout_selector.setFixedSize(QSize(20, 20))
 
         box = QtWidgets.QVBoxLayout(self)
+        box.setContentsMargins(0, 5, 0, 0)
 
         self._tool_bar = QtWidgets.QHBoxLayout(self)
+        self._tool_bar.setContentsMargins(0, 3, 0, 0)
 
         self._tool_bar.addWidget(self._aligner_selector)
-        self._tool_bar.addWidget(self._selection_indicator)
+        # self._tool_bar.addWidget(self._selection_indicator)
         self._tool_bar.addWidget(self._layout_selector)
 
-        # self._spoiler = Spoiler('tools')
-        # self._spoiler.set_content_layout(self._tool_bar)
+        self._spoiler = Spoiler(not Context.settings.value('default_cubeview_header_hidden', True, bool))
+        self._spoiler.set_content_layout(self._tool_bar)
 
-        box.addLayout(self._tool_bar)
+        box.addWidget(self._spoiler)
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 

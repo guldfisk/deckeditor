@@ -32,6 +32,7 @@ class PoolView(Editable):
         self._pool_model = pool_model
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(3, 3, 3, 1)
 
         self._vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
         self._horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)

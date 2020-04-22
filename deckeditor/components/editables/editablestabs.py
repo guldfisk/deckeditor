@@ -44,6 +44,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
         self._metas: t.MutableMapping[Editable, EditablesMeta] = {}
 
         self.setTabsClosable(True)
+        self.setContentsMargins(1, 2, 1, 1)
 
         Context.new_pool.connect(self.new_pool)
         Context.draft_started.connect(self.new_draft)

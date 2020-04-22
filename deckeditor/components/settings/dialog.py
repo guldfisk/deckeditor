@@ -50,6 +50,12 @@ class SettingsDialog(QDialog):
                         'trap.',
                         False,
                     ),
+                    BooleanSetting(
+                        'default_cubeview_header_hidden',
+                        'Cubeview header collapsed by default',
+                        'Cubeview header collapsed by default',
+                        True,
+                    ),
                 ),
                 (),
             ),
@@ -115,7 +121,7 @@ class SettingsDialog(QDialog):
         self.accept()
 
     def apply(self) -> None:
-        if any(setting.requires_restart for setting in self._setting_changes) or True:
+        if any(setting.requires_restart for setting in self._setting_changes):
             Context.notification_message.emit('Some of the settings changes requires restarting to take effect.')
 
         for setting, value in self._setting_changes.items():

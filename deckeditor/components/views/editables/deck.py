@@ -33,6 +33,7 @@ class DeckView(Editable):
         self._deck_model = deck_model
 
         layout = QVBoxLayout()
+        layout.setContentsMargins(3, 3, 3, 1)
 
         self._horizontal_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
 
