@@ -4,6 +4,7 @@ import io
 import os
 import pickle
 import sys
+import threading
 import time
 import traceback
 import typing
@@ -12,6 +13,7 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
+from deckeditor.authentication.login import re_login
 from deckeditor.components.draft.view import DraftView
 from deckeditor.components.sealed.view import LimitedSessionsView
 from deckeditor.components.settings.dialog import SettingsDialog
@@ -456,6 +458,10 @@ def run():
     # app.aboutToQuit.connect(Context.settings.)
 
     main_window.showMaximized()
+
+    if Context.settings.value('auto_login', False, bool):
+        login_worker = threading.Thread(target = re_login)
+        login_worker.start()
 
     sys.exit(app.exec_())
 

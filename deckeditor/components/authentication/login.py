@@ -13,20 +13,20 @@ class LoginDialog(QtWidgets.QDialog):
         self._host_selector_label = QtWidgets.QLabel('host')
         self._host_selector = QtWidgets.QLineEdit()
         self._host_selector.setText(
-            Context.settings.value('host_name', 'localhost:7000')
+            Context.settings.value('host_name', 'prohunterdogkeeper.dk')
         )
 
         self._username_selector_label = QtWidgets.QLabel('username')
         self._username_selector = QtWidgets.QLineEdit()
         self._username_selector.setText(
-            Context.settings.value('username', 'root')
+            Context.settings.value('username', '')
         )
 
         self._password_selector_label = QtWidgets.QLabel('password')
         self._password_selector = QtWidgets.QLineEdit()
         self._password_selector.setEchoMode(QtWidgets.QLineEdit.Password)
         self._password_selector.setText(
-            Context.settings.value('password', 'fraekesteguyaround')
+            Context.settings.value('password', '')
         )
 
         self._top_box = QtWidgets.QVBoxLayout()

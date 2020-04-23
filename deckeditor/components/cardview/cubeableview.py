@@ -46,9 +46,9 @@ class CubeableImageView(ScaledImageLabel):
             and focus.size is not None
             and focus.position is not None
             and bool(
-                focus.modifiers is not None
-                and focus.modifiers & QtCore.Qt.ShiftModifier
-            ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
+            focus.modifiers is not None
+            and focus.modifiers & QtCore.Qt.ShiftModifier
+        ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
         ):
             cubeable = focus.cubeable.get_printing_at(*focus.position, *focus.size)
         else:
@@ -72,7 +72,7 @@ class CubeableImageView(ScaledImageLabel):
         )
 
 
-class CubeableTextView(QtWidgets.QWidget):
+class CubeableTextView(QtWidgets.QStackedWidget):
 
     def __init__(self, cubeable_view: CubeableView):
         super().__init__()
@@ -80,17 +80,18 @@ class CubeableTextView(QtWidgets.QWidget):
 
         self._cubeable_view = cubeable_view
 
-        self._stack = QtWidgets.QStackedWidget()
+        self.setContentsMargins(0, 0, 0, 0)
 
         self._blank = QtWidgets.QWidget()
+
         self._printing_view = PrintingTextView()
         self._ticket_view = TicketTextView()
         self._trap_view = TrapTextView()
 
-        self._stack.addWidget(self._blank)
-        self._stack.addWidget(self._printing_view)
-        self._stack.addWidget(self._ticket_view)
-        self._stack.addWidget(self._trap_view)
+        self.addWidget(self._blank)
+        self.addWidget(self._printing_view)
+        self.addWidget(self._ticket_view)
+        self.addWidget(self._trap_view)
 
         self._cubeable_view_map = {
             Printing: self._printing_view,
@@ -98,13 +99,7 @@ class CubeableTextView(QtWidgets.QWidget):
             Trap: self._trap_view,
         }
 
-        self._stack.setCurrentWidget(self._blank)
-
-        layout = QtWidgets.QVBoxLayout()
-
-        layout.addWidget(self._stack)
-
-        self.setLayout(layout)
+        self.setCurrentWidget(self._blank)
 
         self._cubeable_view.new_cubeable.connect(self._on_new_cubeable)
 
@@ -117,10 +112,10 @@ class CubeableTextView(QtWidgets.QWidget):
         view = self._cubeable_view_map.get(type(focus.cubeable))
 
         if view is None:
-            self._stack.setCurrentWidget(self._blank)
+            self.setCurrentWidget(self._blank)
 
         else:
-            self._stack.setCurrentWidget(view)
+            self.setCurrentWidget(view)
             view.set_cubeable(focus.cubeable)
 
 
@@ -133,12 +128,15 @@ class CardTextView(QtWidgets.QWidget):
         self._typeline_label = QtWidgets.QLabel()
         self._mana_cost_label = QtWidgets.QLabel()
         self._oracle_text_box = QtWidgets.QTextEdit()
+        self._oracle_text_box.setContentsMargins(0, 1, 0, 1)
         self._oracle_text_box.setReadOnly(True)
         self._power_toughness_loyalty_label = QtWidgets.QLabel()
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 1, 0, 1)
 
         top_splitter = QtWidgets.QHBoxLayout()
+        top_splitter.setContentsMargins(0, 1, 0, 1)
 
         top_splitter.addWidget(self._typeline_label)
         top_splitter.addWidget(self._mana_cost_label)
@@ -185,6 +183,7 @@ class PrintingTextView(QtWidgets.QWidget):
         self._cards_stack.setCurrentWidget(self._card_view)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
 
         layout.addWidget(self._name_label)
         layout.addWidget(self._expansion_label)
@@ -221,6 +220,7 @@ class TicketTextView(QtWidgets.QWidget):
         self._printings_tabs = QtWidgets.QTabWidget()
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(1, 2, 1, 1)
 
         layout.addWidget(self._name_label)
         layout.addWidget(self._printings_tabs)
@@ -267,8 +267,10 @@ class TrapTextView(QtWidgets.QWidget):
         self._printing_view.hide()
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(1, 1, 1, 1)
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        splitter.setContentsMargins(0, 0, 0, 0)
 
         splitter.addWidget(self._node_tree)
         splitter.addWidget(self._printing_view)
@@ -321,8 +323,10 @@ class TextImageCubeableView(QtWidgets.QWidget):
         self._text_view = CubeableTextView(cubeable_view)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(1, 1, 1, 1)
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        splitter.setContentsMargins(1, 1, 1, 1)
 
         splitter.addWidget(self._image_view)
         splitter.addWidget(self._text_view)
@@ -348,6 +352,15 @@ class CubeableView(QtWidgets.QWidget):
         self._view_type_tabs.addTab(self._text_view, 'text')
         self._view_type_tabs.addTab(self._both_view, 'both')
         self._view_type_tabs.setCurrentWidget(self._image_view)
+        self._view_type_tabs.setCurrentIndex(
+            {
+                'image': 0,
+                'text': 1,
+                'both': 2,
+            }.get(
+                Context.settings.value('default_card_view_type', 'image', str)
+            )
+        )
 
         layout = QtWidgets.QVBoxLayout()
 

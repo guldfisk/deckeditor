@@ -18,3 +18,12 @@ def login(host: str, username: str, password: str) -> bool:
 
     Context.token_changed.emit(Context.cube_api_client.token)
     return True
+
+
+def re_login() -> bool:
+    host = Context.settings.value('host_name', '', str)
+    username = Context.settings.value('username', '', str)
+    password = Context.settings.value('password', '', str)
+    if not host or not username or not password:
+        return False
+    return login(host, username, password)

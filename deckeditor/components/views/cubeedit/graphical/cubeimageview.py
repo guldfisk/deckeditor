@@ -139,18 +139,19 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self.scale(.3, .3)
         self.translate(self.scene().width(), self.scene().height())
 
-        # self._selected_info_text = ''
+        self._selected_info_text = ''
 
-    #     self._scene.selectionChanged.connect(self._update_selected_info_text)
-    #     self._scene.changed.connect(self._update_selected_info_text)
-    #
-    # def _update_selected_info_text(self, *args, **kwargs) -> None:
-    #     self._selected_info_text = (
-    #         '{}/{}'.format(
-    #             len(self._scene.selectedItems()),
-    #             len(self._scene.items()),
-    #         )
-    #     )
+        self._scene.selectionChanged.connect(self._update_selected_info_text)
+        self._scene.changed.connect(self._update_selected_info_text)
+
+    def _update_selected_info_text(self, *args, **kwargs) -> None:
+        self._selected_info_text = (
+            '{}/{}'.format(
+                len(self._scene.selectedItems()),
+                len(self._scene.items()),
+            )
+        )
+        self.update()
 
     @property
     def undo_stack(self) -> QUndoStack:
@@ -616,10 +617,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         rect = self.rect()
 
-        text = '{}/{}'.format(
-            len(self._scene.selectedItems()),
-            len(self._scene.items()),
-        )
+        text = self._selected_info_text
 
         font = QtGui.QFont()
         font.setPointSize(16)
@@ -642,3 +640,4 @@ class CubeImageView(QtWidgets.QGraphicsView):
         painter.setFont(font)
         painter.drawText(text_rect.x(), text_rect.y() + text_rect.height(), text)
 
+        painter.setClipRect(text_rect)

@@ -4,7 +4,7 @@ from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QWidget
 
-from deckeditor.components.settings.setting import BooleanSetting, Setting
+from deckeditor.components.settings.setting import BooleanSetting, Setting, OptionsSetting
 from deckeditor.context.context import Context
 
 
@@ -44,32 +44,64 @@ class SettingsDialog(QDialog):
                 'General',
                 (
                     BooleanSetting(
+                        'default_cubeview_header_hidden',
+                        'Cubeview header collapsed by default',
+                        'Cubeview header collapsed by default',
+                        True,
+                    ),
+                    BooleanSetting(
+                        'image_view_scroll_default_zoom',
+                        'Zoom in cubeview with scroll wheel',
+                        'If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom',
+                        True,
+                    ),
+                    OptionsSetting(
+                        'default_card_view_type',
+                        'Default card view',
+                        'Default layout of focus card view',
+                        'image',
+                        ('image', 'text', 'both'),
+                    ),
+                ),
+                (),
+            ),
+            (
+                'Connection',
+                (
+                    BooleanSetting(
+                        'auto_login',
+                        'Auto login',
+                        'Automatically attempt login on start up',
+                        False,
+                    ),
+                ),
+                (),
+            ),
+            (
+                'Limited',
+                (
+                    BooleanSetting(
                         'default_focus_trap_sub_printing',
                         'Default focus trap sub-printings',
                         'Default focus appropriate sub-printing of trap during hover-based focus instead of entire '
                         'trap.',
                         False,
                     ),
-                    BooleanSetting(
-                        'default_cubeview_header_hidden',
-                        'Cubeview header collapsed by default',
-                        'Cubeview header collapsed by default',
-                        True,
-                    ),
                 ),
-                (),
-            ),
-            (
-                'Draft',
                 (
-                    BooleanSetting(
-                        'notify_on_booster_arrived',
-                        'Booster notification',
-                        'Display OS notification when new pack arrives and application does not have focus.',
-                        True,
+                    (
+                        'Draft',
+                        (
+                            BooleanSetting(
+                                'notify_on_booster_arrived',
+                                'Booster notification',
+                                'Display OS notification when new pack arrives and application does not have focus.',
+                                True,
+                            ),
+                        ),
+                        (),
                     ),
                 ),
-                (),
             ),
         )
 
