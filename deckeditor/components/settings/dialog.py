@@ -13,7 +13,7 @@ class SettingsPane(QWidget):
     def __init__(self, settings: t.Sequence[Setting]):
         super().__init__()
 
-        layout = QtWidgets.QVBoxLayout(self)
+        layout = QtWidgets.QFormLayout(self)
         layout.setAlignment(QtCore.Qt.AlignTop)
 
         for setting in settings:
@@ -54,6 +54,13 @@ class SettingsDialog(QDialog):
                         'Zoom in cubeview with scroll wheel',
                         'If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom',
                         True,
+                    ),
+                    BooleanSetting(
+                        'select_on_covered_parts',
+                        'Select all cards intersecting rubber band',
+                        'If checked, select all cards intersecting rubber band on completion in cubeview, also cards '
+                        'covered by other cards.',
+                        False,
                     ),
                     OptionsSetting(
                         'default_card_view_type',

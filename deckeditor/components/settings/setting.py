@@ -51,7 +51,7 @@ class Setting(QObject):
     def requires_restart(self) -> bool:
         return self._requires_restart
 
-    def render(self, layout: QtWidgets.QLayout):
+    def render(self, layout: QtWidgets.QFormLayout):
         pass
 
 
@@ -75,11 +75,8 @@ class BooleanSetting(Setting):
         self._box.stateChanged.connect(lambda v: self.selected.emit(self, v == 2))
         self._label.focus_description.connect(lambda d: self.show_description.emit(self, d))
 
-    def render(self, layout: QtWidgets.QVBoxLayout):
-        row = QtWidgets.QHBoxLayout()
-        row.addWidget(self._label)
-        row.addWidget(self._box)
-        layout.addLayout(row)
+    def render(self, layout: QtWidgets.QFormLayout):
+        layout.addRow(self._label, self._box)
 
 
 class OptionsSetting(Setting):
@@ -105,8 +102,5 @@ class OptionsSetting(Setting):
         self._combo.currentTextChanged.connect(lambda v: self.selected.emit(self, v))
         self._label.focus_description.connect(lambda d: self.show_description.emit(self, d))
 
-    def render(self, layout: QtWidgets.QVBoxLayout):
-        row = QtWidgets.QHBoxLayout()
-        row.addWidget(self._label)
-        row.addWidget(self._combo)
-        layout.addLayout(row)
+    def render(self, layout: QtWidgets.QFormLayout):
+        layout.addRow(self._label, self._combo)

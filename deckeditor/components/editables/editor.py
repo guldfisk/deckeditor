@@ -18,7 +18,7 @@ class EditablesMeta(object):
 
     @path.setter
     def path(self, value: str) -> None:
-        self._name = os.path.splitext(os.path.split(value)[1])[0]
+        self._name = os.path.split(value)[-1]
         self._path = value
 
     @property
@@ -31,7 +31,7 @@ class EditablesMeta(object):
 
     @property
     def truncated_name(self) -> str:
-        return self._name if len(self._name) <= 25 else self._name[:11] + '...' + self._name[:-11]
+        return self._name if len(self._name) <= 25 else self._name[:11] + '...' + self._name[-11:]
 
     def __hash__(self) -> int:
         return hash(self._key)

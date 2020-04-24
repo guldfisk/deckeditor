@@ -3,11 +3,12 @@ from __future__ import annotations
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5.QtCore import pyqtSignal
 
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode
+from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode, BorderedNode
 from mtgorp.models.persistent.card import Card
 from mtgorp.models.persistent.printing import Printing
 
@@ -34,13 +35,13 @@ class CubeableImageView(ScaledImageLabel):
         self.setPixmap(self._pixmap)
 
         self._image_ready.connect(self._on_new_cubeable)
-        self._cubeable_view.new_cubeable.connect(self._set_cubeable)
+        self._cubeable_view.new_cubeable.connect(self.set_cubeable)
 
     def _on_new_cubeable(self, image_request: ImageRequest, pixmap: QtGui.QPixmap):
         if image_request == self._image_request:
             self.setPixmap(pixmap)
 
-    def _set_cubeable(self, focus: CubeableFocusEvent) -> None:
+    def set_cubeable(self, focus: CubeableFocusEvent) -> None:
         if (
             isinstance(focus.cubeable, Trap)
             and focus.size is not None
@@ -73,6 +74,7 @@ class CubeableImageView(ScaledImageLabel):
 
 
 class CubeableTextView(QtWidgets.QStackedWidget):
+    printing_focused = pyqtSignal(Printing)
 
     def __init__(self, cubeable_view: CubeableView):
         super().__init__()
@@ -102,6 +104,7 @@ class CubeableTextView(QtWidgets.QStackedWidget):
         self.setCurrentWidget(self._blank)
 
         self._cubeable_view.new_cubeable.connect(self._on_new_cubeable)
+        self._trap_view.printing_focused.connect(self.printing_focused)
 
     def _on_new_cubeable(self, focus: CubeableFocusEvent) -> None:
         if self._latest_cubeable == focus.cubeable:
@@ -237,6 +240,15 @@ class TicketTextView(QtWidgets.QWidget):
             )
 
 
+class NodeTreeItem(QtWidgets.QTreeWidgetItem):
+
+    def __init__(self, node: PrintingNode, _type: str):
+        super().__init__()
+        self._node = node
+        self.setData(1, 0, _type)
+        self.setData(0, 0, 'any' if isinstance(node, AnyNode) else 'all')
+
+
 class PrintingTreeItem(QtWidgets.QTreeWidgetItem):
 
     def __init__(self, printing: Printing, _type: str):
@@ -251,6 +263,7 @@ class PrintingTreeItem(QtWidgets.QTreeWidgetItem):
 
 
 class TrapTextView(QtWidgets.QWidget):
+    printing_focused = pyqtSignal(Printing)
 
     def __init__(self):
         super().__init__()
@@ -284,16 +297,15 @@ class TrapTextView(QtWidgets.QWidget):
         if isinstance(current, PrintingTreeItem):
             self._printing_view.set_cubeable(current.printing)
             self._printing_view.show()
+            self.printing_focused.emit(current.printing)
 
     def _span_tree(self, option: t.Union[Printing, PrintingNode], item: t.Any, is_top_level: bool, _type: str) -> None:
         if isinstance(option, Printing):
             _item = PrintingTreeItem(option, _type)
 
         else:
-            _item = QtWidgets.QTreeWidgetItem()
-            _item.setData(1, 0, _type)
+            _item = NodeTreeItem(option, _type)
             _option_type = 'any' if isinstance(option, AnyNode) else 'all'
-            _item.setData(0, 0, _option_type)
             for child in option.children:
                 self._span_tree(child, _item, False, _option_type)
 
@@ -334,6 +346,8 @@ class TextImageCubeableView(QtWidgets.QWidget):
         layout.addWidget(splitter)
 
         self.setLayout(layout)
+
+        self._text_view.printing_focused.connect(lambda p: self._image_view.set_cubeable(CubeableFocusEvent(p)))
 
 
 class CubeableView(QtWidgets.QWidget):

@@ -676,7 +676,7 @@ QTabWidget::tab-bar {
 
 QTabBar {
     qproperty-drawBase: 0;
-    border-radius: 3px;
+    border-radius: 1px;
 }
 
 QTabBar:focus {
@@ -703,10 +703,11 @@ QTabBar::close-button:pressed {
 
 QTabBar::tab:top {
     color: #eff0f1;
+    height: 20px;
     border: 1px solid #76797C;
     border-bottom: 1px transparent black;
     background-color: #31363b;
-    padding: 5px;
+    padding: 3px;
     min-width: 50px;
     border-top-left-radius: 2px;
     border-top-right-radius: 2px;

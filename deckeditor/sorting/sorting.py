@@ -5,6 +5,7 @@ import typing as t
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 
+from PyQt5 import QtCore
 
 from mtgorp.models.persistent.attributes import typeline, colors
 from mtgorp.models.persistent.printing import Printing
@@ -31,6 +32,7 @@ class _SortPropertyMeta(ABCMeta):
 
 class SortProperty(object, metaclass = _SortPropertyMeta):
     name: str = None
+    auto_direction: QtCore.Qt.Orientation = QtCore.Qt.Horizontal
 
     @classmethod
     @abstractmethod
@@ -103,6 +105,7 @@ class NameExtractor(SortProperty):
 
 class IsLandExtractor(SortProperty):
     name = 'Land Split'
+    auto_direction = QtCore.Qt.Vertical
 
     @classmethod
     def extract(cls, cubeable: Cubeable) -> int:
@@ -113,6 +116,7 @@ class IsLandExtractor(SortProperty):
 
 class IsCreatureExtractor(SortProperty):
     name = 'Creature Split'
+    auto_direction = QtCore.Qt.Vertical
 
     @classmethod
     def extract(cls, cubeable: Cubeable) -> int:
@@ -139,6 +143,7 @@ class CubeableTypeExtractor(SortProperty):
 
 class IsMonoExtractor(SortProperty):
     name = 'Mono Split'
+    auto_direction = QtCore.Qt.Vertical
 
     @classmethod
     def extract(cls, cubeable: Cubeable) -> int:

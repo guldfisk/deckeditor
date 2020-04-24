@@ -628,6 +628,7 @@ class DraftView(Editable):
         self._splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(3, 3, 3, 1)
 
         self._splitter.addWidget(self._booster_widget)
         self._splitter.addWidget(self._bottom_tabs)

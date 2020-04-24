@@ -7,11 +7,7 @@ from PyQt5.QtCore import QPoint, Qt, QRectF, QRect
 from PyQt5.QtGui import QPainter, QPolygonF
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from yeetlong.multiset import Multiset
-
-from magiccube.collections.cube import Cube
-from magiccube.collections.delta import CubeDeltaOperation
 
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.serilization.strategies.picklestrategy import PickleStrategy
@@ -19,12 +15,17 @@ from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 from mtgorp.tools.search.pattern import Criteria
 
+from magiccube.collections.cube import Cube
+from magiccube.collections.delta import CubeDeltaOperation
+
 from deckeditor.components.views.cubeedit.graphical.sortdialog import SortDialog
 from deckeditor.utils.undo import CommandPackage
 from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting import sorting
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.utils.actions import WithActions
 
 
 class QueryEdit(QtWidgets.QLineEdit):
@@ -69,7 +70,7 @@ class SearchSelectionDialog(QtWidgets.QDialog):
             return
 
 
-class CubeImageView(QtWidgets.QGraphicsView):
+class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     search_select = QtCore.pyqtSignal(Criteria)
     card_double_clicked = QtCore.pyqtSignal(PhysicalCard, int)
 
@@ -115,7 +116,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._create_sort_action_pair(sorting.ExpansionExtractor)
         self._create_sort_action_pair(sorting.CollectorNumberExtractor)
 
-        self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'Ctrl+I')
+        self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'F')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
         self._sort_action = self._create_action('Sort', self._sort, 'Alt+S')
         self._deselect_all_action = self._create_action(
@@ -199,7 +200,12 @@ class CubeImageView(QtWidgets.QGraphicsView):
 
         Context.clipboard.setMimeData(mime)
 
-    def _on_sort_selected(self, sort_property: t.Type[sorting.SortProperty], orientation: int) -> None:
+    def _on_sort_selected(
+        self,
+        sort_property: t.Type[sorting.SortProperty],
+        orientation: int,
+        respect_custom: bool,
+    ) -> None:
         self._undo_stack.push(
             self._scene.aligner.sort(
                 sort_property,
@@ -243,7 +249,7 @@ class CubeImageView(QtWidgets.QGraphicsView):
         self._sort_actions.append(
             self._create_action(
                 f'{sort_property.name} {"Horizontally" if orientation == QtCore.Qt.Horizontal else "Vertically"}',
-                lambda: self._on_sort_selected(sort_property, orientation),
+                lambda: self._on_sort_selected(sort_property, orientation, True),
                 None
                 if short_cut_letter is None else
                 f'Ctrl+{"Shift" if orientation == QtCore.Qt.Vertical else "Alt"}+{short_cut_letter}'
@@ -254,17 +260,17 @@ class CubeImageView(QtWidgets.QGraphicsView):
     def floating(self) -> t.List[PhysicalCard]:
         return self._floating
 
-    def _create_action(self, name: str, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QAction:
-        action = QtWidgets.QAction(name, self)
-        action.triggered.connect(result)
-
-        if shortcut:
-            action.setShortcut(shortcut)
-            action.setShortcutContext(QtCore.Qt.WidgetWithChildrenShortcut)
-
-        self.addAction(action)
-
-        return action
+    # def _create_action(self, name: str, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QAction:
+    #     action = QtWidgets.QAction(name, self)
+    #     action.triggered.connect(result)
+    #
+    #     if shortcut:
+    #         action.setShortcut(shortcut)
+    #         action.setShortcutContext(QtCore.Qt.WidgetWithChildrenShortcut)
+    #
+    #     self.addAction(action)
+    #
+    #     return action
 
     @property
     def dragging(self) -> t.List[PhysicalCard]:
@@ -575,6 +581,10 @@ class CubeImageView(QtWidgets.QGraphicsView):
                 self._rubber_band.geometry()
             )
         )
+
+        if Context.settings.value('select_on_covered_parts', False, bool):
+            self._scene.add_selection(potential_items, modifiers)
+            return
 
         cards = []
         rubber_band_polygon = QPolygonF(
