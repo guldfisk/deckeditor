@@ -67,6 +67,8 @@ class MainWindow(QMainWindow, CardAddable):
         super().__init__(parent)
 
         self.setWindowIcon(QtGui.QIcon(paths.ICON_PATH))
+        if Context.settings.value('frameless', True, bool):
+            self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.FramelessWindowHint)
 
         self._notification_frame = NotificationFrame(self)
 
@@ -271,11 +273,6 @@ class MainWindow(QMainWindow, CardAddable):
                 self.resizeDocks([self._card_adder_dock], [self._reset_dock_height], QtCore.Qt.Vertical)
 
         self._card_adder.query_edit.setFocus()
-
-    def _test(self):
-        time.sleep(2)
-        print(Context.main_window.isActiveWindow())
-        print(Context.application.activeWindow())
 
     def resizeEvent(self, resize_event: QtGui.QResizeEvent):
         if hasattr(self, '_notification_frame'):

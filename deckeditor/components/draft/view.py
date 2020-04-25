@@ -94,7 +94,7 @@ class DraftModel(QObject):
                     title = 'New pack',
                     message = f'pack {self._draft_client.round.pack} pick {booster.pick}',
                 )
-            except ImportError:
+            except NotImplementedError:
                 Context.notification_message.emit('OS notifications not available')
                 Context.settings.setValue('notify_on_booster_arrived', False)
 

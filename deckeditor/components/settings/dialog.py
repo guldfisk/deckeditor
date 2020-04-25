@@ -69,6 +69,13 @@ class SettingsDialog(QDialog):
                         'image',
                         ('image', 'text', 'both'),
                     ),
+                    BooleanSetting(
+                        'frameless',
+                        'Frameless',
+                        'Removes title bar of main window',
+                        True,
+                        requires_restart = True,
+                    ),
                 ),
                 (),
             ),
