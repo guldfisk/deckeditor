@@ -38,6 +38,10 @@ class Spoiler(QtWidgets.QWidget):
 
         self._header_line.clicked.connect(self.toggle_expanded)
 
+    @property
+    def expanded(self) -> bool:
+        return self._expanded
+
     def set_expanded(self, expanded: bool) -> None:
         self._expanded = expanded
         collapsed_height = self._header_line.sizeHint().height()

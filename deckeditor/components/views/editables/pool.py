@@ -8,13 +8,13 @@ from PyQt5.QtWidgets import QUndoStack, QGraphicsScene
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubeview import CubeView
-from deckeditor.components.views.editables.editable import Editable
+from deckeditor.components.views.editables.multicubestab import MultiCubesTab
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.deck import PoolModel
 
 
-class PoolView(Editable):
+class PoolView(MultiCubesTab):
 
     def __init__(
         self,
@@ -84,6 +84,14 @@ class PoolView(Editable):
         self._connect_move_cubeable(self._maindeck_cube_view, self._pool_cube_view, self._sideboard_cube_view)
         self._connect_move_cubeable(self._sideboard_cube_view, self._pool_cube_view, self._maindeck_cube_view)
         self._connect_move_cubeable(self._pool_cube_view, self._maindeck_cube_view, self._sideboard_cube_view)
+
+    @property
+    def cube_views(self) -> t.Iterable[CubeView]:
+        return (
+            self._pool_cube_view,
+            self._maindeck_cube_view,
+            self._sideboard_cube_view,
+        )
 
     def _on_cube_scene_selection_cleared(self, scene: QGraphicsScene) -> None:
         for _scene in self._all_scenes:

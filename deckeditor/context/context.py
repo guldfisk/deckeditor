@@ -16,8 +16,8 @@ from mtgorp.tools.parsing.search.parse import SearchParser
 
 from mtgimg.load import Loader as ImageLoader
 
-from cubeclient.models import ApiClient
-from cubeclient.endpoints import NativeApiClient
+from cubeclient.models import ApiClient, AsyncClient
+from cubeclient.endpoints import NativeApiClient, AsyncNativeApiClient
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
@@ -44,9 +44,10 @@ class _Context(QObject):
     username: str
     token_changed = pyqtSignal(str)
 
-    cube_api_client: ApiClient
+    cube_api_client: AsyncClient
 
     notification_message = pyqtSignal(str)
+    status_message = pyqtSignal(str, int)
 
     focus_card_changed = pyqtSignal(CubeableFocusEvent)
     focus_scene_changed = pyqtSignal(QGraphicsScene)
@@ -77,7 +78,7 @@ class _Context(QObject):
 
         cls.host = Context.settings.value('host_name', 'localhost:7000')
         cls.username = Context.settings.value('username', 'root')
-        cls.cube_api_client = NativeApiClient(host = cls.host, db = cls.db)
+        cls.cube_api_client = AsyncNativeApiClient(host = cls.host, db = cls.db)
 
         # https://github.com/syrusakbary/promise/issues/57
         promise.async_instance.disable_trampoline()

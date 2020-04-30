@@ -157,8 +157,6 @@ class CubeView(QtWidgets.QWidget):
 
         self._aligner_selector = AlignSelector(self._cube_scene, self._undo_stack)
 
-        # self._selection_indicator = SelectionIndicator(self._cube_scene)
-
         self._layout_selector = LayoutSelector(self)
         self._layout_selector.setFixedSize(QSize(20, 20))
 
@@ -169,7 +167,6 @@ class CubeView(QtWidgets.QWidget):
         self._tool_bar.setContentsMargins(0, 3, 0, 0)
 
         self._tool_bar.addWidget(self._aligner_selector)
-        # self._tool_bar.addWidget(self._selection_indicator)
         self._tool_bar.addWidget(self._layout_selector)
 
         self._spoiler = Spoiler(not Context.settings.value('default_cubeview_header_hidden', True, bool))
@@ -190,6 +187,8 @@ class CubeView(QtWidgets.QWidget):
 
         self._cube_list_view.cubeable_double_clicked.connect(self.cubeable_double_clicked)
         self._cube_image_view.card_double_clicked.connect(lambda c, m: self.cubeable_double_clicked.emit(c.cubeable))
+
+        self._create_action('Toggle Header', lambda: self._spoiler.set_expanded(not self._spoiler.expanded), 'H')
 
         self._create_action('View Images', lambda: self.layout_changed.emit(CubeViewLayout.IMAGE), 'Ctrl+Alt+Shift+I')
         self._create_action('View Table', lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'Ctrl+Alt+Shift+T')

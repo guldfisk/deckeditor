@@ -1,15 +1,18 @@
 import typing as t
 import pickle
 import os
+
 from pickle import UnpicklingError
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QMessageBox
 
 from mtgorp.models.serilization.serializeable import SerializationException
 
 from magiccube.collections.cube import Cube
 
+from deckeditor.components.views.editables.multicubestab import MultiCubesTab
+from deckeditor.sorting.sorting import CMCExtractor
 from deckeditor.components.draft.view import DraftView, DraftModel
 from deckeditor.components.editables.editor import Editor, EditablesMeta
 from deckeditor.models.cubes.physicalcard import PhysicalCard
@@ -234,6 +237,15 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
 
             else:
                 raise FileOpenException('invalid load target "{}"'.format(target))
+
+            if isinstance(tab, MultiCubesTab) and Context.settings.value('auto_sort_non_emb_files_on_open', True, bool):
+                for cube_view in tab.cube_views:
+                    cube_view.cube_scene.aligner.sort(
+                        CMCExtractor,
+                        cube_view.cube_scene.items(),
+                        QtCore.Qt.Horizontal,
+                        False,
+                    ).redo()
 
             self.add_editable(tab, meta)
 

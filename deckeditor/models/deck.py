@@ -107,6 +107,7 @@ class DeckModel(QObject):
                 cards = maindeck if isinstance(maindeck, t.Sequence) else None,
                 width = IMAGE_WIDTH * 15.5,
                 height = IMAGE_HEIGHT * 6.3,
+                name = 'maindeck',
             )
             if sideboard is None or isinstance(maindeck, t.Sequence) else
             maindeck
@@ -117,6 +118,7 @@ class DeckModel(QObject):
                 cards = sideboard if isinstance(sideboard, t.Sequence) else None,
                 width = IMAGE_WIDTH * 3.3,
                 height = IMAGE_HEIGHT * 6.3,
+                name = 'sideboard',
             )
             if sideboard is None or isinstance(sideboard, t.Sequence) else
             sideboard
@@ -171,6 +173,7 @@ class PoolModel(DeckModel):
                 width = IMAGE_WIDTH * 15.5,
                 height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
+                name = 'maindeck',
             )
             if sideboard is None or isinstance(maindeck, t.Sequence) else
             maindeck,
@@ -180,6 +183,7 @@ class PoolModel(DeckModel):
                 width = IMAGE_WIDTH * 3.3,
                 height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
+                name = 'sideboard',
             )
             if sideboard is None or isinstance(sideboard, t.Sequence) else
             sideboard,
@@ -191,6 +195,7 @@ class PoolModel(DeckModel):
                 width = IMAGE_WIDTH * 20.7,
                 height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
+                name = 'pool',
             )
             if sideboard is None or isinstance(pool, t.Sequence) else
             pool

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 import typing as t
 from collections import defaultdict, OrderedDict
 
@@ -92,6 +93,8 @@ class PhysicalCard(SceneCard[C]):
         image_request = self.image_request()
         Context.pixmap_loader.get_pixmap(image_request = image_request).then(
             lambda pixmap: self._set_updated_pixmap(pixmap, image_request)
+        ).catch(
+            lambda e: logging.warning(f'failed loading image {image_request}: {e}')
         )
 
     def _set_updated_pixmap(self, pixmap: QtGui.QPixmap, image_request: ImageRequest):
@@ -356,11 +359,21 @@ class PhysicalTrap(PhysicalCard[Trap]):
             for child in
             self.cubeable.node.children
         ]
+        for child in self.node_children:
+            if isinstance(child, PhysicalTrap):
+                child._generate_children()
+
+    def _get_compress_children(self) -> t.Iterator[PhysicalCard]:
+        for card in self.node_children:
+            if card.scene() is None and isinstance(card, PhysicalTrap):
+                yield from card._get_compress_children()
+            else:
+                yield card
 
     def _compress(self, child: PhysicalCard, undo_stack: QUndoStack):
         scene_remove_map = defaultdict(list)
 
-        for card in self.node_children:
+        for card in self._get_compress_children():
             scene_remove_map[card.scene()].append(card)
 
         undo_stack.push(
@@ -392,11 +405,20 @@ class PhysicalTrap(PhysicalCard[Trap]):
 
 class PhysicalAllCard(PhysicalTrap):
 
-    def get_flatten_command(self) -> QUndoCommand:
+    @property
+    def flat_children(self) -> t.Iterator[PhysicalCard]:
+        for child in self.node_children:
+            if isinstance(child, PhysicalAllCard):
+                yield from child.flat_children
+            else:
+                yield child
+
+    def get_flatten_command(self, recursive: bool = True) -> QUndoCommand:
         if not self.node_children:
             self._generate_children()
+
         return self.scene().get_cube_modification(
-            add = self.node_children,
+            add = list(self.flat_children) if recursive else self.node_children,
             remove = (self,),
             position = self.pos() + QPoint(1, 1),
             closed_operation = True,
@@ -404,7 +426,7 @@ class PhysicalAllCard(PhysicalTrap):
 
     def _flatten(self, undo_stack: QUndoStack) -> None:
         undo_stack.push(
-            self.get_flatten_command()
+            self.get_flatten_command(Context.settings.value('flatten_recursively', True, bool))
         )
 
     def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:

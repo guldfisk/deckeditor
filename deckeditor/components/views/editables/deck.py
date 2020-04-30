@@ -8,12 +8,12 @@ from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QVBoxLayout, QUndoStack, QGraphicsScene
 
 from deckeditor.components.views.cubeedit.cubeview import CubeView
-from deckeditor.components.views.editables.editable import Editable
+from deckeditor.components.views.editables.multicubestab import MultiCubesTab
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel
 
 
-class DeckView(Editable):
+class DeckView(MultiCubesTab):
 
     def __init__(
         self,
@@ -87,6 +87,13 @@ class DeckView(Editable):
                     QPoint(),
                 )
             )
+        )
+
+    @property
+    def cube_views(self) -> t.Iterable[CubeView]:
+        return (
+            self._maindeck_cube_view,
+            self._sideboard_cube_view,
         )
 
     def _on_cube_scene_selection_cleared(self, scene: QGraphicsScene) -> None:

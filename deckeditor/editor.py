@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import io
+import logging
 import os
 import pickle
 import sys
-import threading
 import time
 import traceback
 import typing
@@ -13,7 +13,9 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
-from deckeditor.authentication.login import re_login
+from deckeditor.authentication.login import LOGIN_CONTROLLER
+from deckeditor.components.db.info import DBInfoDialog
+from deckeditor.components.db.update import DBUpdateDialog
 from deckeditor.components.draft.view import DraftView
 from deckeditor.components.sealed.view import LimitedSessionsView
 from deckeditor.components.settings.dialog import SettingsDialog
@@ -50,6 +52,7 @@ class MainView(QWidget):
         super().__init__(parent)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(3, 0, 3, 0)
 
         self.editables_tabs = EditablesTabs()
 
@@ -74,8 +77,20 @@ class MainWindow(QMainWindow, CardAddable):
 
         self.setWindowTitle('Embargo Edit')
 
+        self.layout().setContentsMargins(0, 0, 0, 0)
+
         self._printing_view = CubeableView(self)
         Context.focus_card_changed.connect(self._printing_view.new_cubeable)
+
+        self._login_status_label = QtWidgets.QLabel('')
+        LOGIN_CONTROLLER.login_success.connect(lambda u, h: self._login_status_label.setText(f'{u.username}@{h}'))
+        LOGIN_CONTROLLER.login_failed.connect(lambda e: self._login_status_label.setText(''))
+        LOGIN_CONTROLLER.login_terminated.connect(lambda : self._login_status_label.setText(''))
+        LOGIN_CONTROLLER.login_pending.connect(lambda u, h: self._login_status_label.setText(f'logging in @ {h}'))
+
+        self.statusBar().setContentsMargins(10, 0, 10, 0)
+        self.statusBar().addPermanentWidget(self._login_status_label)
+        Context.status_message.connect(lambda m, t: self.statusBar().showMessage(m, t))
 
         self._card_view_dock = QtWidgets.QDockWidget('Card View', self)
         self._card_view_dock.setObjectName('card_view_dock')
@@ -202,12 +217,15 @@ class MainWindow(QMainWindow, CardAddable):
             # ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', LoginDialog(self).exec_),
-                ('Logout', None, lambda: None),
+                ('Logout', None, LOGIN_CONTROLLER.log_out),
             ),
             menu_bar.addMenu('Preferences'): (
                 ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog().exec_()),
             ),
             menu_bar.addMenu('DB'): (
+                ('Info', None, lambda: DBInfoDialog().exec_()),
+                ('Update', None, lambda: DBUpdateDialog().exec_()),
+                ('Validate', None, lambda: LOGIN_CONTROLLER.validate(True)),
             ),
         }
 
@@ -229,6 +247,10 @@ class MainWindow(QMainWindow, CardAddable):
         Context.notification_message.connect(self._notification_frame.notify)
 
         self._load_state()
+
+    @property
+    def login_status_label(self) -> QtWidgets.QLabel:
+        return self._login_status_label
 
     def _on_add_printings(self, delta_operation: CubeDeltaOperation):
         tab = self._main_view.editables_tabs.currentWidget()
@@ -390,47 +412,9 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
     return exception_hook
 
 
-class MtgOrpDialog(QDialog):
-
-    def __init__(self):
-        super().__init__()
-        self._info_label = QtWidgets.QLabel('Can\'t load db, gotta rebuild')
-
-        self._log_value = ''
-        self._log_view = QtWidgets.QTextEdit()
-        self._log_view.setReadOnly(True)
-
-        self._run_button = QtWidgets.QPushButton('Download and generate')
-        self._run_button.clicked.connect(self._download_and_generate)
-
-        layout = QtWidgets.QVBoxLayout(self)
-
-        layout.addWidget(self._info_label)
-        layout.addWidget(self._log_view)
-        layout.addWidget(self._run_button)
-
-    def _log(self, text: str) -> None:
-        self._log_value += text + '\n'
-        self._log_view.setText(self._log_value)
-        self._log_view.repaint()
-
-    def _download_and_generate(self):
-        self._run_button.setDisabled(True)
-        self._log('Checking db')
-        last_updates = check()
-        if last_updates is not None:
-            self._log('New magic json')
-            download.re_download()
-            self._log('New magic json downloaded')
-            create.update_database()
-            self._log('Database updated')
-            update_last_updated(last_updates)
-        else:
-            self._log('Magic db up to date')
-        self.accept()
-
-
 def run():
+    logging.basicConfig(format = '%(levelname)s %(message)s', level = logging.INFO)
+
     app = EmbargoApp(sys.argv)
 
     sys.excepthook = _get_exception_hook()
@@ -440,7 +424,7 @@ def run():
     try:
         Context.init(app)
     except DBLoadException:
-        if not MtgOrpDialog().exec_() == QDialog.Accepted:
+        if not DBUpdateDialog().exec_() == QDialog.Accepted:
             return
         Context.init(app)
 
@@ -457,8 +441,7 @@ def run():
     main_window.showMaximized()
 
     if Context.settings.value('auto_login', False, bool):
-        login_worker = threading.Thread(target = re_login)
-        login_worker.start()
+        LOGIN_CONTROLLER.re_login()
 
     sys.exit(app.exec_())
 

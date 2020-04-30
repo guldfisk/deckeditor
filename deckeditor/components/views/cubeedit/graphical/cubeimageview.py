@@ -145,6 +145,13 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._scene.selectionChanged.connect(self._update_selected_info_text)
         self._scene.changed.connect(self._update_selected_info_text)
 
+    def _update_status(self) -> None:
+        Context.status_message.emit(self._scene.name + ' ' + self._selected_info_text, 0)
+
+    def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
+        super().focusInEvent(event)
+        self._update_status()
+
     def _update_selected_info_text(self, *args, **kwargs) -> None:
         self._selected_info_text = (
             '{}/{}'.format(
@@ -152,6 +159,8 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 len(self._scene.items()),
             )
         )
+        if self.hasFocus():
+            self._update_status()
         self.update()
 
     @property
@@ -349,7 +358,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._undo_stack.push(
             CommandPackage(
                 [
-                    card.get_flatten_command()
+                    card.get_flatten_command(Context.settings.value('flatten_recursively', True, bool))
                     for card in (selected if selected else self._scene.items())
                     if isinstance(card, PhysicalAllCard)
                 ]
@@ -624,6 +633,9 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         super().paintEvent(event)
+
+        if not Context.settings.value('on_view_card_count', True, bool):
+            return
 
         rect = self.rect()
 

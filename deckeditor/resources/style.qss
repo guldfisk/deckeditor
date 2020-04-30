@@ -493,6 +493,8 @@ QToolBar {
     border: 1px transparent #393838;
     background: 1px solid #31363b;
     font-weight: bold;
+    margin: 0px;
+    padding: 0px;
 }
 
 QToolBar::handle:horizontal {
@@ -1157,8 +1159,14 @@ QToolBox::tab:selected {
     border-color: #3daee9;
 }
 
+QStatusBar {
+    margin: 0px;
+    border: 0px;
+}
+
 QStatusBar::item {
     border: 0px transparent dark;
+    margin: 0px;
 }
 
 QFrame[height="3"],

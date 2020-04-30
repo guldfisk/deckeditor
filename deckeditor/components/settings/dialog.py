@@ -43,25 +43,6 @@ class SettingsDialog(QDialog):
             (
                 'General',
                 (
-                    BooleanSetting(
-                        'default_cubeview_header_hidden',
-                        'Cubeview header collapsed by default',
-                        'Cubeview header collapsed by default',
-                        True,
-                    ),
-                    BooleanSetting(
-                        'image_view_scroll_default_zoom',
-                        'Zoom in cubeview with scroll wheel',
-                        'If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom',
-                        True,
-                    ),
-                    BooleanSetting(
-                        'select_on_covered_parts',
-                        'Select all cards intersecting rubber band',
-                        'If checked, select all cards intersecting rubber band on completion in cubeview, also cards '
-                        'covered by other cards.',
-                        False,
-                    ),
                     OptionsSetting(
                         'default_card_view_type',
                         'Default card view',
@@ -75,6 +56,50 @@ class SettingsDialog(QDialog):
                         'Removes title bar of main window',
                         True,
                         requires_restart = True,
+                    ),
+                ),
+                (),
+            ),
+            (
+                'Card View',
+                (
+                    BooleanSetting(
+                        'default_cubeview_header_hidden',
+                        'Header collapsed by default',
+                        'Header collapsed by default',
+                        True,
+                    ),
+                    BooleanSetting(
+                        'image_view_scroll_default_zoom',
+                        'Zoom with scroll wheel',
+                        'If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom',
+                        True,
+                    ),
+                    BooleanSetting(
+                        'select_on_covered_parts',
+                        'Select all cards intersecting rubber band',
+                        'If checked, select all cards intersecting rubber band on completion, also cards '
+                        'covered by other cards.',
+                        False,
+                    ),
+                    BooleanSetting(
+                        'on_view_card_count',
+                        'Card count overlay',
+                        'Show card count / selection info on top of card view',
+                        True,
+                    ),
+                ),
+                (),
+            ),
+            (
+                'Files',
+                (
+                    BooleanSetting(
+                        'auto_sort_non_emb_files_on_open',
+                        'Auto sort file on open',
+                        'Auto sort non emb files on open. Just cmc horizontally, will be a customizable macro '
+                        'eventually :)',
+                        True,
                     ),
                 ),
                 (),
@@ -100,6 +125,12 @@ class SettingsDialog(QDialog):
                         'Default focus appropriate sub-printing of trap during hover-based focus instead of entire '
                         'trap.',
                         False,
+                    ),
+                    BooleanSetting(
+                        'flatten_recursively',
+                        'Flatten recursively',
+                        'Flatten all flattenable children of af trap instead of of one level at a time',
+                        True,
                     ),
                 ),
                 (

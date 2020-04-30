@@ -24,14 +24,14 @@ class SessionsList(QTableWidget):
 
         self._sessions_view = parent
 
-        self._sessions: t.List[LimitedSession] = []
+        self._sessions: t.Sequence[LimitedSession] = []
 
         self.cellDoubleClicked.connect(self._cell_double_clicked)
 
     def _cell_double_clicked(self, row: int, column: int) -> None:
         self._sessions_view.session_selected.emit(self._sessions[row])
 
-    def set_sessions(self, sessions: t.List[LimitedSession]) -> None:
+    def set_sessions(self, sessions: t.Sequence[LimitedSession]) -> None:
         self._sessions = sessions
 
         def _set_data_at(data: str, _row: int, _column: int):
@@ -190,7 +190,7 @@ class LimitedSessionsView(QWidget):
     def __init__(self, parent: t.Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
-        self._sessions: t.List[LimitedSession] = []
+        # self._sessions: t.List[LimitedSession] = []
 
         self._sessions_list = SessionsList(self)
         self._limited_session_view = LimitedSessionView(self)
@@ -208,20 +208,22 @@ class LimitedSessionsView(QWidget):
         Context.sealed_started.connect(self.update)
         self.update.connect(self._on_update)
 
+    def set_sessions(self, sessions: t.Sequence[LimitedSession]) -> None:
+        self._sessions_list.set_sessions(sessions)
+        if not self._limited_session_view.session in sessions:
+            self._limited_session_view.hide()
+
     def _on_update(self) -> None:
         if Context.cube_api_client.user is None:
-            self._sessions = []
-        else:
-            self._sessions = list(
-                Context.cube_api_client.limited_sessions(
-                    limit = 20,
-                    filters = {
-                        'state_filter': 'DECK_BUILDING',
-                        'players_filter': Context.cube_api_client.user.username,
-                    },
-                )
-            )
+            self.set_sessions(())
+            return
 
-        self._sessions_list.set_sessions(self._sessions)
-        if not self._limited_session_view.session in self._sessions:
-            self._limited_session_view.hide()
+        Context.cube_api_client.limited_sessions(
+            limit = 20,
+            filters = {
+                'state_filter': 'DECK_BUILDING',
+                'players_filter': Context.cube_api_client.user.username,
+            },
+        ).then(
+            self.set_sessions
+        )

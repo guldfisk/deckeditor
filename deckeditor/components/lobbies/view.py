@@ -11,6 +11,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
+from cubeclient.models import VersionedCube
 from mtgorp.models.formats.format import Format
 from mtgorp.models.persistent.attributes.expansiontype import ExpansionType
 
@@ -61,9 +62,9 @@ class LobbyModelClientConnection(QObject):
         self._lobby_client: t.Optional[LobbyClient] = None
 
         if Context.cube_api_client.token:
-            self._logged_in(None)
+            self._on_token_changed(None)
 
-        Context.token_changed.connect(self._logged_in)
+        Context.token_changed.connect(self._on_token_changed)
 
     @property
     def is_connected(self) -> bool:
@@ -74,9 +75,18 @@ class LobbyModelClientConnection(QObject):
         self.connected.emit(False)
         self.changed.emit()
 
-    def _logged_in(self, _):
+    def _on_token_changed(self, token: t.Optional[str]):
+        # if not token:
+        #     self._lobby_client.close()
+        #     self.on_disconnected()
+        #     return
+
         if self._lobby_client is not None:
             self._lobby_client.close()
+            self.on_disconnected()
+
+        if not token:
+            return
 
         self._lobby_client = _LobbyClient(
             self,
@@ -232,25 +242,26 @@ class ReleaseSelector(QWidget):
 
         self.setLayout(layout)
 
-        self._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
-        self._release_versioned_cube_map = {
-            release.id: versioned_cube
-            for versioned_cube in
-            self._versioned_cubes
-            for release in
-            versioned_cube.releases
-        }
+        # self._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
+        # self._release_versioned_cube_map = {
+        #     release.id: versioned_cube
+        #     for versioned_cube in
+        #     self._versioned_cubes
+        #     for release in
+        #     versioned_cube.releases
+        # }
 
         self._update()
 
+        LOBBIES_CONTROLLER.versioned_cubes_changed.connect(self._update)
         self._cube_selector.activated.connect(self._on_cube_selected)
         self._release_selector.activated.connect(self._on_release_selected)
 
     def update_content(self, release_id: t.Union[str, int], enabled: bool) -> None:
-        versioned_cube = self._release_versioned_cube_map[release_id]
+        versioned_cube = LOBBIES_CONTROLLER.release_versioned_cube_map[release_id]
         self._cube_selector.setCurrentIndex(
-            self._versioned_cubes.index(
-                self._release_versioned_cube_map[release_id]
+            LOBBIES_CONTROLLER.versioned_cubes.index(
+                LOBBIES_CONTROLLER.release_versioned_cube_map[release_id]
             )
         )
         idx = 0
@@ -267,14 +278,14 @@ class ReleaseSelector(QWidget):
 
     def _update(self):
         self._cube_selector.clear()
-        for versioned_cube in self._versioned_cubes:
+        for versioned_cube in LOBBIES_CONTROLLER.versioned_cubes:
             self._cube_selector.addItem(versioned_cube.name, versioned_cube.id)
 
     def _on_release_selected(self, idx: int) -> None:
         self.release_selected.emit(self._release_selector.itemData(idx))
 
     def _on_cube_selected(self, idx: int) -> None:
-        versioned_cube = self._versioned_cubes[idx]
+        versioned_cube = LOBBIES_CONTROLLER.versioned_cubes[idx]
         if not self._release_selector.currentData() in (
             release.id
             for release in
@@ -997,6 +1008,43 @@ class LobbyTabs(QtWidgets.QTabWidget):
         )
 
 
+class LobbiesController(QObject):
+    versioned_cubes_changed = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+        self._versioned_cubes: t.List[VersionedCube] = []
+        self._release_versioned_cube_map: t.MutableMapping[int, VersionedCube] = {}
+
+        Context.token_changed.connect(self._refresh)
+
+    @property
+    def versioned_cubes(self) -> t.List[VersionedCube]:
+        return self._versioned_cubes
+
+    @property
+    def release_versioned_cube_map(self) -> t.Mapping[int, VersionedCube]:
+        return self._release_versioned_cube_map
+
+    def _refresh(self, token: t.Optional[str]) -> None:
+        if token is None:
+            return
+        Context.cube_api_client.versioned_cubes(limit = 50).then(self._set_versioned_cubes)
+
+    def _set_versioned_cubes(self, versioned_cubes: t.List[VersionedCube]) -> None:
+        self._versioned_cubes = list(versioned_cubes)
+        self._release_versioned_cube_map = {
+            release.id: versioned_cube
+            for versioned_cube in
+            self._versioned_cubes
+            for release in
+            versioned_cube.releases
+        }
+
+
+LOBBIES_CONTROLLER = LobbiesController()
+
+
 class LobbiesView(QWidget):
     lobbies_changed = pyqtSignal()
 
@@ -1009,6 +1057,7 @@ class LobbiesView(QWidget):
         self._lobby_tabs = LobbyTabs(self)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(1, 1, 1, 1)
 
         self._create_lobby_button = QtWidgets.QPushButton('Create lobby')
         self._create_lobby_button.clicked.connect(self._create_lobby)

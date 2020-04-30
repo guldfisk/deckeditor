@@ -146,9 +146,11 @@ class CubeScene(SelectionScene):
         width: float = values.IMAGE_WIDTH * 12,
         height: float = values.IMAGE_HEIGHT * 8,
         mode: CubeEditMode = CubeEditMode.OPEN,
+        name: str = 'cube scene',
     ):
         super().__init__()
         self._mode = mode
+        self._name = name
 
         self.setSceneRect(
             0,
@@ -173,6 +175,10 @@ class CubeScene(SelectionScene):
         self._auto_sort = False
 
         self.aligner_changed.connect(self._on_aligner_changed)
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     @property
     def cube(self) -> Cube:
@@ -227,11 +233,13 @@ class CubeScene(SelectionScene):
         mode: CubeEditMode,
         width: float,
         height: float,
+        name: str,
     ) -> CubeScene:
         cube_scene = CubeScene(
             width = width,
             height = height,
             mode = mode,
+            name = name,
         )
         aligner._scene = cube_scene
         cube_scene._aligner = aligner
@@ -247,6 +255,7 @@ class CubeScene(SelectionScene):
                 self._mode,
                 self.width(),
                 self.height(),
+                self._name,
             ),
             {'_related_scenes': self._related_scenes},
         )
