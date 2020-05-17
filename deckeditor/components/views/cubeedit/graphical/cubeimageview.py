@@ -7,6 +7,7 @@ from PyQt5.QtCore import QPoint, Qt, QRectF, QRect
 from PyQt5.QtGui import QPainter, QPolygonF
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
+from deckeditor.sorting.sorting import SortProperty
 from yeetlong.multiset import Multiset
 
 from mtgorp.models.persistent.printing import Printing
@@ -101,7 +102,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._last_press_on_card = False
         self._drag = None
 
-        self._sort_actions: t.List[QtWidgets.QAction] = []
+        self._sort_actions: t.MutableMapping[t.Tuple[t.Type[SortProperty], int], QtWidgets.QAction] = {}
 
         self._create_sort_action_pair(sorting.ColorExtractor, 'o')
         self._create_sort_action_pair(sorting.ColorIdentityExtractor, 'i')
@@ -225,9 +226,10 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         )
 
     def _sort(self) -> None:
-        dialog = SortDialog()
+        dialog = SortDialog.get()
         dialog.selection_done.connect(self._on_sort_selected)
         dialog.exec_()
+        dialog.selection_done.disconnect(self._on_sort_selected)
 
     def _search_select(self) -> None:
         dialog = SearchSelectionDialog(self)
@@ -255,7 +257,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         orientation: int,
         short_cut_letter: t.Optional[str] = None,
     ) -> None:
-        self._sort_actions.append(
+        self._sort_actions[sort_property, orientation] = (
             self._create_action(
                 f'{sort_property.name} {"Horizontally" if orientation == QtCore.Qt.Horizontal else "Vertically"}',
                 lambda: self._on_sort_selected(sort_property, orientation, True),
@@ -372,8 +374,9 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         sort_menu = menu.addMenu('Sort')
 
-        for action in self._sort_actions:
-            sort_menu.addAction(action)
+        for (_, orientation), action in self._sort_actions.items():
+            if orientation == QtCore.Qt.Horizontal or self._scene.aligner.supports_sort_orientation:
+                sort_menu.addAction(action)
 
         select_menu = menu.addMenu('Select')
 

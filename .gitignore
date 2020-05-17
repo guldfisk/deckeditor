@@ -4,3 +4,4 @@ __pycache__
 /build
 /build_venv
 test.py
+/package

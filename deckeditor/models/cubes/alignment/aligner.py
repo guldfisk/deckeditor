@@ -56,6 +56,10 @@ class Aligner(ABC):
             )
         )
 
+    @property
+    def supports_sort_orientation(self) -> bool:
+        return True
+
     @abstractmethod
     def pick_up(self, cards: t.Iterable[SceneCard]) -> AlignmentPickUp:
         pass

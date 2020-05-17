@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Embargo Edit
+Comment=Win the MTG tradewar!
+GenericName=Deck Editor
+X-GNOME-FullName=Embargo Edit
+Exec=/usr/share/embargoedit/editor/editor %F
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+StartupNotify=true
+Icon=/usr/share/embargoedit/embargo-icon.png
+MimeType=text/plain;application/json;application/deck;

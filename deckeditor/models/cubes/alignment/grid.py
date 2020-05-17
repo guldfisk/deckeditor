@@ -177,6 +177,10 @@ class GridAligner(Aligner):
     def cards(self) -> t.List[PhysicalCard]:
         return self._cards
 
+    @property
+    def supports_sort_orientation(self) -> bool:
+        return False
+
     def pick_up(self, items: t.Iterable[PhysicalCard]) -> GridPickUp:
         return GridPickUp(
             self,

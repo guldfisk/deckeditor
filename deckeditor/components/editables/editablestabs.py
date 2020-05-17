@@ -1,16 +1,20 @@
+import sys
 import typing as t
 import pickle
 import os
 
 from pickle import UnpicklingError
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QMessageBox
 
 from mtgorp.models.serilization.serializeable import SerializationException
 
 from magiccube.collections.cube import Cube
 
+from deckeditor.application.embargo import restart
+from deckeditor.utils.wrappers import notify_on_exception
 from deckeditor.components.views.editables.multicubestab import MultiCubesTab
 from deckeditor.sorting.sorting import CMCExtractor
 from deckeditor.components.draft.view import DraftView, DraftModel
@@ -38,20 +42,40 @@ class FileSaveException(FileIOException):
     pass
 
 
+class EditablesTabBar(QtWidgets.QTabBar):
+    tab_close_requested = pyqtSignal(int)
+
+    def __init__(self):
+        super().__init__()
+
+    def mousePressEvent(self, mouse_event: QtGui.QMouseEvent) -> None:
+        if mouse_event.button() & QtCore.Qt.MiddleButton:
+            tab_bar_index = self.tabAt(mouse_event.pos())
+            if tab_bar_index != -1:
+                self.tab_close_requested.emit(tab_bar_index)
+        else:
+            super().mousePressEvent(mouse_event)
+
+
 class EditablesTabs(QtWidgets.QTabWidget, Editor):
+    tabBar: t.Callable[[], EditablesTabBar]
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
+
+        self.setTabBar(EditablesTabBar())
         self._new_decks = 0
 
         self._metas: t.MutableMapping[Editable, EditablesMeta] = {}
 
-        self.setTabsClosable(True)
+        self.setMovable(True)
         self.setContentsMargins(1, 2, 1, 1)
 
         Context.new_pool.connect(self.new_pool)
         Context.draft_started.connect(self.new_draft)
-        self.tabCloseRequested.connect(self._tab_close_requested)
+        Context.open_file.connect(self.open_file)
+
+        self.tabBar().tab_close_requested.connect(self._tab_close_requested)
         self.currentChanged.connect(self._on_current_changed)
 
     def current_editable(self) -> t.Optional[Editable]:
@@ -143,12 +167,12 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
 
             Context.saved_drafts = previous_session.get('drafts', {})
 
-        except Exception as e:
+        except:
             confirm_dialog = QMessageBox()
             confirm_dialog.setText('Corrupt session')
             confirm_dialog.setInformativeText(
                 'Persistent session is corrupt. This may be due to backward incompatible changes in Embargo Edit.\n'
-                'Would you like to delete the session? (manual restart still required because good software).'
+                'Would you like to delete the session?'
             )
             confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             confirm_dialog.setDefaultButton(QMessageBox.Yes)
@@ -156,8 +180,11 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
 
             if return_code == QMessageBox.Yes:
                 os.remove(paths.SESSION_PATH)
+                restart(save_session = False)
+            else:
+                sys.exit()
 
-            raise e
+            return
 
         self.setCurrentIndex(previous_session['current_tab_index'])
 
@@ -181,6 +208,10 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             meta,
         )
 
+    @notify_on_exception(
+        (FileNotFoundError, FileOpenException),
+        lambda e: 'File not found' if isinstance(e, FileNotFoundError) else ', '.join(map(str, e.args)),
+    )
     def open_file(self, path: str, target: t.Type[TabModel] = Deck) -> None:
         for editable, meta in self._metas.items():
             if meta.path == path:
@@ -250,6 +281,11 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
             self.add_editable(tab, meta)
 
         self.setCurrentWidget(tab)
+
+        if not Context.main_window.isActiveWindow() and Context.settings.value('focus_on_open_file', True, bool):
+            Context.main_window.raise_()
+            Context.main_window.show()
+            Context.main_window.activateWindow()
 
     def save_tab_at_path(self, editable: Editable, path: str, clear_undo: bool = True) -> None:
         extension = os.path.splitext(path)[-1][1:]
@@ -392,7 +428,13 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
     def _tab_close_requested(self, index: int) -> None:
         closed_tab = self.widget(index)
 
-        if not self._metas[closed_tab].path and not closed_tab.is_empty() or not closed_tab.undo_stack.isClean():
+        if (
+            Context.settings.value('confirm_closing_modified_file', True, bool)
+            and (
+            not self._metas[closed_tab].path and not closed_tab.is_empty()
+            or not closed_tab.undo_stack.isClean()
+        )
+        ):
             confirm_dialog = QMessageBox()
             confirm_dialog.setText('File has been modified')
             confirm_dialog.setInformativeText('Wanna save that shit?')

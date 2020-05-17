@@ -7,27 +7,15 @@ import pickle
 import sys
 import time
 import traceback
-import typing
+import argparse
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
-from deckeditor.authentication.login import LOGIN_CONTROLLER
-from deckeditor.components.db.info import DBInfoDialog
-from deckeditor.components.db.update import DBUpdateDialog
-from deckeditor.components.draft.view import DraftView
-from deckeditor.components.sealed.view import LimitedSessionsView
-from deckeditor.components.settings.dialog import SettingsDialog
-from deckeditor.components.views.editables.pool import PoolView
-from deckeditor.serialization.tabmodelserializer import init_deck_serializers
-from deckeditor.sorting.custom import CustomSortMap
 from yeetlong.multiset import Multiset
 
-from mtgorp.db import create
 from mtgorp.db.load import DBLoadException
-from mtgorp.managejson import download
-from mtgorp.managejson.update import check, update_last_updated
 
 from magiccube.collections.delta import CubeDeltaOperation
 
@@ -44,11 +32,24 @@ from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel, Deck, TabModel, Pool
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.values import SUPPORTED_EXTENSIONS
+from deckeditor.authentication.login import LOGIN_CONTROLLER
+from deckeditor.components.db.info import DBInfoDialog
+from deckeditor.components.db.update import DBUpdateDialog
+from deckeditor.components.draft.view import DraftView
+from deckeditor.components.help.about import AboutDialog
+from deckeditor.components.sealed.view import LimitedSessionsView
+from deckeditor.components.settings.dialog import SettingsDialog
+from deckeditor.components.views.editables.pool import PoolView
+from deckeditor.serialization.tabmodelserializer import init_deck_serializers
+from deckeditor.server.client import EmbargoClient
+from deckeditor.server.server import EmbargoServer
+from deckeditor.sorting.custom import CustomSortMap
+from deckeditor.utils.version import version_formatted
 
 
 class MainView(QWidget):
 
-    def __init__(self, parent: typing.Optional[QWidget] = None) -> None:
+    def __init__(self, parent: t.Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
         layout = QtWidgets.QVBoxLayout()
@@ -85,7 +86,7 @@ class MainWindow(QMainWindow, CardAddable):
         self._login_status_label = QtWidgets.QLabel('')
         LOGIN_CONTROLLER.login_success.connect(lambda u, h: self._login_status_label.setText(f'{u.username}@{h}'))
         LOGIN_CONTROLLER.login_failed.connect(lambda e: self._login_status_label.setText(''))
-        LOGIN_CONTROLLER.login_terminated.connect(lambda : self._login_status_label.setText(''))
+        LOGIN_CONTROLLER.login_terminated.connect(lambda: self._login_status_label.setText(''))
         LOGIN_CONTROLLER.login_pending.connect(lambda u, h: self._login_status_label.setText(f'logging in @ {h}'))
 
         self.statusBar().setContentsMargins(10, 0, 10, 0)
@@ -157,8 +158,6 @@ class MainWindow(QMainWindow, CardAddable):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._limited_sessions_dock)
 
         self._card_adder_dock.hide()
-        # self._deck_list_docker.hide()
-        # self._card_view_dock.hide()
         self._undo_view_dock.hide()
 
         self._main_view = MainView(self)
@@ -170,8 +169,8 @@ class MainWindow(QMainWindow, CardAddable):
         all_menus = {
             menu_bar.addMenu('File'): (
                 ('New Deck', 'Ctrl+N', self._new_deck),
-                ('Open Deck', 'Ctrl+O', lambda: self._open(Deck)),
-                ('Open Pool', 'Ctrl+P', lambda: self._open(Pool)),
+                ('Open Deck', 'Ctrl+O', lambda: self.open(Deck)),
+                ('Open Pool', 'Ctrl+P', lambda: self.open(Pool)),
                 ('Save', 'Ctrl+S', self._save),
                 ('Save As', 'Ctrl+Shift+S', self._save_as),
                 ('Export Deck', 'Ctrl+Shift+E', self._export_deck),
@@ -186,34 +185,20 @@ class MainWindow(QMainWindow, CardAddable):
                 'line',
                 ('Add cards', 'Ctrl+F', self._add_cards),
             ),
-            # menu_bar.addMenu('Deck'): (
-            #     # ('Maindeck', 'Ctrl+1', lambda: self._focus_deck_zone(DeckZoneType.MAINDECK)),
-            #     # ('Sideboard', 'Ctrl+2', lambda: self._focus_deck_zone(DeckZoneType.SIDEBOARD)),
-            #     # ('Pool', 'Ctrl+3', lambda: self._focus_deck_zone(DeckZoneType.POOL)),
-            #     # ('Exclusive Maindeck', 'Alt+Ctrl+1', self._exclusive_maindeck),
-            #     # ('Exclusive Sideboard', 'Alt+Ctrl+2', self._exclusive_sideboard),
-            #     # ('Exclusive Pool', 'Alt+Ctrl+3', self._exclusive_pool),
-            # ),
             # menu_bar.addMenu('Generate'): (
             #     # ('Sealed pool', 'Ctrl+G', self._generate_pool),
             #     # ('Cube Pools', 'Ctrl+C', self.generate_cube_pools),
             # ),
-            # menu_bar.addMenu('Select'): (
-            #     # ('All', 'Ctrl+A', self._select_all),
-            #     # ('Clear Selection', 'Ctrl+D', self._clear_selection),
-            #     # ('Select Matching', 'Ctrl+E', self._search_select),
-            # ),
             menu_bar.addMenu('View'): (
                 ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
                 ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
-                # ('Deck List View', 'Meta+3', lambda: self._toggle_dock_view(self._deck_list_docker)),
                 ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
                 ('Limited', 'Meta+7', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
             ),
             # menu_bar.addMenu('Test'): (
-            #     ('Test', 'Ctrl+T', self._test),
+            #     ('Test', 'Ctrl+T', restart),
             # ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', LoginDialog(self).exec_),
@@ -226,6 +211,9 @@ class MainWindow(QMainWindow, CardAddable):
                 ('Info', None, lambda: DBInfoDialog().exec_()),
                 ('Update', None, lambda: DBUpdateDialog().exec_()),
                 ('Validate', None, lambda: LOGIN_CONTROLLER.validate(True)),
+            ),
+            menu_bar.addMenu('Help'): (
+                ('About', None, lambda: AboutDialog().exec_()),
             ),
         }
 
@@ -303,7 +291,7 @@ class MainWindow(QMainWindow, CardAddable):
     def generate_cube_pools(self):
         pass
 
-    def _open(self, target: t.Type[TabModel] = Deck):
+    def open(self, target: t.Type[TabModel] = Deck):
         dialog = QtWidgets.QFileDialog(self)
         dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
         dialog.setNameFilter(SUPPORTED_EXTENSIONS)
@@ -342,7 +330,7 @@ class MainWindow(QMainWindow, CardAddable):
         except FileSaveException:
             Context.notification_message.emit('Invalid extension')
 
-    def _save_state(self):
+    def save_state(self):
         Context.settings.setValue('geometry', self.saveGeometry())
         Context.settings.setValue('window_state', self.saveState(0))
         self._main_view.editables_tabs.save_session()
@@ -363,7 +351,7 @@ class MainWindow(QMainWindow, CardAddable):
             return CustomSortMap.empty()
 
     def closeEvent(self, close_event):
-        self._save_state()
+        self.save_state()
         super().closeEvent(close_event)
 
 
@@ -413,20 +401,79 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
 
 
 def run():
-    logging.basicConfig(format = '%(levelname)s %(message)s', level = logging.INFO)
-
-    app = EmbargoApp(sys.argv)
-
     sys.excepthook = _get_exception_hook()
 
+    arg_parser = argparse.ArgumentParser(description = 'Edit decks')
+    arg_parser.add_argument('files', metavar = 'F', type = str, nargs = '*', help = 'paths of files to open')
+    arg_parser.add_argument(
+        '-v', '--version',
+        action = 'store_true',
+        help = 'show version',
+    )
+    arg_parser.add_argument(
+        '-m', '--multi-instance',
+        action = 'store_true',
+        help = 'allow running in parallel with other instances of Embargo Edit',
+    )
+    arg_parser.add_argument(
+        '-d', '--debug',
+        action = 'store_true',
+        help = 'debug mode',
+    )
+    arg_parser.add_argument(
+        '-n', '--no-server',
+        action = 'store_true',
+        help = 'dont start server',
+    )
+    arg_parser.add_argument(
+        '--port',
+        metavar = 'P',
+        type = int,
+        nargs = '?',
+        default = 7777,
+        help = 'server port',
+    )
+    arg_parser.add_argument(
+        '--host',
+        metavar = 'H',
+        type = str,
+        nargs = '?',
+        default = 'localhost',
+        help = 'server host',
+    )
+
+    args = arg_parser.parse_args()
+
+    logging.basicConfig(
+        format = '%(levelname)s %(message)s',
+        level = logging.DEBUG if args.debug else logging.INFO,
+    )
+
+    if args.version:
+        print(version_formatted())
+        return
+
+    if not args.multi_instance:
+        client = EmbargoClient(host = args.host, port = args.port)
+
+        if client.check():
+            logging.info('instance already running')
+            if args.files:
+                for file in args.files:
+                    client.open_file(os.path.abspath(file))
+            return
+
+    app = EmbargoApp(sys.argv)
     app.setQuitOnLastWindowClosed(True)
 
+    compiled = __file__ == os.path.split(__file__)[-1]
+
     try:
-        Context.init(app)
+        Context.init(app, compiled = compiled)
     except DBLoadException:
         if not DBUpdateDialog().exec_() == QDialog.Accepted:
             return
-        Context.init(app)
+        Context.init(app, compiled = compiled)
 
     init_deck_serializers()
 
@@ -436,12 +483,18 @@ def run():
 
     sys.excepthook = _get_exception_hook(main_window)
 
-    # app.aboutToQuit.connect(Context.settings.)
+    if not args.no_server:
+        server = EmbargoServer(host = args.host, port = args.port)
+        server.start()
 
     main_window.showMaximized()
 
     if Context.settings.value('auto_login', False, bool):
         LOGIN_CONTROLLER.re_login()
+
+    if args.files:
+        for path in args.files:
+            Context.open_file.emit(path)
 
     sys.exit(app.exec_())
 

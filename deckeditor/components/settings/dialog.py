@@ -101,6 +101,13 @@ class SettingsDialog(QDialog):
                         'eventually :)',
                         True,
                     ),
+                    BooleanSetting(
+                        'confirm_closing_modified_file',
+                        'Confirm closing modified / unsaved files',
+                        'Files count as having been modified, even if it is just moving cards around in the same zone.'
+                        ' Will be changed eventually.',
+                        True,
+                    ),
                 ),
                 (),
             ),

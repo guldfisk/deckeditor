@@ -21,6 +21,8 @@ from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingG
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.utils.spoiler import Spoiler
+from deckeditor.utils.transform import serialize_transform, deserialize_transform
+
 
 ALIGNER_TYPE_MAP = OrderedDict(
     (
@@ -224,15 +226,18 @@ class CubeView(QtWidgets.QWidget):
     def persist(self) -> t.Any:
         return {
             'layout': self._view_layout.name,
+            'image_view_transform': serialize_transform(self._cube_image_view.transform()),
         }
 
     @classmethod
     def load(cls, state: t.Any, cube_scene: CubeScene, undo_stack: QUndoStack) -> CubeView:
-        return CubeView(
+        cube_view = CubeView(
             cube_scene,
             undo_stack,
             cube_view_layout = CubeViewLayout[state['layout']],
         )
+        cube_view.cube_image_view.setTransform(deserialize_transform(state['image_view_transform']))
+        return cube_view
 
     def _create_action(
         self,

@@ -4,43 +4,44 @@ import threading
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QDialog, QInputDialog
 
-from mtgorp.db import create
-from mtgorp.managejson import download
-from mtgorp.managejson.update import check, update_last_updated
+from mtgorp.db.load import DB_PATH
+from mtgorp.managejson.update import check_and_update, regenerate_db
+
+from cubeclient.endpoints import download_db_from_remote
 
 
-class DownloadWorker(threading.Thread):
+class DbWorker(threading.Thread):
 
     def __init__(self, dialog: DBUpdateDialog):
         super().__init__(daemon = True)
         self._dialog = dialog
 
-    def run(self) -> None:
-        last_updates = check()
-        if last_updates is not None:
-            self._dialog.add_log_entry.emit('New magic json')
-            download.re_download()
-            self._dialog.add_log_entry.emit('New magic json downloaded')
-            create.update_database()
-            self._dialog.add_log_entry.emit('Database updated')
-            update_last_updated(last_updates)
-        else:
-            self._dialog.add_log_entry.emit('Magic db up to date')
 
+class DownloadWorker(DbWorker):
+
+    def run(self) -> None:
+        check_and_update(force = True)
         self._dialog.completed.emit()
 
 
-class ForceRegenerateWorker(threading.Thread):
-
-    def __init__(self, dialog: DBUpdateDialog):
-        super().__init__(daemon = True)
-        self._dialog = dialog
+class ForceRegenerateWorker(DbWorker):
 
     def run(self) -> None:
-        create.update_database()
-        self._dialog.add_log_entry.emit('Database updated')
+        regenerate_db(force = True)
+        self._dialog.completed.emit()
+
+
+class DownloadFromRemoteWorker(DbWorker):
+
+    def __init__(self, dialog: DBUpdateDialog, host: str):
+        super().__init__(dialog)
+        self._host = host
+
+    def run(self) -> None:
+        download_db_from_remote(self._host, DB_PATH)
+        self._dialog.add_log_entry.emit('Database downloaded')
         self._dialog.completed.emit()
 
 
@@ -57,18 +58,22 @@ class DBUpdateDialog(QDialog):
         self._log_view = QtWidgets.QTextEdit()
         self._log_view.setReadOnly(True)
 
-        self._download_button = QtWidgets.QPushButton('Download and generate')
-        self._download_button.clicked.connect(self._download_and_generate)
+        self._download_and_generate_button = QtWidgets.QPushButton('Download and generate')
+        self._download_and_generate_button.clicked.connect(self._download_and_generate)
 
         self._generate_button = QtWidgets.QPushButton('Generate')
         self._generate_button.clicked.connect(self._generate)
+
+        self._download_button = QtWidgets.QPushButton('Download')
+        self._download_button.clicked.connect(self._download)
 
         layout = QtWidgets.QVBoxLayout(self)
 
         layout.addWidget(self._info_label)
         layout.addWidget(self._log_view)
-        layout.addWidget(self._download_button)
+        layout.addWidget(self._download_and_generate_button)
         layout.addWidget(self._generate_button)
+        layout.addWidget(self._download_button)
 
         self.add_log_entry.connect(self._log)
 
@@ -79,11 +84,23 @@ class DBUpdateDialog(QDialog):
         self._log_view.setText(self._log_value)
 
     def _download_and_generate(self) -> None:
-        self._download_button.setEnabled(False)
+        self._download_and_generate_button.setEnabled(False)
         self._generate_button.setEnabled(False)
         DownloadWorker(self).start()
 
-    def _generate(self):
-        self._download_button.setEnabled(False)
+    def _generate(self) -> None:
+        self._download_and_generate_button.setEnabled(False)
         self._generate_button.setEnabled(False)
         ForceRegenerateWorker(self).start()
+
+    def _download(self) -> None:
+        host, success = QInputDialog.getText(
+            self,
+            'Choose Host',
+            '',
+            text = 'prohunterdogkeeper.dk',
+        )
+        if success:
+            self._download_and_generate_button.setEnabled(False)
+            self._generate_button.setEnabled(False)
+            DownloadFromRemoteWorker(self, host = host).start()

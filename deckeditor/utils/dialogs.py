@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 
 from collections import OrderedDict
@@ -6,6 +8,16 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 from mtgorp.models.persistent.attributes.colors import Color
+
+
+class SingleInstanceDialog(QDialog):
+    INSTANCE: t.Optional[QDialog] = None
+
+    @classmethod
+    def get(cls) -> SingleInstanceDialog:
+        if cls.INSTANCE is None:
+            cls.INSTANCE = cls()
+        return cls.INSTANCE
 
 
 class ColorSelector(QDialog):

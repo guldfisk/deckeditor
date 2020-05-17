@@ -16,8 +16,8 @@ from mtgorp.tools.parsing.search.parse import SearchParser
 
 from mtgimg.load import Loader as ImageLoader
 
-from cubeclient.models import ApiClient, AsyncClient
-from cubeclient.endpoints import NativeApiClient, AsyncNativeApiClient
+from cubeclient.models import AsyncClient
+from cubeclient.endpoints import AsyncNativeApiClient
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
@@ -30,6 +30,8 @@ class _Context(QObject):
 
     db: CardDatabase
     basics: t.List[Cardboard]
+
+    compiled: bool
 
     cardboard_names: t.List[str]
     search_pattern_parser: SearchParser
@@ -52,6 +54,8 @@ class _Context(QObject):
     focus_card_changed = pyqtSignal(CubeableFocusEvent)
     focus_scene_changed = pyqtSignal(QGraphicsScene)
 
+    open_file = pyqtSignal(str)
+
     draft_started = pyqtSignal(object)
     sealed_started = pyqtSignal(int)
 
@@ -62,7 +66,9 @@ class _Context(QObject):
     sort_map: CustomSortMap
 
     @classmethod
-    def init(cls, application: QApplication) -> None:
+    def init(cls, application: QApplication, compiled: bool = True) -> None:
+        cls.compiled = compiled
+
         cls.db = Loader.load()
         cls.basics = [
             cls.db.cardboards[name]

@@ -280,8 +280,9 @@ class BoosterImageView(CubeImageView):
 
         sort_menu = menu.addMenu('Sort')
 
-        for action in self._sort_actions:
-            sort_menu.addAction(action)
+        for (_, orientation), action in self._sort_actions.items():
+            if orientation == QtCore.Qt.Horizontal or self._scene.aligner.supports_sort_orientation:
+                sort_menu.addAction(action)
 
         select_menu = menu.addMenu('Select')
 

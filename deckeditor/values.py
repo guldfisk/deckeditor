@@ -1,6 +1,19 @@
+import sys
 from enum import Enum
 
 from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
+
+
+APPLICATION_NAME = 'Embargo Edit'
+VERSION = '0.0.0'
+
+IS_WINDOWS = sys.platform.startswith('win')
+
+EXECUTE_PATH = (
+    ''
+    if IS_WINDOWS else
+    '/usr/share/embargoedit/editor/editor'
+)
 
 
 class DeckZoneType(Enum):
@@ -14,6 +27,12 @@ class Direction(Enum):
     RIGHT = (1, 0)
     DOWN = (0, 1)
     LEFT = (-1, 0)
+
+
+class SortDirection(Enum):
+    ASCENDING = 'asc'
+    DESCENDING = 'desc'
+    AUTO = 'auto'
 
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.MEDIUM, False))]

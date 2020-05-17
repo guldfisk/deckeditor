@@ -170,7 +170,7 @@ class PoolModel(DeckModel):
             CubeScene(
                 aligner_type = DynamicStackingGrid,
                 cards = maindeck if isinstance(maindeck, t.Sequence) else None,
-                width = IMAGE_WIDTH * 15.5,
+                width = IMAGE_WIDTH * 16.5,
                 height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
                 name = 'maindeck',

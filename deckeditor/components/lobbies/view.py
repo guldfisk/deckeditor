@@ -258,7 +258,9 @@ class ReleaseSelector(QWidget):
         self._release_selector.activated.connect(self._on_release_selected)
 
     def update_content(self, release_id: t.Union[str, int], enabled: bool) -> None:
-        versioned_cube = LOBBIES_CONTROLLER.release_versioned_cube_map[release_id]
+        versioned_cube = LOBBIES_CONTROLLER.release_versioned_cube_map.get(release_id)
+        if versioned_cube is None:
+            return
         self._cube_selector.setCurrentIndex(
             LOBBIES_CONTROLLER.versioned_cubes.index(
                 LOBBIES_CONTROLLER.release_versioned_cube_map[release_id]
