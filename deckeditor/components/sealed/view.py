@@ -6,7 +6,7 @@ import requests
 import simplejson
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView
+from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog
 
 from cubeclient.models import LimitedSession, LimitedDeck
 from deckeditor.components.views.editables.deck import DeckView
@@ -38,7 +38,6 @@ class SessionsList(QTableWidget):
             item = QTableWidgetItem()
             item.setData(0, data)
             self.setItem(_row, _column, item)
-
 
         self.setRowCount(len(self._sessions))
 
@@ -129,6 +128,22 @@ class LimitedSessionView(QWidget):
                 Context.new_pool.emit(pool.pool, self._session.name)
                 break
 
+    def _on_upload_success(self, _) -> None:
+        Context.notification_message.emit('Deck submitted')
+        self._limited_sessions_view.update.emit()
+
+    def _on_upload_error(self, error: Exception) -> None:
+        if isinstance(error, ConnectionError):
+            Context.notification_message.emit('disconnected')
+        elif isinstance(error, requests.HTTPError):
+            try:
+                message = '\n'.join(
+                    error.response.json()['errors']
+                )
+            except simplejson.errors.JSONDecodeError:
+                message = 'Cannot upload deck'
+            Context.notification_message.emit(message)
+
     def _on_submit(self):
         editable = Context.editor.current_editable()
 
@@ -148,27 +163,25 @@ class LimitedSessionView(QWidget):
         if player_pool is None:
             return
 
-        try:
-            Context.cube_api_client.upload_limited_deck(
-                pool_id = player_pool.id,
-                name = 'a deck :)',
-                deck = deck,
-            )
-        except requests.ConnectionError:
-            Context.notification_message.emit('disconnected')
-            return
-        except requests.HTTPError as e:
-            try:
-                message = '\n'.join(
-                    e.response.json()['errors']
-                )
-            except simplejson.errors.JSONDecodeError:
-                message = 'Cannot upload deck'
-            Context.notification_message.emit(message)
+        deck_name, success = QInputDialog.getText(
+            self,
+            'Submit Deck',
+            'Deck name',
+            text = 'deck',
+        )
+
+        if not success:
             return
 
-        Context.notification_message.emit('Deck submitted')
-        self._limited_sessions_view.update.emit()
+        Context.cube_api_client.upload_limited_deck(
+            pool_id = player_pool.id,
+            name = deck_name,
+            deck = deck,
+        ).then(
+            self._on_upload_success
+        ).catch(
+            self._on_upload_error
+        )
 
     def set_session(self, session: LimitedSession) -> None:
         self.show()

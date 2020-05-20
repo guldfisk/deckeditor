@@ -8,10 +8,12 @@ from frozendict import frozendict
 from bidict import bidict
 
 from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
 from cubeclient.models import VersionedCube
+from deckeditor.utils.actions import WithActions
+from deckeditor.utils.scroll import VerticalScrollArea
 from mtgorp.models.formats.format import Format
 from mtgorp.models.persistent.attributes.expansiontype import ExpansionType
 
@@ -157,6 +159,7 @@ class LobbiesListView(QTableWidget):
         self._lobby_view.lobby_model.changed.connect(self._update_content)
 
         self.setEditTriggers(self.NoEditTriggers)
+        self.setFocusPolicy(Qt.ClickFocus)
 
         self.cellDoubleClicked.connect(self._cell_double_clicked)
 
@@ -200,6 +203,9 @@ class LobbyUserListView(QTableWidget):
         self.setHorizontalHeaderLabels(
             ('name', 'ready')
         )
+        self.setMaximumWidth(350)
+        self.setMinimumWidth(200)
+        self.setFocusPolicy(Qt.ClickFocus)
 
         self._lobby_model = lobby_model
         self._lobby_name = lobby_name
@@ -230,26 +236,20 @@ class ReleaseSelector(QWidget):
 
     def __init__(self, lobby_view: LobbyView):
         super().__init__()
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
         self._lobby_view = lobby_view
 
         self._cube_selector = QtWidgets.QComboBox()
         self._release_selector = QtWidgets.QComboBox()
 
         layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
 
         layout.addWidget(self._cube_selector)
         layout.addWidget(self._release_selector)
 
         self.setLayout(layout)
-
-        # self._versioned_cubes = list(Context.cube_api_client.versioned_cubes())
-        # self._release_versioned_cube_map = {
-        #     release.id: versioned_cube
-        #     for versioned_cube in
-        #     self._versioned_cubes
-        #     for release in
-        #     versioned_cube.releases
-        # }
 
         self._update()
 
@@ -306,6 +306,9 @@ class BoosterSpecificationsTable(QtWidgets.QTableWidget):
 
     def __init__(self, lobby_view: LobbyView):
         super().__init__(0, 2)
+        self.setFocusPolicy(Qt.ClickFocus)
+        self.setMinimumWidth(300)
+        self.setMinimumHeight(100)
 
         self._lobby_view = lobby_view
 
@@ -386,24 +389,22 @@ class CubeBoosterSpecificationSelector(QtWidgets.QWidget):
 
         self._release_selector = ReleaseSelector(lobby_view)
         self._size_selector = IntegerOptionSelector(lobby_view, allowed_range = (1, 360))
-        self._allow_intersection_label = QtWidgets.QLabel('Allow Intersections')
-        self._allow_intersection_selector = QtWidgets.QCheckBox()
-        self._allow_repeat_label = QtWidgets.QLabel('Allow Repeats')
-        self._allow_repeat_selector = QtWidgets.QCheckBox()
+        self._allow_intersection_selector = QtWidgets.QCheckBox('Allow Intersections')
+        self._allow_repeat_selector = QtWidgets.QCheckBox('Allow Repeats')
 
         layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 1, 0, 1)
 
-        layout.addWidget(self._release_selector)
-        layout.addWidget(self._size_selector)
+        layout.addWidget(self._release_selector, Qt.AlignTop)
+        layout.addWidget(self._size_selector, Qt.AlignTop)
 
-        flags_layout = QtWidgets.QHBoxLayout()
+        flags_row = QtWidgets.QHBoxLayout()
 
-        flags_layout.addWidget(self._allow_intersection_label)
-        flags_layout.addWidget(self._allow_intersection_selector)
-        flags_layout.addWidget(self._allow_repeat_label)
-        flags_layout.addWidget(self._allow_repeat_selector)
+        flags_row.addWidget(self._allow_intersection_selector)
+        flags_row.addWidget(self._allow_repeat_selector)
 
-        layout.addLayout(flags_layout)
+        layout.addLayout(flags_row, Qt.AlignTop)
+        layout.addStretch()
 
         self._size_selector.valueChanged.connect(
             lambda v: self._booster_specification_selector.booster_specification_value_changed.emit('size', v)
@@ -479,8 +480,8 @@ class ExpansionBoosterSpecificationSelector(QtWidgets.QWidget):
         )
 
         layout = QtWidgets.QVBoxLayout(self)
-
         layout.addWidget(self._expansion_code_selector)
+        layout.addStretch()
 
     def get_default_values(self) -> t.Mapping[str, t.Any]:
         return {
@@ -501,13 +502,12 @@ class AllCardsBoosterSpecificationSelector(QtWidgets.QWidget):
 
         self._booster_specification_selector = booster_specification_selector
 
-        self._respect_printings_selector = QtWidgets.QCheckBox()
-        self._respect_printings_label = QtWidgets.QLabel('Respect Printings')
+        self._respect_printings_selector = QtWidgets.QCheckBox('Respect Printings')
 
-        layout = QtWidgets.QHBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
-        layout.addWidget(self._respect_printings_label)
         layout.addWidget(self._respect_printings_selector)
+        layout.addStretch()
 
         self._respect_printings_selector.stateChanged.connect(
             lambda v: self._booster_specification_selector.booster_specification_value_changed.emit(
@@ -577,20 +577,13 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
         self._add_booster_specification_type_selector.addItem('ExpansionBoosterSpecification')
         self._add_booster_specification_type_selector.addItem('AllCardsBoosterSpecification')
 
-        layout = QtWidgets.QHBoxLayout(self)
+        layout = QtWidgets.QGridLayout(self)
+        layout.setContentsMargins(0, 1, 0, 1)
 
-        add_booster_layout = QtWidgets.QHBoxLayout()
-
-        add_booster_layout.addWidget(self._add_booster_specification_type_selector)
-        add_booster_layout.addWidget(self._add_booster_specification_button)
-
-        right_side_layout = QtWidgets.QVBoxLayout()
-
-        right_side_layout.addWidget(self._booster_specifications_table)
-        right_side_layout.addLayout(add_booster_layout)
-
-        layout.addLayout(right_side_layout)
-        layout.addWidget(self._booster_specifications_selector)
+        layout.addWidget(self._booster_specifications_table, 0, 0, 1, 2)
+        layout.addWidget(self._add_booster_specification_type_selector, 1, 0, 1, 1)
+        layout.addWidget(self._add_booster_specification_button, 1, 1, 1, 1, )
+        layout.addWidget(self._booster_specifications_selector, 0, 3, 1, 1)
 
         self._add_booster_specification_button.clicked.connect(self._on_add_booster_specification)
         self._booster_specifications_table.currentCellChanged.connect(self._on_booster_specification_index_change)
@@ -673,7 +666,7 @@ class ComboSelector(QtWidgets.QComboBox):
 class CheckboxSelector(QtWidgets.QCheckBox):
 
     def __init__(self, lobby_view: LobbyView, option: str):
-        super().__init__()
+        super().__init__(' '.join(w.capitalize() for w in option.split('_')))
         self._option = option
 
         self._lobby_view = lobby_view
@@ -729,17 +722,14 @@ class SealedOptionsSelector(OptionsSelector):
 
         self._pool_specification_selector = PoolSpecificationSelector(lobby_view)
 
-        self._layout = QtWidgets.QVBoxLayout(self)
+        self._layout = QtWidgets.QGridLayout(self)
+        self._layout.setContentsMargins(0, 1, 0, 1)
 
-        self._layout.addWidget(self._format_selector, QtCore.Qt.AlignTop)
-        self._layout.addWidget(self._pool_specification_selector, QtCore.Qt.AlignTop)
+        self._layout.addWidget(self._format_selector, 0, 0, 1, 2)
+        self._layout.addWidget(self._pool_specification_selector, 1, 0, 1, 2)
 
-        information_layout = QtWidgets.QFormLayout()
-
-        information_layout.addRow('open decks', self._open_decks_selector)
-        information_layout.addRow('open pools', self._open_pools_selector)
-
-        self._layout.addLayout(information_layout)
+        self._layout.addWidget(self._open_decks_selector, 2, 0, 1, 1)
+        self._layout.addWidget(self._open_pools_selector, 2, 1, 1, 1)
 
     def _on_open_decks_state_changed(self, state) -> None:
         self._lobby_view.lobby_model.set_options(
@@ -762,7 +752,7 @@ class DraftOptionsSelector(SealedOptionsSelector):
 
         self._draft_format_selector = ComboSelector(lobby_view, 'draft_format', {'single_pick', 'burn'})
 
-        self._layout.insertWidget(0, self._draft_format_selector)
+        self._layout.addWidget(self._draft_format_selector, 3, 0, 1, 2)
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         super().update_content(options, enabled)
@@ -796,7 +786,7 @@ class LobbyView(QWidget):
         self._lobby_model = lobby_model
         self._lobby_name = lobby_name
 
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QGridLayout(self)
 
         self._ready_button = QtWidgets.QPushButton('ready')
         self._ready_button.clicked.connect(self._toggle_ready)
@@ -810,7 +800,8 @@ class LobbyView(QWidget):
         self._game_type_selector.activated.connect(self._on_game_type_selected)
 
         self._options_selector = GameOptionsSelector(self)
-        self._options_selector_area = QtWidgets.QScrollArea()
+        self._options_selector_area = VerticalScrollArea()
+        self._options_selector_area.setMinimumHeight(350)
         self._options_selector_area.setWidget(self._options_selector)
 
         self._reconnect_button = QtWidgets.QPushButton('reconnect')
@@ -824,15 +815,13 @@ class LobbyView(QWidget):
         top_layout.addWidget(self._start_game_button)
         top_layout.addWidget(self._reconnect_button)
 
-        layout.addLayout(top_layout)
-        layout.addWidget(self._game_type_selector)
-        layout.addWidget(self._options_selector_area)
-        layout.addWidget(users_list)
+        layout.addLayout(top_layout, 0, 0, 1, 3)
+        layout.addWidget(self._game_type_selector, 1, 0, 1, 2)
+        layout.addWidget(self._options_selector_area, 2, 0, 1, 2)
+        layout.addWidget(users_list, 1, 2, 2, 1)
 
         self._update_content()
         self._lobby_model.changed.connect(self._update_content)
-
-        self.setLayout(layout)
 
     @property
     def lobby(self) -> t.Optional[Lobby]:
@@ -909,7 +898,9 @@ class CreateLobbyDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self._lobby_view = parent
 
-        self._ok_button = QtWidgets.QPushButton('Ok', self)
+        self.setWindowTitle('Create Lobby')
+
+        self._ok_button = QtWidgets.QPushButton('OK', self)
         self._lobby_name_selector = QtWidgets.QLineEdit()
 
         self._top_box = QtWidgets.QHBoxLayout()
@@ -944,6 +935,7 @@ class LobbyTabs(QtWidgets.QTabWidget):
         self._lobby_view: LobbiesView = parent
 
         self.setTabsClosable(True)
+        self.setMovable(True)
 
         self.tabCloseRequested.connect(self._tab_close_requested)
         self._lobby_view.lobby_model.changed.connect(self._update_content)
@@ -1047,7 +1039,7 @@ class LobbiesController(QObject):
 LOBBIES_CONTROLLER = LobbiesController()
 
 
-class LobbiesView(QWidget):
+class LobbiesView(QWidget, WithActions):
     lobbies_changed = pyqtSignal()
 
     def __init__(self, lobby_model: LobbyModelClientConnection, parent: t.Optional[QWidget] = None) -> None:
@@ -1058,7 +1050,7 @@ class LobbiesView(QWidget):
 
         self._lobby_tabs = LobbyTabs(self)
 
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(1, 1, 1, 1)
 
         self._create_lobby_button = QtWidgets.QPushButton('Create lobby')
@@ -1067,15 +1059,16 @@ class LobbiesView(QWidget):
             self._create_lobby_button.setEnabled(False)
         self._lobby_model.connected.connect(self._on_connection_status_change)
 
-        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         splitter.addWidget(lobbies_list_view)
         splitter.addWidget(self._lobby_tabs)
+        splitter.setCollapsible(1, False)
 
         layout.addWidget(splitter)
         layout.addWidget(self._create_lobby_button)
 
-        self.setLayout(layout)
+        self._create_action('Create Lobby', self._create_lobby, 'N')
 
     def _on_connection_status_change(self, connected: bool) -> None:
         self._create_lobby_button.setEnabled(connected)

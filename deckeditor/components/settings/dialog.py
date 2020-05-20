@@ -46,14 +46,14 @@ class SettingsDialog(QDialog):
                     OptionsSetting(
                         'default_card_view_type',
                         'Default card view',
-                        'Default layout of focus card view',
+                        'Default layout of focus card view.',
                         'image',
                         ('image', 'text', 'both'),
                     ),
                     BooleanSetting(
                         'frameless',
                         'Frameless',
-                        'Removes title bar of main window',
+                        'Removes title bar of main window.',
                         True,
                         requires_restart = True,
                     ),
@@ -66,13 +66,13 @@ class SettingsDialog(QDialog):
                     BooleanSetting(
                         'default_cubeview_header_hidden',
                         'Header collapsed by default',
-                        'Header collapsed by default',
+                        'Header collapsed by default.',
                         True,
                     ),
                     BooleanSetting(
                         'image_view_scroll_default_zoom',
                         'Zoom with scroll wheel',
-                        'If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom',
+                        'If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom.',
                         True,
                     ),
                     BooleanSetting(
@@ -84,9 +84,15 @@ class SettingsDialog(QDialog):
                     ),
                     BooleanSetting(
                         'on_view_card_count',
-                        'Card count overlay',
-                        'Show card count / selection info on top of card view',
+                        'Show card count overlay',
+                        'Show card count / selection info on top of card view.',
                         True,
+                    ),
+                    BooleanSetting(
+                        'fit_all_cards',
+                        'Fit all cards',
+                        'When fitting view, always fit all cards in view, instead of only the selected if present',
+                        False,
                     ),
                 ),
                 (),
@@ -117,7 +123,7 @@ class SettingsDialog(QDialog):
                     BooleanSetting(
                         'auto_login',
                         'Auto login',
-                        'Automatically attempt login on start up',
+                        'Automatically attempt login on start up.',
                         False,
                     ),
                 ),
@@ -136,7 +142,7 @@ class SettingsDialog(QDialog):
                     BooleanSetting(
                         'flatten_recursively',
                         'Flatten recursively',
-                        'Flatten all flattenable children of af trap instead of of one level at a time',
+                        'Flatten all flattenable children of af trap instead of of one level at a time.',
                         True,
                     ),
                 ),
@@ -148,6 +154,12 @@ class SettingsDialog(QDialog):
                                 'notify_on_booster_arrived',
                                 'Booster notification',
                                 'Display OS notification when new pack arrives and application does not have focus.',
+                                True,
+                            ),
+                            BooleanSetting(
+                                'hide_lobbies_on_new_draft',
+                                'Hide lobby view when drafts starts',
+                                'Applies both on new drafts and reconnect.',
                                 True,
                             ),
                         ),

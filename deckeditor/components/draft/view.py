@@ -12,6 +12,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
 
+from deckeditor import values
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.db.database import CardDatabase
 
@@ -305,10 +306,14 @@ class BoosterWidget(QtWidgets.QWidget):
         self._draft_model = draft_model
 
         self._players_list = QtWidgets.QLabel()
-        self._players_list.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
         self._pack_counter_label = QtWidgets.QLabel()
         self._pick_counter_label = QtWidgets.QLabel()
-        self._booster_scene = CubeScene(GridAligner, mode = CubeEditMode.CLOSED)
+        self._booster_scene = CubeScene(
+            GridAligner,
+            mode = CubeEditMode.CLOSED,
+            width = values.IMAGE_WIDTH * 14,
+            name = 'booster',
+        )
         self._booster_view = CubeView(
             scene = self._booster_scene,
             undo_stack = self._undo_stack,
@@ -320,8 +325,10 @@ class BoosterWidget(QtWidgets.QWidget):
         )
 
         layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         info_bar_layout = QtWidgets.QHBoxLayout()
+        info_bar_layout.setContentsMargins(0, 0, 0, 0)
 
         info_bar_layout.addWidget(self._players_list)
         info_bar_layout.addWidget(self._pack_counter_label)

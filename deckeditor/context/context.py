@@ -61,7 +61,7 @@ class _Context(QObject):
 
     new_pool = pyqtSignal(object, str)
 
-    saved_drafts: t.Mapping[str, t.Any]
+    saved_drafts: t.Mapping[str, t.Any] = {}
 
     sort_map: CustomSortMap
 

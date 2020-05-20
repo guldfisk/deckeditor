@@ -1,8 +1,7 @@
 # https://stackoverflow.com/questions/3363190/qt-qtableview-how-to-have-a-checkbox-only-column
-
 import typing as t
 
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QEvent, QPoint, QRect
 from PyQt5.QtWidgets import QStyledItemDelegate, QStyleOptionButton, QStyle, QApplication, QStyleOptionViewItem, QWidget
@@ -46,15 +45,9 @@ class CheckBoxDelegate(QStyledItemDelegate):
         option: QStyleOptionViewItem,
         index: QtCore.QModelIndex,
     ) -> bool:
-        '''
-        Change the data in the model and the state of the checkbox
-        if the user presses the left mousebutton or presses
-        Key_Space or Key_Select and this cell is editable. Otherwise do nothing.
-        '''
         if not (index.flags() & Qt.ItemIsEditable) != 0:
             return False
 
-        # Do not change the checkbox-state
         if event.type() == QEvent.MouseButtonRelease or event.type() == QEvent.MouseButtonDblClick:
             if event.button() != Qt.LeftButton or not self.get_checkbox_rect(option).contains(event.pos()):
                 return False
@@ -66,7 +59,6 @@ class CheckBoxDelegate(QStyledItemDelegate):
         else:
             return False
 
-        # Change the checkbox-state
         self.setModelData(None, model, index)
         return True
 
@@ -86,3 +78,29 @@ class CheckBoxDelegate(QStyledItemDelegate):
             check_box_rect.height() / 2
         )
         return QRect(check_box_point, check_box_rect.size())
+
+
+class ComboBoxDelegate(QStyledItemDelegate):
+
+    def __init__(self, items: t.Sequence[str], parent: t.Optional[QtWidgets.QWidget] = None) -> None:
+        super().__init__(parent)
+        self._items = items
+
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QtCore.QModelIndex) -> QWidget:
+        box = QtWidgets.QComboBox(parent)
+        box.addItems(self._items)
+        return box
+
+    def setEditorData(self, editor: QtWidgets.QComboBox, index: QtCore.QModelIndex) -> None:
+        current_text = index.data(Qt.EditRole)
+        current_index = editor.findText(current_text)
+        if current_index >= 0:
+            editor.setCurrentIndex(current_index)
+
+    def setModelData(
+        self,
+        editor: QtWidgets.QComboBox,
+        model: QtCore.QAbstractItemModel,
+        index: QtCore.QModelIndex,
+    ) -> None:
+        model.setData(index, editor.currentText(), Qt.EditRole)

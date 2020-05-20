@@ -233,8 +233,13 @@ class MainWindow(QMainWindow, CardAddable):
         self._reset_dock_height = 1200
 
         Context.notification_message.connect(self._notification_frame.notify)
+        Context.draft_started.connect(self._on_draft_started)
 
         self._load_state()
+
+    def _on_draft_started(self, key: str) -> None:
+        if Context.settings.value('hide_lobbies_on_new_draft', True, bool):
+            self._lobby_view_dock.hide()
 
     @property
     def login_status_label(self) -> QtWidgets.QLabel:

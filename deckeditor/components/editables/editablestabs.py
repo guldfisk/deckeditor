@@ -9,6 +9,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QMessageBox
 
+from deckeditor.utils.actions import WithActions
 from mtgorp.models.serilization.serializeable import SerializationException
 
 from magiccube.collections.cube import Cube
@@ -57,7 +58,7 @@ class EditablesTabBar(QtWidgets.QTabBar):
             super().mousePressEvent(mouse_event)
 
 
-class EditablesTabs(QtWidgets.QTabWidget, Editor):
+class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     tabBar: t.Callable[[], EditablesTabBar]
 
     def __init__(self, parent: QtWidgets.QWidget = None):
@@ -75,8 +76,20 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor):
         Context.draft_started.connect(self.new_draft)
         Context.open_file.connect(self.open_file)
 
-        self.tabBar().tab_close_requested.connect(self._tab_close_requested)
+        self.tabBar().tab_close_requested.connect(self.tabCloseRequested)
+        self.tabCloseRequested.connect(self._tab_close_requested)
         self.currentChanged.connect(self._on_current_changed)
+
+        for n in range(1, 8):
+            self._create_action(f'Go to tab {n}', self._get_go_to_tab(n - 1), f'Alt+{n}')
+
+        self._create_action(f'Go to last tab', self.go_to_last_tab, f'Alt+9')
+
+    def _get_go_to_tab(self, idx: int) -> t.Callable[[], None]:
+        return lambda : self.setCurrentIndex(idx)
+
+    def go_to_last_tab(self) -> None:
+        self.setCurrentIndex(self.count() - 1)
 
     def current_editable(self) -> t.Optional[Editable]:
         return self.currentWidget()

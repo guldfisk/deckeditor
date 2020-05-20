@@ -109,7 +109,7 @@ class DeckModel(QObject):
                 height = IMAGE_HEIGHT * 6.3,
                 name = 'maindeck',
             )
-            if sideboard is None or isinstance(maindeck, t.Sequence) else
+            if maindeck is None or isinstance(maindeck, t.Sequence) else
             maindeck
         )
         self._sideboard = (
@@ -175,7 +175,7 @@ class PoolModel(DeckModel):
                 mode = CubeEditMode.CLOSED,
                 name = 'maindeck',
             )
-            if sideboard is None or isinstance(maindeck, t.Sequence) else
+            if maindeck is None or isinstance(maindeck, t.Sequence) else
             maindeck,
             CubeScene(
                 aligner_type = DynamicStackingGrid,
@@ -197,7 +197,7 @@ class PoolModel(DeckModel):
                 mode = CubeEditMode.CLOSED,
                 name = 'pool',
             )
-            if sideboard is None or isinstance(pool, t.Sequence) else
+            if pool is None or isinstance(pool, t.Sequence) else
             pool
         )
 

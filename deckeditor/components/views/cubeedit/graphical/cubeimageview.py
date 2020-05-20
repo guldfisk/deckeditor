@@ -4,10 +4,9 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QPoint, Qt, QRectF, QRect
-from PyQt5.QtGui import QPainter, QPolygonF
+from PyQt5.QtGui import QPainter, QPolygonF, QTransform
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
-from deckeditor.sorting.sorting import SortProperty
 from yeetlong.multiset import Multiset
 
 from mtgorp.models.persistent.printing import Printing
@@ -27,6 +26,8 @@ from deckeditor.context.context import Context
 from deckeditor.sorting import sorting
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from deckeditor.utils.actions import WithActions
+from deckeditor.sorting.sorting import SortProperty
+from deckeditor.utils.transform import serialize_transform, transform_factory
 
 
 class QueryEdit(QtWidgets.QLineEdit):
@@ -117,7 +118,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._create_sort_action_pair(sorting.ExpansionExtractor)
         self._create_sort_action_pair(sorting.CollectorNumberExtractor)
 
-        self._fit_action = self._create_action('Fit View', self._fit_all_cards, 'F')
+        self._fit_action = self._create_action('Fit View', self._fit_cards, 'F')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
         self._sort_action = self._create_action('Sort', self._sort, 'Alt+S')
         self._deselect_all_action = self._create_action(
@@ -138,8 +139,8 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self.setTransformationAnchor(QtWidgets.QGraphicsView.NoAnchor)
         self.search_select.connect(self._on_search_select)
 
+        self.setTransform(QTransform())
         self.scale(.3, .3)
-        self.translate(self.scene().width(), self.scene().height())
 
         self._selected_info_text = ''
 
@@ -160,9 +161,9 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 len(self._scene.items()),
             )
         )
-        if self.hasFocus():
-            self._update_status()
-        self.update()
+        self._update_status()
+        if Context.settings.value('on_view_card_count', True, bool):
+            self.update()
 
     @property
     def undo_stack(self) -> QUndoStack:
@@ -271,18 +272,6 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     def floating(self) -> t.List[PhysicalCard]:
         return self._floating
 
-    # def _create_action(self, name: str, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QAction:
-    #     action = QtWidgets.QAction(name, self)
-    #     action.triggered.connect(result)
-    #
-    #     if shortcut:
-    #         action.setShortcut(shortcut)
-    #         action.setShortcutContext(QtCore.Qt.WidgetWithChildrenShortcut)
-    #
-    #     self.addAction(action)
-    #
-    #     return action
-
     @property
     def dragging(self) -> t.List[PhysicalCard]:
         return self._dragging
@@ -338,8 +327,12 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         else:
             super().keyPressEvent(key_event)
 
-    def _fit_all_cards(self) -> None:
-        selected = self._scene.selectedItems()
+    def _fit_cards(self) -> None:
+        selected = (
+            None
+            if Context.settings.value('fit_all_cards', False, bool) else
+            self._scene.selectedItems()
+        )
         if selected:
             rect = QRectF(selected[0].pos(), selected[0].boundingRect().size())
             if len(selected) > 1:
@@ -354,6 +347,16 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 self._scene.itemsBoundingRect(),
                 QtCore.Qt.KeepAspectRatio,
             )
+
+    def get_persistable_transform(self) -> QTransform:
+        current_transform = self.transform()
+        transform = transform_factory(
+            horizontal_scaling_factor = current_transform.m11(),
+            vertical_scaling_factor = current_transform.m22(),
+        )
+        p = self.mapToScene(QPoint())
+        transform.translate(-p.x(), -p.y())
+        return transform
 
     def _flatten_all_traps(self) -> None:
         selected = self._scene.selectedItems()

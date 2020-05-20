@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import typing as t
 
 from abc import ABCMeta, abstractmethod
@@ -17,8 +18,10 @@ from magiccube.collections.cubeable import Cubeable
 from deckeditor.context.context import Context
 
 
-class _SortPropertyMeta(ABCMeta):
+SortValue = t.Union[str, int, datetime.datetime]
 
+
+class _SortPropertyMeta(ABCMeta):
     names_to_sort_property: t.MutableMapping[str, t.Type[SortProperty]] = OrderedDict()
 
     def __new__(mcs, classname, base_classes, attributes):
@@ -33,10 +36,11 @@ class _SortPropertyMeta(ABCMeta):
 class SortProperty(object, metaclass = _SortPropertyMeta):
     name: str = None
     auto_direction: QtCore.Qt.Orientation = QtCore.Qt.Horizontal
+    auto_reverse: bool = False
 
     @classmethod
     @abstractmethod
-    def extract(cls, cubeable: Cubeable) -> t.Union[str, int]:
+    def extract(cls, cubeable: Cubeable) -> SortValue:
         pass
 
 
@@ -114,6 +118,17 @@ class IsLandExtractor(SortProperty):
         return int(typeline.LAND in cubeable.cardboard.front_card.type_line)
 
 
+class IsPermanentSplit(SortProperty):
+    name = 'Permanent Split'
+    auto_direction = QtCore.Qt.Vertical
+
+    @classmethod
+    def extract(cls, cubeable: Cubeable) -> int:
+        if not isinstance(cubeable, Printing):
+            return -1
+        return int(cubeable.cardboard.front_card.type_line.is_permanent)
+
+
 class IsCreatureExtractor(SortProperty):
     name = 'Creature Split'
     auto_direction = QtCore.Qt.Vertical
@@ -160,6 +175,18 @@ class RarityExtractor(SortProperty):
         if not isinstance(cubeable, Printing):
             return -2
         return -1 if cubeable.rarity is None else cubeable.rarity.value
+
+
+class ReleaseDateExtractor(SortProperty):
+    name = 'Release Date'
+
+    @classmethod
+    def extract(cls, cubeable: Cubeable) -> datetime.datetime:
+        return (
+            datetime.datetime.fromtimestamp(0)
+            if not isinstance(cubeable, Printing) or cubeable.expansion is None else
+            cubeable.expansion.release_date
+        )
 
 
 class ExpansionExtractor(SortProperty):

@@ -13,6 +13,7 @@ from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, Alignment
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting import sorting
+from deckeditor.utils.math import minmax
 from deckeditor.values import IMAGE_WIDTH
 
 
@@ -451,6 +452,10 @@ class CmcSort(_ValueToPositionSort):
     sort_property_extractor = sorting.CMCExtractor
 
 
+class IsPermanentSplit(_ValueToPositionSort):
+    sort_property_extractor = sorting.IsPermanentSplit
+
+
 class IsCreatureSplit(_ValueToPositionSort):
     sort_property_extractor = sorting.IsCreatureExtractor
 
@@ -485,6 +490,15 @@ class NameSort(_StackingSort):
         return sorted(
             self._card_infos.keys(),
             key = lambda card: sorting.NameExtractor.extract(card.cubeable),
+        )
+
+
+class ReleaseDateSort(_StackingSort):
+
+    def _sorted_cards(self) -> t.List[PhysicalCard]:
+        return sorted(
+            self._card_infos.keys(),
+            key = lambda card: sorting.ReleaseDateExtractor.extract(card.cubeable),
         )
 
 
@@ -764,10 +778,6 @@ class StackingGrid(Aligner):
     def stacked_cards(self) -> t.Dict[PhysicalCard, _CardInfo]:
         return self._stacked_cards
 
-    # @property
-    # def cursor_position(self) -> t.Optional[PhysicalCard]:
-    #     return self._cursor_position
-
     @property
     def cards(self) -> t.Iterable[PhysicalCard]:
         for stacker in self._stacker_map.stackers:
@@ -823,276 +833,11 @@ class StackingGrid(Aligner):
 
         return StackingMultiDrop(self, _drops)
 
-    # def link_cursor(self, card: t.Optional[PhysicalCard]) -> None:
-    #     if card is None:
-    #         self._cursor_position = None
-    #         self._scene.cursor.setPos(0, 0)
-    #         self.cursor_moved.emit(QtCore.QPointF(0, 0))
-    #         return
-    #
-    #     self._cursor_position = card
-    #     self._scene.cursor.setPos(card.pos())
-    #     self.cursor_moved.emit(self._cursor_position.pos())
-
-    # def find_stacker(self, x: int, y: int, direction: Direction) -> t.Optional[CardStacker]:
-    #
-    #     if not self._stacked_cards:
-    #         return None
-    #
-    #     x, y = int(x), int(y)
-    #
-    #     if direction == Direction.UP:
-    #         for _x in chain(
-    #             range(x, self.stacker_map.row_length),
-    #             reversed(range(0, x)),
-    #         ):
-    #             for _y in reversed(range(0, y + 1)):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-    #
-    #         for _x in chain(
-    #             range(x, self.stacker_map.row_length),
-    #             reversed(range(0, x)),
-    #         ):
-    #             for _y in reversed(range(y + 1, self.stacker_map.column_height)):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-    #
-    #     elif direction == Direction.RIGHT:
-    #         for _y in chain(
-    #             range(y, self.stacker_map.column_height),
-    #             reversed(range(0, y)),
-    #         ):
-    #             for _x in range(x, self.stacker_map.row_length):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-    #
-    #         for _y in chain(
-    #             range(y, self.stacker_map.column_height),
-    #             reversed(range(0, y)),
-    #         ):
-    #             for _x in range(0, x):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-    #
-    #     elif direction == Direction.DOWN:
-    #         for _x in chain(
-    #             reversed(range(0, x + 1)),
-    #             range(x + 1, self.stacker_map.row_length),
-    #         ):
-    #             for _y in range(y + 1, self.stacker_map.column_height):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-    #
-    #         for _x in chain(
-    #             reversed(range(0, x + 1)),
-    #             range(x + 1, self.stacker_map.row_length),
-    #         ):
-    #             for _y in range(0, y + 1):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-    #
-    #     elif direction == Direction.LEFT:
-    #         for _y in chain(
-    #             reversed(range(0, y + 1)),
-    #             range(y + 1, self.stacker_map.column_height),
-    #         ):
-    #             for _x in reversed(range(0, x + 1)):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-    #
-    #         for _y in chain(
-    #             reversed(range(0, y + 1)),
-    #             range(y + 1, self.stacker_map.column_height),
-    #         ):
-    #             for _x in reversed(range(x + 1, self.stacker_map.row_length)):
-    #                 if _x == x and _y == y:
-    #                     continue
-    #                 stacker = self.get_card_stacker_at_index(_x, _y)
-    #                 if stacker.cards:
-    #                     return stacker
-
-    # def find_stacker_spiraled(self, x: int, y: int, direction: Direction) -> t.Optional[CardStacker]:
-    # 	if not self._stacked_cards:
-    # 		return None
-    #
-    # 	x, y = int(x), int(y)
-    #
-    # 	_iter = spiral(direction)
-    #
-    # 	for dx, dy in (
-    # 		next(_iter)
-    # 		for _ in
-    # 		range(
-    # 			self.stacker_map.row_length
-    # 			* self.stacker_map.column_height
-    # 			* 4
-    # 		)
-    # 	):
-    # 		stacker = self.get_card_stacker_at_index(x + dx, y + dy)
-    #
-    # 		if stacker.cards:
-    # 			return stacker
-    #
-    # 	return None
-
-    def _move_cards(self, cards: t.List[PhysicalCard], stacker: CardStacker):
-        if not cards:
-            return
-
-        # self._undo_stack.push(
-        #     _StackingMove(
-        #         self,
-        #         self._scene.selectedItems(),
-        #         stacker,
-        #     )
-        # )
-        #
-        # self.link_cursor(cards[-1])
-
-    # def move_cursor(self, direction: Direction, modifiers: int = 0):
-    #     if self._cursor_position is None:
-    #         return
-    #
-    #     info = self._stacked_cards[self.cursor_position]
-    #
-    #     if modifiers & QtCore.Qt.ShiftModifier:
-    #         selected_items = self._scene.selectedItems()
-    #
-    #         if modifiers & QtCore.Qt.ControlModifier:
-    #             stacker = self.find_stacker(*info.card_stacker.index, direction = direction)
-    #
-    #             if stacker is None:
-    #                 return
-    #
-    #         else:
-    #
-    #             stacker = self.get_card_stacker_at_index(
-    #                 info.card_stacker.index[0] + direction.value[0],
-    #                 info.card_stacker.index[1] + direction.value[1],
-    #             )
-    #
-    #         self._move_cards(selected_items, stacker)
-    #         return
-    #
-    #     if direction == Direction.UP:
-    #         stacker = info.card_stacker
-    #         position = info.position - 1
-    #
-    #         if position < 0:
-    #             next_stacker = self.find_stacker(*stacker.index, direction = direction)
-    #
-    #             if next_stacker is not None:
-    #                 stacker = next_stacker
-    #
-    #         # self.link_cursor(stacker.cards[position])
-    #         self._cursor_index = position
-    #
-    #     elif direction == Direction.DOWN:
-    #         stacker = info.card_stacker
-    #         position = info.position + 1
-    #
-    #         if position >= len(stacker.cards):
-    #             next_stacker = self.find_stacker(*stacker.index, direction = direction)
-    #
-    #             if next_stacker is not None:
-    #                 stacker = next_stacker
-    #
-    #             position = 0
-    #
-    #         # self.link_cursor(stacker.cards[position])
-    #         self._cursor_index = position
-
-    # else:
-    #     stacker = info.card_stacker
-    #
-    #     next_stacker = self.find_stacker(*stacker.index, direction = direction)
-    #
-    #     if next_stacker is not None:
-    #         stacker = next_stacker
-
-    # self.link_cursor(
-    #     stacker.cards[
-    #         min(
-    #             len(stacker.cards) - 1,
-    #             max(
-    #                 info.position,
-    #                 self._cursor_index,
-    #             )
-    #         )
-    #     ]
-    # )
-
-    # if modifiers & QtCore.Qt.ControlModifier:
-    #     self._scene.add_selection((self._cursor_position,))
-    #
-    # elif modifiers & QtCore.Qt.AltModifier:
-    #     self._scene.remove_selected((self._cursor_position,))
-    #
-    # else:
-    #     self._scene.set_selection((self._cursor_position,))
-    #
-    # Context.card_view.set_image.emit(self._cursor_position.image_request())
-
-    # @abstractmethod
-    # def _can_create_rows(self, amount: int) -> bool:
-    # 	pass
-    #
-    # @abstractmethod
-    # def _can_create_columns(self, amount: int) -> bool:
-    # 	pass
-    #
-    # @abstractmethod
-    # def _create_rows(self, amount: int) -> None:
-    # 	pass
-    #
-    # @abstractmethod
-    # def _create_columns(self, amount: int) -> None:
-    # 	pass
-
     def get_card_stacker_at_index(self, x: int, y: int) -> CardStacker:
-        x_index = min(max(x, 0), self.stacker_map.row_length - 1)
-        y_index = min(max(y, 0), self.stacker_map.column_height - 1)
-
-        # required_columns = x - self._stacker_map.row_length + 1
-        # required_rows = y - self._stacker_map.column_height + 1
-        #
-        # if (
-        # 	( required_rows > 0 or required_columns > 0 )
-        # 	and self._can_create_rows(required_rows)
-        # 	and self._can_create_columns(required_columns)
-        # ):
-        # 	if required_rows > 0:
-        # 		self._create_rows(required_rows)
-        # 	if required_columns > 0:
-        # 		self._create_columns(required_columns)
-        #
-        # else:
-        # 	x = min(x, self.stacker_map.row_length - 1)
-        # 	y = min(y, self.stacker_map.column_height - 1)
-
-        return self.stacker_map.get_stacker(x_index, y_index)
+        return self.stacker_map.get_stacker(
+            minmax(0, x, self.stacker_map.row_length - 1),
+            minmax(0, y, self.stacker_map.column_height - 1),
+        )
 
     def get_card_stacker(self, x: int, y: int) -> CardStacker:
         return self.get_card_stacker_at_index(
@@ -1105,10 +850,12 @@ class StackingGrid(Aligner):
         sorting.CMCExtractor: CmcSort,
         sorting.NameExtractor: NameSort,
         sorting.IsLandExtractor: IsLandSplit,
+        sorting.IsPermanentSplit: IsPermanentSplit,
         sorting.IsCreatureExtractor: IsCreatureSplit,
         sorting.CubeableTypeExtractor: CubeableTypeSort,
         sorting.IsMonoExtractor: IsMonoSplit,
         sorting.RarityExtractor: RaritySort,
+        sorting.ReleaseDateExtractor: ReleaseDateSort,
         sorting.ExpansionExtractor: ExpansionSort,
         sorting.CollectorNumberExtractor: CollectorsNumberSort,
     }

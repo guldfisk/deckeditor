@@ -199,7 +199,7 @@ class PrintingTextView(QtWidgets.QWidget):
 
     def set_cubeable(self, printing: Printing) -> None:
         self._name_label.setText(printing.cardboard.name)
-        self._expansion_label.setText(printing.expansion.name)
+        self._expansion_label.setText(printing.expansion.name_and_code)
         if len(printing.cardboard.cards) > 1:
             self._card_views_tabs.clear()
             for card in printing.cardboard.cards:
@@ -335,15 +335,10 @@ class TextImageCubeableView(QtWidgets.QWidget):
         self._text_view = CubeableTextView(cubeable_view)
 
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(1, 1, 1, 1)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
-        splitter.setContentsMargins(1, 1, 1, 1)
-
-        splitter.addWidget(self._image_view)
-        splitter.addWidget(self._text_view)
-
-        layout.addWidget(splitter)
+        layout.addWidget(self._image_view)
+        layout.addWidget(self._text_view)
 
         self.setLayout(layout)
 

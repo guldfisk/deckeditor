@@ -226,7 +226,7 @@ class CubeView(QtWidgets.QWidget):
     def persist(self) -> t.Any:
         return {
             'layout': self._view_layout.name,
-            'image_view_transform': serialize_transform(self._cube_image_view.transform()),
+            'image_view_transform': serialize_transform(self._cube_image_view.get_persistable_transform()),
         }
 
     @classmethod

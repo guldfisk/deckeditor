@@ -28,13 +28,11 @@ class Spoiler(QtWidgets.QWidget):
         self._content_area.setMaximumHeight(0)
         self._content_area.setMinimumHeight(0)
 
-        self._main_layout = QtWidgets.QGridLayout()
+        self._main_layout = QtWidgets.QGridLayout(self)
         self._main_layout.setVerticalSpacing(0)
         self._main_layout.setContentsMargins(0, 0, 0, 0)
         self._main_layout.addWidget(self._header_line, 0, 0)
         self._main_layout.addWidget(self._content_area, 1, 0)
-
-        self.setLayout(self._main_layout)
 
         self._header_line.clicked.connect(self.toggle_expanded)
 

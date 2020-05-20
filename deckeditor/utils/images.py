@@ -7,7 +7,7 @@ class ScaledImageLabel(QtWidgets.QLabel):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.setMinimumSize(1, 1)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.MinimumExpanding)
         self.setScaledContents(False)
         self._pixmap: t.Optional[QtGui.QPixmap] = None
 
@@ -26,6 +26,12 @@ class ScaledImageLabel(QtWidgets.QLabel):
             self.height()
             if self._pixmap is None else
             int(self._pixmap.height() * width / self._pixmap.width())
+        )
+
+    def minimumSizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(
+            50,
+            self.heightForWidth(self.width()),
         )
 
     def sizeHint(self) -> QtCore.QSize:
