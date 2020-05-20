@@ -132,10 +132,11 @@ class CardTextView(QtWidgets.QWidget):
         self._mana_cost_label = QtWidgets.QLabel()
         self._oracle_text_box = QtWidgets.QTextEdit()
         self._oracle_text_box.setContentsMargins(0, 1, 0, 1)
+        self._oracle_text_box.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
         self._oracle_text_box.setReadOnly(True)
         self._power_toughness_loyalty_label = QtWidgets.QLabel()
 
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 1, 0, 1)
 
         top_splitter = QtWidgets.QHBoxLayout()
@@ -147,8 +148,7 @@ class CardTextView(QtWidgets.QWidget):
         layout.addLayout(top_splitter)
         layout.addWidget(self._oracle_text_box)
         layout.addWidget(self._power_toughness_loyalty_label)
-
-        self.setLayout(layout)
+        layout.addStretch()
 
         if self._card is not None:
             self.set_card(card)
@@ -156,7 +156,7 @@ class CardTextView(QtWidgets.QWidget):
     def set_card(self, card: Card) -> None:
         self._card = card
         self._typeline_label.setText(str(card.type_line))
-        self._mana_cost_label.setText(str(card.mana_cost))
+        self._mana_cost_label.setText(str(card.mana_cost) if card.mana_cost is not None else '')
         self._oracle_text_box.setText(card.oracle_text)
         if card.power_toughness is not None:
             self._power_toughness_loyalty_label.setText(str(card.power_toughness))
@@ -172,6 +172,7 @@ class PrintingTextView(QtWidgets.QWidget):
 
     def __init__(self, printing: t.Optional[Printing] = None):
         super().__init__()
+
         self._printing: t.Optional[Printing] = printing
 
         self._name_label = QtWidgets.QLabel()
@@ -191,6 +192,7 @@ class PrintingTextView(QtWidgets.QWidget):
         layout.addWidget(self._name_label)
         layout.addWidget(self._expansion_label)
         layout.addWidget(self._cards_stack)
+        layout.addStretch()
 
         self.setLayout(layout)
 
@@ -334,13 +336,11 @@ class TextImageCubeableView(QtWidgets.QWidget):
         self._image_view = CubeableImageView(cubeable_view)
         self._text_view = CubeableTextView(cubeable_view)
 
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         layout.addWidget(self._image_view)
         layout.addWidget(self._text_view)
-
-        self.setLayout(layout)
 
         self._text_view.printing_focused.connect(lambda p: self._image_view.set_cubeable(CubeableFocusEvent(p)))
 

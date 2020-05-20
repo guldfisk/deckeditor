@@ -64,6 +64,30 @@ class MainView(QWidget):
         self.setLayout(layout)
 
 
+class Dock(QtWidgets.QDockWidget):
+
+    def __init__(
+        self,
+        name: str,
+        object_name: str,
+        parent: QMainWindow,
+        content: QtWidgets.QWidget,
+        allowed_areas: int = QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea,
+        wants_focus: bool = True,
+    ):
+        super().__init__(name, parent)
+        self.setWidget(content)
+        self.setFocusProxy(content)
+        self.setObjectName(object_name)
+        self.setAllowedAreas(allowed_areas)
+
+        self._wants_focus = wants_focus
+
+    @property
+    def wants_focus(self) -> bool:
+        return self._wants_focus
+
+
 class MainWindow(QMainWindow, CardAddable):
     pool_generated = QtCore.pyqtSignal(Multiset)
 
@@ -93,52 +117,38 @@ class MainWindow(QMainWindow, CardAddable):
         self.statusBar().addPermanentWidget(self._login_status_label)
         Context.status_message.connect(lambda m, t: self.statusBar().showMessage(m, t))
 
-        self._card_view_dock = QtWidgets.QDockWidget('Card View', self)
-        self._card_view_dock.setObjectName('card_view_dock')
-        self._card_view_dock.setWidget(self._printing_view)
-        self._card_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        self._card_view_dock = Dock('Card View', 'card_view_dock', self, self._printing_view, wants_focus = False)
 
         self._card_adder = CardAdder(self)
         self._card_adder.add_printings.connect(self._on_add_printings)
 
-        self._card_adder_dock = QtWidgets.QDockWidget('Card Adder', self)
-        self._card_adder_dock.setObjectName('card adder dock')
-        self._card_adder_dock.setWidget(self._card_adder)
-        self._card_adder_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        self._card_adder_dock = Dock('Card Adder', 'card adder dock', self, self._card_adder)
 
         self._undo_view = QUndoView(Context.undo_group)
 
-        self._undo_view_dock = QtWidgets.QDockWidget('Undo View', self)
-        self._undo_view_dock.setObjectName('undo view dock')
-        self._undo_view_dock.setWidget(self._undo_view)
-        self._undo_view_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        self._undo_view_dock = Dock('Undo View', 'undo view dock', self, self._undo_view)
 
         self._lobby_view = LobbiesView(
             LobbyModelClientConnection()
         )
-        self._lobby_view_dock = QtWidgets.QDockWidget('Lobby View', self)
-        self._lobby_view_dock.setObjectName('lobbies')
-        self._lobby_view_dock.setWidget(self._lobby_view)
-        self._lobby_view_dock.setAllowedAreas(
-            QtCore.Qt.RightDockWidgetArea
-            | QtCore.Qt.LeftDockWidgetArea
-            | QtCore.Qt.BottomDockWidgetArea
+        self._lobby_view_dock = Dock(
+            'Lobby View',
+            'lobbies',
+            self,
+            self._lobby_view,
+            allowed_areas = QtCore.Qt.RightDockWidgetArea
+                            | QtCore.Qt.LeftDockWidgetArea
+                            | QtCore.Qt.BottomDockWidgetArea,
         )
 
         self._cube_view_minimap = GraphicsMiniView()
         Context.focus_scene_changed.connect(lambda scene: self._cube_view_minimap.set_scene(scene))
 
-        self._cube_view_minimap_dock = QtWidgets.QDockWidget('Minimap', self)
-        self._cube_view_minimap_dock.setObjectName('minimap')
-        self._cube_view_minimap_dock.setWidget(self._cube_view_minimap)
-        self._cube_view_minimap_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        self._cube_view_minimap_dock = Dock('Minimap', 'minimap', self, self._cube_view_minimap, wants_focus = False)
 
         self._limited_sessions_view = LimitedSessionsView()
 
-        self._limited_sessions_dock = QtWidgets.QDockWidget('Limited', self)
-        self._limited_sessions_dock.setObjectName('Limited')
-        self._limited_sessions_dock.setWidget(self._limited_sessions_view)
-        self._limited_sessions_dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
+        self._limited_sessions_dock = Dock('Limited', 'Limited', self, self._limited_sessions_view)
 
         # self._deck_list_widget = DeckListWidget(self)
         # self._deck_list_widget.set_deck.emit((), ())
@@ -157,8 +167,12 @@ class MainWindow(QMainWindow, CardAddable):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._cube_view_minimap_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._limited_sessions_dock)
 
+        self._card_view_dock.hide()
         self._card_adder_dock.hide()
         self._undo_view_dock.hide()
+        self._lobby_view_dock.hide()
+        self._cube_view_minimap_dock.hide()
+        self._limited_sessions_dock.hide()
 
         self._main_view = MainView(self)
 
@@ -192,10 +206,10 @@ class MainWindow(QMainWindow, CardAddable):
             menu_bar.addMenu('View'): (
                 ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
                 ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
+                ('Limited', 'Meta+3', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
                 ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
                 ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
-                ('Limited', 'Meta+7', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
             ),
             # menu_bar.addMenu('Test'): (
             #     ('Test', 'Ctrl+T', restart),
@@ -232,6 +246,8 @@ class MainWindow(QMainWindow, CardAddable):
         self._reset_dock_width = 500
         self._reset_dock_height = 1200
 
+        self.resizeDocks([self._card_view_dock], [self._reset_dock_width], QtCore.Qt.Horizontal)
+
         Context.notification_message.connect(self._notification_frame.notify)
         Context.draft_started.connect(self._on_draft_started)
 
@@ -260,9 +276,15 @@ class MainWindow(QMainWindow, CardAddable):
                 tab.pool_model.maindeck.get_cube_modification(delta_operation)
             )
 
-    @staticmethod
-    def _toggle_dock_view(dock: QtWidgets.QDockWidget):
-        dock.setVisible(not dock.isVisible())
+    def _toggle_dock_view(self, dock: Dock) -> None:
+        if dock.wants_focus:
+            if dock.hasFocus():
+                dock.setVisible(False)
+            else:
+                dock.setVisible(True)
+                dock.setFocus()
+        else:
+            dock.setVisible(not dock.isVisible())
 
     def _new_deck(self) -> None:
         self._main_view.editables_tabs.setCurrentWidget(

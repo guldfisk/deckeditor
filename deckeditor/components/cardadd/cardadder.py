@@ -251,6 +251,7 @@ class CardAdder(QtWidgets.QWidget):
         )
 
         self._query_edit = QueryEditor(self)
+        self.setFocusProxy(self._query_edit)
 
         self._cardboard_list = CardboardList(
             self._printing_list,

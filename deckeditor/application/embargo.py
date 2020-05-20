@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import typing
+import re
 
 from PyQt5.QtWidgets import QApplication
 
@@ -13,25 +14,25 @@ class EmbargoApp(QApplication):
 
     def __init__(self, argv: typing.List[str]) -> None:
         super().__init__(argv)
-        if not values.IS_WINDOWS:
-            with open(os.path.join(paths.RESOURCE_PATH, 'style.qss'), 'r') as f:
-                self.setStyleSheet(
-                    f.read().replace(
-                        'url(',
-                        'url(' + os.path.join(
-                            paths.RESOURCE_PATH,
-                            'qss_icons',
-                            'rc',
-                            '',
-                        ),
-                    )
-                )
+        with open(os.path.join(paths.RESOURCE_PATH, 'style.qss'), 'r') as f:
+            icon_path = os.path.join(
+                paths.RESOURCE_PATH,
+                'qss_icons',
+                'rc',
+                '',
+            ).replace('\\', '/')
+
+            pattern = re.compile('url\((.*)\)')
+
+            r = pattern.sub(f'url("{icon_path}\\1")', f.read())
+
+            self.setStyleSheet(r)
 
         self.setOrganizationDomain('prohunterdogkeeper.dk')
         self.setApplicationName(values.APPLICATION_NAME)
 
 
-def restart(save_session: bool = True):
+def restart(save_session: bool = True) -> None:
     if save_session:
         try:
             Context.main_window.save_state()

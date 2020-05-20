@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 
 from PyQt5 import QtWidgets
@@ -40,6 +41,7 @@ class DownloadFromRemoteWorker(DbWorker):
         self._host = host
 
     def run(self) -> None:
+        os.makedirs(os.path.join(*os.path.split(DB_PATH)[:-1]), exist_ok = True)
         download_db_from_remote(self._host, DB_PATH)
         self._dialog.add_log_entry.emit('Database downloaded')
         self._dialog.completed.emit()
