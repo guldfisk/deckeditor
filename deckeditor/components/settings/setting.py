@@ -44,6 +44,10 @@ class Setting(QObject):
         return self._key
 
     @property
+    def value(self):
+        return Context.settings.value(self._key, self._default_value, self.setting_type)
+
+    @property
     def default_value(self) -> t.Any:
         return self._default_value
 
@@ -51,7 +55,10 @@ class Setting(QObject):
     def requires_restart(self) -> bool:
         return self._requires_restart
 
-    def render(self, layout: QtWidgets.QFormLayout):
+    def reset(self) -> None:
+        pass
+
+    def render(self, layout: QtWidgets.QFormLayout) -> None:
         pass
 
 
@@ -70,10 +77,12 @@ class BooleanSetting(Setting):
 
         self._label = HoverLabel(self._name, self._description)
         self._box = QtWidgets.QCheckBox()
-        self._box.setChecked(Context.settings.value(self._key, self._default_value, bool))
 
         self._box.stateChanged.connect(lambda v: self.selected.emit(self, v == 2))
         self._label.focus_description.connect(lambda d: self.show_description.emit(self, d))
+
+    def reset(self) -> None:
+        self._box.setChecked(self.value)
 
     def render(self, layout: QtWidgets.QFormLayout):
         layout.addRow(self._label, self._box)
@@ -97,10 +106,12 @@ class OptionsSetting(Setting):
         self._combo = QtWidgets.QComboBox()
 
         self._combo.addItems(options)
-        self._combo.setCurrentText(Context.settings.value(self._key, self._default_value, str))
 
         self._combo.currentTextChanged.connect(lambda v: self.selected.emit(self, v))
         self._label.focus_description.connect(lambda d: self.show_description.emit(self, d))
+
+    def reset(self) -> None:
+        self._combo.setCurrentText(self.value)
 
     def render(self, layout: QtWidgets.QFormLayout):
         layout.addRow(self._label, self._combo)

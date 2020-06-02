@@ -5,7 +5,7 @@ from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
 APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.0.0'
+VERSION = '0.0.1'
 
 IS_WINDOWS = sys.platform.startswith('win')
 
@@ -32,6 +32,13 @@ class Direction(Enum):
 class SortDirection(Enum):
     ASCENDING = 'asc'
     DESCENDING = 'desc'
+    AUTO = 'auto'
+
+
+class SortDimension(Enum):
+    HORIZONTAL = 'horizontal'
+    VERTICAL = 'vertical'
+    SUB_DIVISIONS = 'sub divisions'
     AUTO = 'auto'
 
 

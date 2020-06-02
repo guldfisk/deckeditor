@@ -11,7 +11,7 @@ from mtgorp.models.persistent.attributes.colors import Color
 
 
 class SingleInstanceDialog(QDialog):
-    INSTANCE: t.Optional[QDialog] = None
+    INSTANCE: t.Optional[SingleInstanceDialog] = None
 
     @classmethod
     def get(cls) -> SingleInstanceDialog:

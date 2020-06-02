@@ -47,9 +47,9 @@ class CubeableImageView(ScaledImageLabel):
             and focus.size is not None
             and focus.position is not None
             and bool(
-            focus.modifiers is not None
-            and focus.modifiers & QtCore.Qt.ShiftModifier
-        ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
+                focus.modifiers is not None
+                and focus.modifiers & QtCore.Qt.ShiftModifier
+            ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
         ):
             cubeable = focus.cubeable.get_printing_at(*focus.position, *focus.size)
         else:
@@ -59,6 +59,8 @@ class CubeableImageView(ScaledImageLabel):
             return
 
         self._cubeable = cubeable
+
+        self.setPixmap(Context.pixmap_loader.get_default_pixmap())
 
         image_request = ImageRequest(cubeable)
         self._image_request = image_request
@@ -137,17 +139,17 @@ class CardTextView(QtWidgets.QWidget):
         self._power_toughness_loyalty_label = QtWidgets.QLabel()
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 1, 0, 1)
+        layout.setContentsMargins(0, 3, 0, 3)
 
         top_splitter = QtWidgets.QHBoxLayout()
-        top_splitter.setContentsMargins(0, 1, 0, 1)
+        top_splitter.setContentsMargins(0, 0, 0, 0)
 
         top_splitter.addWidget(self._typeline_label)
         top_splitter.addWidget(self._mana_cost_label)
 
         layout.addLayout(top_splitter)
         layout.addWidget(self._oracle_text_box)
-        layout.addWidget(self._power_toughness_loyalty_label)
+        layout.addWidget(self._power_toughness_loyalty_label, alignment = QtCore.Qt.AlignRight)
         layout.addStretch()
 
         if self._card is not None:

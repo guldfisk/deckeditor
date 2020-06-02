@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import typing as t
-from collections import OrderedDict
 from enum import Enum
 
 from PyQt5 import QtWidgets, QtCore
@@ -14,24 +13,11 @@ from deckeditor import paths
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligner import Aligner
-from deckeditor.models.cubes.alignment.bunchingstackinggrid import BunchingStackingGrid
-from deckeditor.models.cubes.alignment.dynamicstackinggrid import DynamicStackingGrid
-from deckeditor.models.cubes.alignment.grid import GridAligner
-from deckeditor.models.cubes.alignment.staticstackinggrid import StaticStackingGrid
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
+from deckeditor.models.cubes.alignment.aligners import ALIGNER_TYPE_MAP
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.utils.spoiler import Spoiler
 from deckeditor.utils.transform import serialize_transform, deserialize_transform
-
-
-ALIGNER_TYPE_MAP = OrderedDict(
-    (
-        ('Static Stacking Grid', StaticStackingGrid),
-        ('Grid', GridAligner),
-        ('Bunch', BunchingStackingGrid),
-        ('Dynamic Stacking Grid', DynamicStackingGrid),
-    )
-)
 
 
 class CubeViewLayout(Enum):
@@ -196,24 +182,24 @@ class CubeView(QtWidgets.QWidget):
         self._create_action('View Table', lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'Ctrl+Alt+Shift+T')
         self._create_action('View Mixed', lambda: self.layout_changed.emit(CubeViewLayout.MIXED), 'Ctrl+Alt+Shift+M')
 
-        self._create_action(
-            'Grid',
-            lambda: self._undo_stack.push(
-                self._cube_scene.get_set_aligner(
-                    GridAligner
-                )
-            ),
-            'Œ',  # Some real garbage, prob doesn't work on windows (or other keymaps idk) supposed to be AltGr+O
-        )
-        self._create_action(
-            'Static Stacking Grid',
-            lambda: self._undo_stack.push(
-                self._cube_scene.get_set_aligner(
-                    DynamicStackingGrid
-                )
-            ),
-            'Ł',  # AltGr+L
-        )
+        # self._create_action(
+        #     'Grid',
+        #     lambda: self._undo_stack.push(
+        #         self._cube_scene.get_set_aligner(
+        #             GridAligner
+        #         )
+        #     ),
+        #     'Œ',  # Some real garbage, prob doesn't work on windows (or other keymaps idk) supposed to be AltGr+O
+        # )
+        # self._create_action(
+        #     'Static Stacking Grid',
+        #     lambda: self._undo_stack.push(
+        #         self._cube_scene.get_set_aligner(
+        #             DynamicStackingGrid
+        #         )
+        #     ),
+        #     'Ł',  # AltGr+L
+        # )
 
     @property
     def cube_scene(self) -> CubeScene:

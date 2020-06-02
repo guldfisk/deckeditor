@@ -6,6 +6,8 @@ from PyQt5.QtWidgets import QDialog, QWidget
 
 from deckeditor.components.settings.setting import BooleanSetting, Setting, OptionsSetting
 from deckeditor.context.context import Context
+from deckeditor.models.cubes.alignment.aligners import DEFAULT_ALIGNER, ALIGNER_TYPE_MAP
+from deckeditor.utils.dialogs import SingleInstanceDialog
 
 
 class SettingsPane(QWidget):
@@ -32,7 +34,7 @@ class SettingsTreeItem(QtWidgets.QTreeWidgetItem):
         return self._settings_pane
 
 
-class SettingsDialog(QDialog):
+class SettingsDialog(SingleInstanceDialog):
     set_value = pyqtSignal(str, object, Setting)
 
     def __init__(self):
@@ -61,7 +63,7 @@ class SettingsDialog(QDialog):
                 (),
             ),
             (
-                'Card View',
+                'Cards View',
                 (
                     BooleanSetting(
                         'default_cubeview_header_hidden',
@@ -91,8 +93,21 @@ class SettingsDialog(QDialog):
                     BooleanSetting(
                         'fit_all_cards',
                         'Fit all cards',
-                        'When fitting view, always fit all cards in view, instead of only the selected if present',
+                        'When fitting view, always fit all cards in view, instead of only the selected if present.',
                         False,
+                    ),
+                    BooleanSetting(
+                        'doubleclick_match_on_cardboards',
+                        'Doubleclick matches on cardboards',
+                        'When ctrl doubleclicking a card, select all cardboards matching instead of printings.',
+                        True,
+                    ),
+                    OptionsSetting(
+                        'default_aligner_type',
+                        'Default aligner type',
+                        'Aligner type used for new card views.',
+                        DEFAULT_ALIGNER.name,
+                        tuple(ALIGNER_TYPE_MAP.keys()),
                     ),
                 ),
                 (),
@@ -145,6 +160,12 @@ class SettingsDialog(QDialog):
                         'Flatten all flattenable children of af trap instead of of one level at a time.',
                         True,
                     ),
+                    BooleanSetting(
+                        'always_flatten_all',
+                        'Always flatten all',
+                        'Always flatten all, instead of only selected, when cards are selected.',
+                        False,
+                    ),
                 ),
                 (
                     (
@@ -185,7 +206,7 @@ class SettingsDialog(QDialog):
         self._description_box.setReadOnly(True)
 
         self._cancel_button = QtWidgets.QPushButton('Cancel')
-        self._cancel_button.clicked.connect(self.reject)
+        self._cancel_button.clicked.connect(self.cancel)
 
         self._apply_button = QtWidgets.QPushButton('Apply')
         self._apply_button.clicked.connect(self.apply)
@@ -212,9 +233,18 @@ class SettingsDialog(QDialog):
 
         layout.addLayout(buttons_layout)
 
+    def _finish(self) -> None:
+        self._setting_changes.clear()
+        self._apply_button.setEnabled(False)
+
     def ok(self) -> None:
         self.apply()
+        self._finish()
         self.accept()
+
+    def cancel(self) -> None:
+        self._finish()
+        self.reject()
 
     def apply(self) -> None:
         if any(setting.requires_restart for setting in self._setting_changes):
@@ -223,8 +253,14 @@ class SettingsDialog(QDialog):
         for setting, value in self._setting_changes.items():
             Context.settings.setValue(setting.key, value)
 
-        self._setting_changes.clear()
-        self._apply_button.setEnabled(False)
+    def _walk_settings_tree(
+        self,
+        tree: t.Sequence[t.Tuple[str, t.Sequence[Setting], t.Sequence]],
+    ) -> t.Iterator[Setting]:
+        for name, settings, children in tree:
+            for setting in settings:
+                yield setting
+            yield from self._walk_settings_tree(children)
 
     def _build_tree(
         self,
@@ -264,3 +300,10 @@ class SettingsDialog(QDialog):
             self._setting_changes[setting] = value
 
         self._apply_button.setEnabled(bool(self._setting_changes))
+
+    def exec_(self) -> int:
+        for setting in self._walk_settings_tree(self._settings_map):
+            setting.reset()
+        return super().exec_()
+
+

@@ -13,6 +13,8 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
+from deckeditor.store import models, engine
+from deckeditor.store.models import GameTypeOptions
 from yeetlong.multiset import Multiset
 
 from mtgorp.db.load import DBLoadException
@@ -219,7 +221,7 @@ class MainWindow(QMainWindow, CardAddable):
                 ('Logout', None, LOGIN_CONTROLLER.log_out),
             ),
             menu_bar.addMenu('Preferences'): (
-                ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog().exec_()),
+                ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog.get().exec_()),
             ),
             menu_bar.addMenu('DB'): (
                 ('Info', None, lambda: DBInfoDialog().exec_()),
@@ -410,8 +412,8 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
         except IOError:
             pass
 
-        print(traceback_info)
-        print(errmsg)
+        logging.error(traceback_info)
+        logging.error(errmsg)
 
         errorbox = QMessageBox()
         errorbox.setText(
@@ -431,7 +433,6 @@ def run():
     sys.excepthook = _get_exception_hook()
 
     arg_parser = argparse.ArgumentParser(description = 'Edit decks')
-    arg_parser.add_argument('files', metavar = 'F', type = str, nargs = '*', help = 'paths of files to open')
     arg_parser.add_argument(
         '-v', '--version',
         action = 'store_true',
@@ -468,6 +469,7 @@ def run():
         default = 'localhost',
         help = 'server host',
     )
+    arg_parser.add_argument('files', metavar = 'F', type = str, nargs = '*', help = 'paths of files to open')
 
     args = arg_parser.parse_args()
 
@@ -494,6 +496,8 @@ def run():
     app.setQuitOnLastWindowClosed(True)
 
     compiled = __file__ == os.path.split(__file__)[-1]
+
+    models.create(engine)
 
     try:
         Context.init(app, compiled = compiled)

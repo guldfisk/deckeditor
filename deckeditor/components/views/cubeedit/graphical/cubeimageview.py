@@ -101,6 +101,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._dragging_move: bool = False
         self._last_move_event_pos = None
         self._last_press_on_card = False
+        self._last_double_click = False
         self._drag = None
 
         self._sort_actions: t.MutableMapping[t.Tuple[t.Type[SortProperty], int], QtWidgets.QAction] = {}
@@ -286,9 +287,15 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         item = self.itemAt(click_event.pos())
         if isinstance(item, PhysicalCard):
             if modifiers & QtCore.Qt.ControlModifier:
+                cubeable_extractor = (
+                    (lambda c: c.cubeable.cardboard if isinstance(c.cubeable, Printing) else c.cardboard)
+                    if Context.settings.value('doubleclick_match_on_cardboards', True, bool) else
+                    (lambda c: c.cubeable)
+                )
                 for card in self._scene.items():
-                    if card.cubeable == item.cubeable:
+                    if cubeable_extractor(card) == cubeable_extractor(item):
                         card.setSelected(True)
+                self._last_double_click = True
             else:
                 self.card_double_clicked.emit(item, modifiers)
 
@@ -359,7 +366,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         return transform
 
     def _flatten_all_traps(self) -> None:
-        selected = self._scene.selectedItems()
+        selected = None if Context.settings.value('always_flatten_all', False, bool) else self._scene.selectedItems()
         self._undo_stack.push(
             CommandPackage(
                 [
@@ -581,12 +588,14 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         if not mouse_event.button() == QtCore.Qt.LeftButton:
             return
 
-        if self._last_move_event_pos is None:
-            item = self.itemAt(mouse_event.pos())
-            if item is not None:
-                self._scene.set_selection((item,), modifiers)
-
         if self._rubber_band.isHidden():
+            if self._last_move_event_pos is None:
+                if self._last_double_click:
+                    self._last_double_click = False
+                else:
+                    item = self.itemAt(mouse_event.pos())
+                    if item is not None:
+                        self._scene.set_selection((item,), modifiers)
             return
 
         self._rubber_band.hide()

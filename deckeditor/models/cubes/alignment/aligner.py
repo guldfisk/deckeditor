@@ -37,6 +37,7 @@ class AlignmentMultiDrop(AlignmentCommand):
 
 
 class Aligner(ABC):
+    name: str
 
     def __init__(self, scene: SelectionScene):
         self._scene = scene

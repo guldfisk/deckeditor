@@ -88,6 +88,8 @@ class StaticCardStacker(CardStacker):
 
 
 class BunchingStackingGrid(StackingGrid):
+    name = 'Bunch'
+
     _card_stacker_width: float
     _card_stacker_height: float
 

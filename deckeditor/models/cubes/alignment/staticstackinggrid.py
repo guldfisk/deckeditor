@@ -57,6 +57,8 @@ class StaticCardStacker(CardStacker):
 
 
 class StaticStackingGrid(StackingGrid):
+    name = 'Static Stacking Grid'
+
     _card_stacker_width: float
     _card_stacker_height: float
 

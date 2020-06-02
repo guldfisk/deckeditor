@@ -6,7 +6,6 @@ from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QUndoStack
 
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
-from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from mtgorp.models.persistent.printing import Printing
 
 from magiccube.collections.cubeable import Cubeable

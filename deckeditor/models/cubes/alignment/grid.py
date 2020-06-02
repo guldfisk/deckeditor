@@ -164,6 +164,7 @@ class GridSort(QUndoCommand):
 
 
 class GridAligner(Aligner):
+    name = 'Grid'
 
     def __init__(self, scene: SelectionScene, margin: int = 10, columns: t.Optional[int] = None):
         super().__init__(scene)

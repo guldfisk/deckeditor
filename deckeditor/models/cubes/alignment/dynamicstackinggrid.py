@@ -49,6 +49,7 @@ class DynamicCardStacker(CardStacker):
 
 
 class DynamicStackingGrid(StackingGrid):
+    name = 'Dynamic Stacking Grid'
 
     def __init__(
         self,

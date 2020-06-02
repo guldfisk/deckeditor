@@ -5,6 +5,7 @@ from abc import abstractmethod
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from deckeditor.models.cubes.alignment.aligners import get_default_aligner_type
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 from mtgorp.models.collections.deck import Deck as OrpDeck
 
@@ -103,7 +104,7 @@ class DeckModel(QObject):
         super().__init__()
         self._maindeck = (
             CubeScene(
-                aligner_type = DynamicStackingGrid,
+                aligner_type = get_default_aligner_type(),
                 cards = maindeck if isinstance(maindeck, t.Sequence) else None,
                 width = IMAGE_WIDTH * 15.5,
                 height = IMAGE_HEIGHT * 6.3,
@@ -114,7 +115,7 @@ class DeckModel(QObject):
         )
         self._sideboard = (
             CubeScene(
-                aligner_type = DynamicStackingGrid,
+                aligner_type = get_default_aligner_type(),
                 cards = sideboard if isinstance(sideboard, t.Sequence) else None,
                 width = IMAGE_WIDTH * 3.3,
                 height = IMAGE_HEIGHT * 6.3,
@@ -168,7 +169,7 @@ class PoolModel(DeckModel):
     ):
         super().__init__(
             CubeScene(
-                aligner_type = DynamicStackingGrid,
+                aligner_type = get_default_aligner_type(),
                 cards = maindeck if isinstance(maindeck, t.Sequence) else None,
                 width = IMAGE_WIDTH * 16.5,
                 height = IMAGE_HEIGHT * 6.3,
@@ -178,7 +179,7 @@ class PoolModel(DeckModel):
             if maindeck is None or isinstance(maindeck, t.Sequence) else
             maindeck,
             CubeScene(
-                aligner_type = DynamicStackingGrid,
+                aligner_type = get_default_aligner_type(),
                 cards = sideboard if isinstance(sideboard, t.Sequence) else None,
                 width = IMAGE_WIDTH * 3.3,
                 height = IMAGE_HEIGHT * 6.3,
@@ -190,7 +191,7 @@ class PoolModel(DeckModel):
         )
         self._pool = (
             CubeScene(
-                aligner_type = DynamicStackingGrid,
+                aligner_type = get_default_aligner_type(),
                 cards = pool if isinstance(pool, t.Sequence) else None,
                 width = IMAGE_WIDTH * 20.7,
                 height = IMAGE_HEIGHT * 6.3,

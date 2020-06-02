@@ -11,14 +11,17 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
-from cubeclient.models import VersionedCube
-from deckeditor.utils.actions import WithActions
-from deckeditor.utils.scroll import VerticalScrollArea
+from lobbyclient.model import LobbyOptions
+from lobbyclient.client import LobbyClient, Lobby
+
 from mtgorp.models.formats.format import Format
 from mtgorp.models.persistent.attributes.expansiontype import ExpansionType
 
-from lobbyclient.client import LobbyClient, Lobby
+from cubeclient.models import VersionedCube
 
+from deckeditor.store.models import GameTypeOptions, LobbyOptions as LobbyOptionsStore
+from deckeditor.utils.actions import WithActions
+from deckeditor.utils.scroll import VerticalScrollArea
 from deckeditor.context.context import Context
 
 
@@ -107,20 +110,26 @@ class LobbyModelClientConnection(QObject):
             return None
         return self._lobby_client.get_lobby(name)
 
-    def create_lobby(self, name: str) -> None:
+    def create_lobby(
+        self,
+        name: str,
+        game_type: str,
+        lobby_options: LobbyOptions,
+        game_options: t.Mapping[str, t.Any],
+    ) -> None:
         if self._lobby_client is None:
             return
-        self._lobby_client.create_lobby(name)
+        self._lobby_client.create_lobby(name, game_type, lobby_options, game_options)
 
-    def set_options(self, name: str, options: t.Any) -> None:
+    def set_options(self, name: str, options: t.Mapping[str, t.Any]) -> None:
         if self._lobby_client is None:
             return
         self._lobby_client.set_options(name, options)
 
-    def set_game_type(self, name: str, game_type: str) -> None:
+    def set_game_type(self, name: str, game_type: str, options: t.Mapping[str, t.Any]) -> None:
         if self._lobby_client is None:
             return
-        self._lobby_client.set_game_type(name, game_type)
+        self._lobby_client.set_game_type(name, game_type, options)
 
     def leave_lobby(self, name: str) -> None:
         if self._lobby_client is None:
@@ -140,15 +149,23 @@ class LobbyModelClientConnection(QObject):
     def start_game(self, name: str) -> None:
         if self._lobby_client is None:
             return
+
+        lobby = self._lobby_client.get_lobby(name)
+
+        if lobby is None:
+            return
+
         self._lobby_client.start_game(name)
+
+        GameTypeOptions.save_options(lobby.game_type, lobby.game_options)
 
 
 class LobbiesListView(QTableWidget):
 
     def __init__(self, parent: LobbiesView):
-        super().__init__(0, 6, parent)
+        super().__init__(0, 8, parent)
         self.setHorizontalHeaderLabels(
-            ('name', 'game_type', 'state', 'owner', 'users', 'size')
+            ('Name', 'Game Type', 'State', 'Owner', 'Users', 'Min Size', 'Req. Ready', 'Auto Unready')
         )
 
         self._lobby_view = parent
@@ -187,8 +204,13 @@ class LobbiesListView(QTableWidget):
                     lobby.game_type,
                     lobby.state,
                     lobby.owner,
-                    str(len(lobby.users)),
-                    str(lobby.size),
+                    '{}/{}'.format(
+                        len(lobby.users),
+                        lobby.lobby_options.size,
+                    ),
+                    str(lobby.lobby_options.minimum_size),
+                    bool(lobby.lobby_options.require_ready),
+                    bool(lobby.lobby_options.unready_on_change),
                 )
             ):
                 _set_data_at(value, index, column)
@@ -328,7 +350,7 @@ class BoosterSpecificationsTable(QtWidgets.QTableWidget):
         pressed_key = key_event.key()
 
         if pressed_key == QtCore.Qt.Key_Delete and self._enabled:
-            current_specifications = copy.copy(self._lobby_view.lobby.options['pool_specification'])
+            current_specifications = copy.copy(self._lobby_view.lobby.game_options['pool_specification'])
             for idx in sorted(self.selectedIndexes(), reverse = True):
                 if len(current_specifications) > 1:
                     del current_specifications[idx.column()]
@@ -344,7 +366,7 @@ class BoosterSpecificationsTable(QtWidgets.QTableWidget):
         if not item.column() == 1:
             return
 
-        current_specifications = copy.copy(self._lobby_view.lobby.options['pool_specification'])
+        current_specifications = copy.copy(self._lobby_view.lobby.game_options['pool_specification'])
         current_specifications[item.row()]['amount'] = int(item.data(0))
 
         self._lobby_view.lobby_model.set_options(
@@ -592,7 +614,7 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
         )
 
     def _on_booster_specification_value_change(self, option: str, value: t.Any) -> None:
-        current_options = copy.copy(self._lobby_view.lobby.options['pool_specification'])
+        current_options = copy.copy(self._lobby_view.lobby.game_options['pool_specification'])
         current_options[self._current_specification_index][option] = value
         self._lobby_view.lobby_model.set_options(
             self._lobby_view.lobby.name,
@@ -610,7 +632,7 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
             return
         self._current_specification_index = current_row
         self._booster_specifications_selector.update_content(
-            self._lobby_view.lobby.options['pool_specification'][self._current_specification_index],
+            self._lobby_view.lobby.game_options['pool_specification'][self._current_specification_index],
             self._enabled
         )
 
@@ -618,7 +640,7 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
         self._lobby_view.lobby_model.set_options(
             self._lobby_view.lobby.name,
             {
-                'pool_specification': self._lobby_view.lobby.options['pool_specification'] + [
+                'pool_specification': self._lobby_view.lobby.game_options['pool_specification'] + [
                     self._booster_specifications_selector.specification_type_map[
                         self._add_booster_specification_type_selector.currentText()
                     ].get_default_values()
@@ -838,7 +860,13 @@ class LobbyView(QWidget):
 
         user = lobby.users.get(Context.cube_api_client.user.username)
         if user and user.username == lobby.owner:
-            self._lobby_model.set_game_type(self._lobby_name, self._game_type_selector.itemText(idx))
+            game_type = self._game_type_selector.itemText(idx)
+
+            self._lobby_model.set_game_type(
+                self._lobby_name,
+                game_type,
+                GameTypeOptions.get_options_for_game_type(game_type) or {},
+            )
 
     def _toggle_ready(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
@@ -879,15 +907,19 @@ class LobbyView(QWidget):
         self._game_type_selector.setEnabled(can_edit_options)
 
         self._game_type_selector.setCurrentText(lobby.game_type)
-        self._options_selector.update_content(lobby.game_type, lobby.options, can_edit_options)
+        self._options_selector.update_content(lobby.game_type, lobby.game_options, can_edit_options)
 
         self._start_game_button.setVisible(
             lobby.state == 'pre-game'
             and Context.cube_api_client.user.username == lobby.owner
-            and all(
-                user.ready
-                for user in
-                lobby.users.values()
+            and len(lobby.users) >= lobby.lobby_options.minimum_size
+            and (
+                not lobby.lobby_options.require_ready
+                or all(
+                    user.ready
+                    for user in
+                    lobby.users.values()
+                )
             )
         )
 
@@ -900,31 +932,76 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 
         self.setWindowTitle('Create Lobby')
 
-        self._ok_button = QtWidgets.QPushButton('OK', self)
+        lobby_options = LobbyOptionsStore.get_options_for_name('default') or {}
+
         self._lobby_name_selector = QtWidgets.QLineEdit()
 
-        self._top_box = QtWidgets.QHBoxLayout()
-        self._bottom_box = QtWidgets.QHBoxLayout()
+        self._game_type_selector = QtWidgets.QComboBox()
+        self._game_type_selector.addItems(('sealed', 'draft'))
+        self._game_type_selector.setCurrentText(lobby_options.get('game_type', 'draft'))
 
-        self._top_box.addWidget(self._lobby_name_selector)
+        self._size_selector_label = QtWidgets.QLabel('size')
+        self._size_selector = QtWidgets.QSpinBox()
+        self._size_selector.setMinimum(1)
+        self._size_selector.setMaximum(64)
+        self._size_selector.setValue(lobby_options.get('size', 8))
 
-        self._bottom_box.addWidget(self._ok_button)
+        self._min_size_selector_label = QtWidgets.QLabel('min size')
+        self._min_size_selector = QtWidgets.QSpinBox()
+        self._min_size_selector.setMinimum(0)
+        self._min_size_selector.setMaximum(64)
+        self._min_size_selector.setValue(lobby_options.get('minimum_size', 0))
 
-        self._layout = QtWidgets.QVBoxLayout()
+        self._requires_ready_selector = QtWidgets.QCheckBox('require ready')
+        self._requires_ready_selector.setChecked(lobby_options.get('require_ready', True))
+        self._auto_unready_selector = QtWidgets.QCheckBox('auto unready')
+        self._auto_unready_selector.setChecked(lobby_options.get('unready_on_change', True))
 
-        self._layout.addLayout(self._top_box)
-        self._layout.addLayout(self._bottom_box)
+        self._ok_button = QtWidgets.QPushButton('OK', self)
 
-        self.setLayout(self._layout)
+        layout = QtWidgets.QGridLayout(self)
+
+        layout.addWidget(self._lobby_name_selector, 0, 0, 1, 4)
+        layout.addWidget(self._game_type_selector, 1, 0, 1, 4)
+        layout.addWidget(self._size_selector_label, 2, 0, 1, 1)
+        layout.addWidget(self._size_selector, 2, 1, 1, 1)
+        layout.addWidget(self._min_size_selector_label, 2, 2, 1, 1)
+        layout.addWidget(self._min_size_selector, 2, 3, 1, 1)
+        layout.addWidget(self._requires_ready_selector, 3, 0, 1, 2)
+        layout.addWidget(self._auto_unready_selector, 3, 2, 1, 2)
+        layout.addWidget(self._ok_button, 4, 3, 1, 1)
 
         self._ok_button.clicked.connect(self._create)
 
         self._lobby_name_selector.setFocus()
 
-    def _create(self) -> None:
-        self._lobby_view.lobby_model.create_lobby(
-            self._lobby_name_selector.text()
+    def _get_lobby_options(self) -> LobbyOptions:
+        return LobbyOptions(
+            size = self._size_selector.value(),
+            minimum_size = self._min_size_selector.value(),
+            require_ready = self._requires_ready_selector.isChecked(),
+            unready_on_change = self._auto_unready_selector.isChecked(),
         )
+
+    def _create(self) -> None:
+        lobby_options = self._get_lobby_options()
+        game_type = self._game_type_selector.currentText()
+
+        LobbyOptionsStore.save_options(
+            'default',
+            {
+                'game_type': game_type,
+                **lobby_options.__dict__
+            },
+        )
+
+        self._lobby_view.lobby_model.create_lobby(
+            name = self._lobby_name_selector.text(),
+            game_type = game_type,
+            lobby_options = lobby_options,
+            game_options = GameTypeOptions.get_options_for_game_type(game_type) or {},
+        )
+
         self.accept()
 
 

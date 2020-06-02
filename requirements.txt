@@ -1,3 +1,4 @@
+sqlalchemy
 plyer
 appdirs
 mtgorp@ https://github.com/guldfisk/mtgorp/tarball/master#egg=mtgorp-1.0
@@ -17,3 +18,5 @@ websocket
 bidict
 simplejson
 flask
+pysqlite3
+SQLAlchemy-JSONField
