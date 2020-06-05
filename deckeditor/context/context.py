@@ -1,3 +1,4 @@
+import threading
 import typing as t
 
 from PyQt5 import QtCore
@@ -7,8 +8,6 @@ from PyQt5.QtWidgets import QUndoGroup, QGraphicsScene, QApplication, QUndoStack
 
 from promise import promise
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
-from deckeditor.sorting.custom import CustomSortMap
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
 from mtgorp.models.interfaces import Cardboard
@@ -22,6 +21,8 @@ from cubeclient.endpoints import AsyncNativeApiClient
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
 from deckeditor.components.editables.editor import Editor
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.sorting.custom import CustomSortMap
 
 
 class _Context(QObject):
@@ -64,6 +65,8 @@ class _Context(QObject):
     saved_drafts: t.Mapping[str, t.Any] = {}
 
     sort_map: CustomSortMap
+
+    embargo_server: t.Optional[threading.Thread] = None
 
     @classmethod
     def init(cls, application: QApplication, compiled: bool = True) -> None:

@@ -56,37 +56,6 @@ class QueryEditor(QtWidgets.QLineEdit):
             super().keyPressEvent(key_event)
 
 
-# class QuantitySelectDialog(QtWidgets.QDialog):
-#
-#     def __init__(self, parent: PrintingList):
-#         super().__init__(parent)
-#
-#         self._query_edit = QueryEdit(self)
-#
-#         self._error_label = QtWidgets.QLabel()
-#         self._error_label.hide()
-#
-#         self._box = QtWidgets.QVBoxLayout()
-#
-#         self._box.addWidget(self._query_edit)
-#         self._box.addWidget(self._error_label)
-#
-#         self.setLayout(self._box)
-#
-#     def compile(self):
-#         try:
-#             self.parent().search_select.emit(
-#                 Context.search_pattern_parser.parse_criteria(
-#                     self._query_edit.text()
-#                 )
-#             )
-#             self.accept()
-#         except ParseException as e:
-#             self._error_label.setText(str(e))
-#             self._error_label.show()
-#             return
-
-
 class PrintingList(QtWidgets.QListWidget):
 
     def __init__(

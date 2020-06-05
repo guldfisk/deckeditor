@@ -3,14 +3,16 @@ from __future__ import annotations
 import collections
 import typing as t
 
-from sqlalchemy import Integer, String, Column, update
+from sqlalchemy import Integer, String, Column, update, Enum, Boolean, ForeignKey
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 import sqlalchemy_jsonfield
 
 from deckeditor.store import Session
+from deckeditor.values import SortDimension, SortDirection
 
 
 Base = declarative_base()
@@ -66,47 +68,52 @@ class LobbyOptions(Base):
         return instance.options
 
 
-# class SortSpecification(Base):
-#     __tablename__ = 'sort_specification'
-#
-#     id = Column(Integer, primary_key = True)
-#
-#     index = Column(Integer)
-#
-#     dimension: SortDimension = Column(Enum(SortDimension))
-#     direction: SortDirection = Column(Enum(SortDirection))
-#     sort_property = Column(String)
-#
-#     respect_custom = Column(Boolean, default = True)
-#
-#     macro: SortMacro = relationship('SortMacro', back_populates = 'specifications')
-#
-#
-# class SortMacro(Base):
-#     __tablename__ = 'sort_macro'
-#
-#     id = Column(Integer, primary_key = True)
-#
-#     specifications: t.Sequence[SortSpecification] = relationship(
-#         'SortSpecification',
-#         back_populates = 'macro',
-#         cascade = 'all, delete-orphan',
-#     )
-#
-#     @property
-#     def dimension_specifications_map(self) -> t.Sequence[t.Tuple[SortDimension, t.Sequence[SortSpecification]]]:
-#         _map = collections.defaultdict(list)
-#         for specification in self.specifications:
-#             _map[specification.dimension].append(specification)
-#
-#         return sorted(
-#             (
-#                 (dimension, sorted(specifications, key = lambda s: s.index))
-#                 for dimension, specifications in
-#                 _map.items()
-#             ),
-#             key = lambda p: p[0],
-#         )
+class SortSpecification(Base):
+    __tablename__ = 'sort_specification'
+
+    id = Column(Integer, primary_key = True)
+
+    index = Column(Integer)
+
+    dimension: SortDimension = Column(Enum(SortDimension))
+    direction: SortDirection = Column(Enum(SortDirection))
+    sort_property = Column(String)
+
+    respect_custom = Column(Boolean, default = True)
+
+    macro_id = Column(
+        Integer,
+        ForeignKey('sort_macro.id'),
+        nullable = False,
+    )
+    macro: SortMacro = relationship('SortMacro', back_populates = 'specifications')
+
+
+class SortMacro(Base):
+    __tablename__ = 'sort_macro'
+
+    id = Column(Integer, primary_key = True)
+
+    specifications: t.Sequence[SortSpecification] = relationship(
+        'SortSpecification',
+        back_populates = 'macro',
+        cascade = 'all, delete-orphan',
+    )
+
+    @property
+    def dimension_specifications_map(self) -> t.Sequence[t.Tuple[SortDimension, t.Sequence[SortSpecification]]]:
+        _map = collections.defaultdict(list)
+        for specification in self.specifications:
+            _map[specification.dimension].append(specification)
+
+        return sorted(
+            (
+                (dimension, sorted(specifications, key = lambda s: s.index))
+                for dimension, specifications in
+                _map.items()
+            ),
+            key = lambda p: p[0],
+        )
 
 
 def create(engine: Engine):

@@ -178,9 +178,9 @@ class CubeView(QtWidgets.QWidget):
 
         self._create_action('Toggle Header', lambda: self._spoiler.set_expanded(not self._spoiler.expanded), 'H')
 
-        self._create_action('View Images', lambda: self.layout_changed.emit(CubeViewLayout.IMAGE), 'Ctrl+Alt+Shift+I')
-        self._create_action('View Table', lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'Ctrl+Alt+Shift+T')
-        self._create_action('View Mixed', lambda: self.layout_changed.emit(CubeViewLayout.MIXED), 'Ctrl+Alt+Shift+M')
+        self._create_action('View Images', lambda: self.layout_changed.emit(CubeViewLayout.IMAGE), 'I')
+        self._create_action('View Table', lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'T')
+        self._create_action('View Mixed', lambda: self.layout_changed.emit(CubeViewLayout.MIXED), 'M')
 
         # self._create_action(
         #     'Grid',

@@ -4,6 +4,7 @@ import io
 import logging
 import os
 import pickle
+import random
 import sys
 import time
 import traceback
@@ -13,13 +14,13 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
-from deckeditor.store import models, engine
-from deckeditor.store.models import GameTypeOptions
 from yeetlong.multiset import Multiset
 
 from mtgorp.db.load import DBLoadException
 
 from magiccube.collections.delta import CubeDeltaOperation
+from magiccube.laps.traps.trap import Trap
+from magiccube.laps.traps.tree.printingtree import AllNode
 
 from deckeditor import paths
 from deckeditor.application.embargo import EmbargoApp
@@ -47,6 +48,7 @@ from deckeditor.server.client import EmbargoClient
 from deckeditor.server.server import EmbargoServer
 from deckeditor.sorting.custom import CustomSortMap
 from deckeditor.utils.version import version_formatted
+from deckeditor.store import models, engine
 
 
 class MainView(QWidget):
@@ -117,7 +119,7 @@ class MainWindow(QMainWindow, CardAddable):
 
         self.statusBar().setContentsMargins(10, 0, 10, 0)
         self.statusBar().addPermanentWidget(self._login_status_label)
-        Context.status_message.connect(lambda m, t: self.statusBar().showMessage(m, t))
+        Context.status_message.connect(lambda m, _t: self.statusBar().showMessage(m, _t))
 
         self._card_view_dock = Dock('Card View', 'card_view_dock', self, self._printing_view, wants_focus = False)
 
@@ -152,17 +154,7 @@ class MainWindow(QMainWindow, CardAddable):
 
         self._limited_sessions_dock = Dock('Limited', 'Limited', self, self._limited_sessions_view)
 
-        # self._deck_list_widget = DeckListWidget(self)
-        # self._deck_list_widget.set_deck.emit((), ())
-        # Context.deck_list_view = self._deck_list_widget
-        #
-        # self._deck_list_docker = QtWidgets.QDockWidget('Deck List', self)
-        # self._deck_list_docker.setObjectName('deck_list_dock')
-        # self._deck_list_docker.setWidget(self._deck_list_widget)
-        # self._deck_list_docker.setAllowedAreas(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea)
-
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._card_adder_dock)
-        # self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._deck_list_docker)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
@@ -214,7 +206,7 @@ class MainWindow(QMainWindow, CardAddable):
                 ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
             ),
             # menu_bar.addMenu('Test'): (
-            #     ('Test', 'Ctrl+T', restart),
+            #     ('Test', 'Ctrl+T', self._test),
             # ),
             menu_bar.addMenu('Connect'): (
                 ('Login', 'Ctrl+L', LoginDialog(self).exec_),
@@ -254,6 +246,23 @@ class MainWindow(QMainWindow, CardAddable):
         Context.draft_started.connect(self._on_draft_started)
 
         self._load_state()
+
+    def _test(self) -> None:
+        ps = list(Context.db.printings.values())
+        self._on_add_printings(
+            CubeDeltaOperation(
+                {
+                    Trap(
+                        AllNode(
+                            random.sample(
+                                ps,
+                                2
+                            )
+                        )
+                    ): 1
+                }
+            )
+        )
 
     def _on_draft_started(self, key: str) -> None:
         if Context.settings.value('hide_lobbies_on_new_draft', True, bool):
@@ -381,6 +390,8 @@ class MainWindow(QMainWindow, CardAddable):
 
     def closeEvent(self, close_event):
         self.save_state()
+        if Context.embargo_server is not None:
+            Context.embargo_server.stop()
         super().closeEvent(close_event)
 
 
@@ -414,6 +425,10 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
 
         logging.error(traceback_info)
         logging.error(errmsg)
+
+        # Promises are buggy
+        if issubclass(exception_type, AssertionError):
+            return
 
         errorbox = QMessageBox()
         errorbox.setText(
@@ -515,8 +530,8 @@ def run():
     sys.excepthook = _get_exception_hook(main_window)
 
     if not args.no_server:
-        server = EmbargoServer(host = args.host, port = args.port)
-        server.start()
+        Context.embargo_server = EmbargoServer(host = args.host, port = args.port)
+        Context.embargo_server.start()
 
     main_window.showMaximized()
 

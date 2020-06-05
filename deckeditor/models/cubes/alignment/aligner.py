@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 from deckeditor.models.cubes.scenecard import SceneCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting.sorting import SortProperty
+from deckeditor.store.models import SortMacro
 
 
 class AlignmentCommand(ABC):
@@ -60,6 +61,10 @@ class Aligner(ABC):
     @property
     def supports_sort_orientation(self) -> bool:
         return True
+
+    @property
+    def supports_sub_sort(self) -> bool:
+        return False
 
     @abstractmethod
     def pick_up(self, cards: t.Iterable[SceneCard]) -> AlignmentPickUp:

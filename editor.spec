@@ -7,6 +7,7 @@ block_cipher = None
 
 package_imports = (
     ('mtgimg', ('cardback',), 'mtgimg/cardback'),
+    ('magiccube', ('resources',), 'magiccube/resources'),
     ('mtgorp', ('db/limited/data.json',), 'mtgorp/db/limited'),
 )
 
@@ -17,7 +18,8 @@ for package, paths, out_path in package_imports:
     package_root = os.path.dirname(importlib.import_module(package).__file__)
     datas.extend(
         (os.path.join(package_root, f), out_path)
-        for f in paths
+        for f in
+        paths
     )
 
 a = Analysis(

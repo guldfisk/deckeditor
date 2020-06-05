@@ -12,6 +12,15 @@ class EmbargoServer(threading.Thread):
         self._host = host
         self._port = port
 
+        self._server = None
+
     def run(self) -> None:
-        http_server = WSGIServer((self._host, self._port), server_app)
-        http_server.serve_forever()
+        self._server = WSGIServer((self._host, self._port), server_app)
+        self._server.serve_forever()
+
+    def stop(self) -> None:
+        if self._server is None:
+            return
+
+        self._server.stop()
+        self._server.close()

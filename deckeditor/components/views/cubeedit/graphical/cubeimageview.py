@@ -121,7 +121,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         self._fit_action = self._create_action('Fit View', self._fit_cards, 'F')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
-        self._sort_action = self._create_action('Sort', self._sort, 'Alt+S')
+        self._sort_action = self._create_action('Sort', self._sort, 'S')
         self._deselect_all_action = self._create_action(
             'Deselect All',
             lambda: self._scene.clear_selection(),
@@ -132,8 +132,10 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
             self._search_select,
             'Ctrl+E',
         )
-        self._create_action('Copy', self._copy, 'Ctrl+C')
-        self._create_action('Paste', self._paste, 'Ctrl+V')
+        self._delete_action = self._create_action('Delete', self.delete_selected, 'Del')
+        self._duplicate_action = self._create_action('Duplicate', self.duplicate_selected, 'Ctrl+J')
+        self._copy_action = self._create_action('Copy', self._copy, 'Ctrl+C')
+        self._paste_action = self._create_action('Paste', self._paste, 'Ctrl+V')
 
         self.customContextMenuRequested.connect(self._context_menu_event)
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -143,28 +145,34 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self.setTransform(QTransform())
         self.scale(.3, .3)
 
-        self._selected_info_text = ''
+        self._items_info = 0
+        self._selected_items_info = 0
 
-        self._scene.selectionChanged.connect(self._update_selected_info_text)
         self._scene.changed.connect(self._update_selected_info_text)
 
     def _update_status(self) -> None:
-        Context.status_message.emit(self._scene.name + ' ' + self._selected_info_text, 0)
+        Context.status_message.emit(
+            '{} {}/{}'.format(
+                self._scene.name,
+                self._selected_items_info,
+                self._items_info
+            ),
+            0,
+        )
 
     def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
         super().focusInEvent(event)
         self._update_status()
 
     def _update_selected_info_text(self, *args, **kwargs) -> None:
-        self._selected_info_text = (
-            '{}/{}'.format(
-                len(self._scene.selectedItems()),
-                len(self._scene.items()),
-            )
-        )
-        self._update_status()
-        if Context.settings.value('on_view_card_count', True, bool):
-            self.update()
+        previous_items = self._items_info
+        self._items_info = len(self._scene.items())
+        self._selected_items_info = len(self._scene.selectedItems())
+        if previous_items != self._items_info or self.hasFocus():
+            self._update_status()
+
+            if Context.settings.value('on_view_card_count', True, bool):
+                self.update()
 
     @property
     def undo_stack(self) -> QUndoStack:
@@ -299,40 +307,30 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
             else:
                 self.card_double_clicked.emit(item, modifiers)
 
-    def keyPressEvent(self, key_event: QtGui.QKeyEvent):
-        pressed_key = key_event.key()
-        modifiers = key_event.modifiers()
-
-        # TODO is there a reason this isnt actions?
-        if pressed_key == QtCore.Qt.Key_Delete:
-            cards = self._scene.selectedItems()
-            if cards:
-                self._undo_stack.push(
-                    self._scene.get_cube_modification(
-                        remove = cards
-                    )
+    def delete_selected(self) -> None:
+        cards = self._scene.selectedItems()
+        if cards:
+            self._undo_stack.push(
+                self._scene.get_cube_modification(
+                    remove = cards
                 )
+            )
 
-        elif (
-            pressed_key == QtCore.Qt.Key_J
-            and modifiers & QtCore.Qt.ControlModifier
-        ):
-            cards = self._scene.selectedItems()
-            if cards:
-                self._undo_stack.push(
-                    self._scene.get_cube_modification(
-                        CubeDeltaOperation(
-                            Multiset(
-                                card.cubeable
-                                for card in
-                                cards
-                            ).elements()
-                        ),
-                        cards[0].pos() + QPoint(1, 1),
-                    )
+    def duplicate_selected(self) -> None:
+        cards = self._scene.selectedItems()
+        if cards:
+            self._undo_stack.push(
+                self._scene.get_cube_modification(
+                    CubeDeltaOperation(
+                        Multiset(
+                            card.cubeable
+                            for card in
+                            cards
+                        ).elements()
+                    ),
+                    cards[0].pos() + QPoint(1, 1),
                 )
-        else:
-            super().keyPressEvent(key_event)
+            )
 
     def _fit_cards(self) -> None:
         selected = (
@@ -382,20 +380,15 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         menu.addAction(self._fit_action)
 
-        sort_menu = menu.addMenu('Sort')
+        menu.addAction(self._sort_action)
+
+        sort_menu = menu.addMenu('Sorts')
 
         for (_, orientation), action in self._sort_actions.items():
             if orientation == QtCore.Qt.Horizontal or self._scene.aligner.supports_sort_orientation:
                 sort_menu.addAction(action)
 
-        select_menu = menu.addMenu('Select')
-
-        for action in (
-            self._select_all_action,
-            self._selection_search_action,
-            self._deselect_all_action,
-        ):
-            select_menu.addAction(action)
+        menu.addSeparator()
 
         flatten_all = QAction('Flatten All', menu)
         flatten_all.triggered.connect(self._flatten_all_traps)
@@ -413,6 +406,27 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         menu.addSeparator()
 
         self._scene.aligner.context_menu(menu, self.mapToScene(position), self._undo_stack)
+
+        select_menu = menu.addMenu('Select')
+
+        select_menu.addActions(
+            (
+                self._select_all_action,
+                self._selection_search_action,
+                self._deselect_all_action,
+            )
+        )
+
+        menu.addSeparator()
+
+        menu.addActions(
+            (
+                self._copy_action,
+                self._paste_action,
+                self._delete_action,
+                self._duplicate_action,
+            )
+        )
 
         menu.exec_(self.mapToGlobal(position))
 
