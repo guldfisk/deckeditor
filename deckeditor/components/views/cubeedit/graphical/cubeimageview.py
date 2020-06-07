@@ -27,7 +27,7 @@ from deckeditor.sorting import sorting
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from deckeditor.utils.actions import WithActions
 from deckeditor.sorting.sorting import SortProperty
-from deckeditor.utils.transform import serialize_transform, transform_factory
+from deckeditor.utils.transform import transform_factory
 
 
 class QueryEdit(QtWidgets.QLineEdit):
@@ -150,12 +150,18 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         self._scene.changed.connect(self._update_selected_info_text)
 
+    @property
+    def selected_info_text(self):
+        return '{}/{}'.format(
+            self._selected_items_info,
+            self._items_info
+        )
+
     def _update_status(self) -> None:
         Context.status_message.emit(
-            '{} {}/{}'.format(
+            '{} {}'.format(
                 self._scene.name,
-                self._selected_items_info,
-                self._items_info
+                self.selected_info_text,
             ),
             0,
         )
@@ -668,7 +674,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         rect = self.rect()
 
-        text = self._selected_info_text
+        text = self.selected_info_text
 
         font = QtGui.QFont()
         font.setPointSize(16)
