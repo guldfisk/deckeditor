@@ -8,7 +8,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
-from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop
+from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop, _AlingerResize
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting.sorting import SortProperty
@@ -163,16 +163,36 @@ class GridSort(QUndoCommand):
         self._grid.realign()
 
 
+class GridResize(_AlingerResize):
+
+    def __init__(self, aligner: GridAligner):
+        self._aligner = aligner
+
+        self._old_columns: t.Optional[int] = None
+
+    def redo(self):
+        if self._old_columns is None:
+            self._old_columns = self._aligner._columns
+
+        self._aligner._columns = self._aligner.get_columns()
+
+    def undo(self):
+        self._aligner._columns = self._old_columns
+
+
 class GridAligner(Aligner):
     name = 'Grid'
 
-    def __init__(self, scene: SelectionScene, margin: int = 10, columns: t.Optional[int] = None):
+    def __init__(self, scene: SelectionScene, margin: float = .05):
         super().__init__(scene)
 
-        self._margin = margin
-        self._columns = self._scene.width() // (IMAGE_WIDTH + self._margin) if columns is None else columns
+        self._margin = int(IMAGE_WIDTH * margin)
+        self._columns = self.get_columns()
 
         self._cards: t.List[PhysicalCard] = []
+
+    def get_columns(self) -> int:
+        return self._scene.width() // (IMAGE_WIDTH + self._margin)
 
     @property
     def cards(self) -> t.List[PhysicalCard]:
@@ -260,3 +280,6 @@ class GridAligner(Aligner):
 
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
         pass
+
+    def _resize(self) -> _AlingerResize:
+        return GridResize(self)

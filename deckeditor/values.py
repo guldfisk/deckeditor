@@ -44,4 +44,6 @@ class SortDimension(Enum):
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.MEDIUM, False))]
 
+STANDARD_IMAGE_MARGIN = .1
+
 SUPPORTED_EXTENSIONS = '*.deck *.cod *.json *.dec *.mwDeck *.embd *.embp'

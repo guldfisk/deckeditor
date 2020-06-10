@@ -9,12 +9,12 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
-from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner
+from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, _AlingerResize
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting import sorting
 from deckeditor.utils.math import minmax
-from deckeditor.values import IMAGE_WIDTH
+from deckeditor.values import IMAGE_WIDTH, STANDARD_IMAGE_MARGIN
 
 
 class CardStacker(ABC):
@@ -602,6 +602,23 @@ class RowInsert(RowColumnInsert):
                 self._grid.stacker_map.get_stacker(x, self._idx + y).add_cards(cards)
 
 
+class StackingResize(_AlingerResize):
+
+    def __init__(self, aligner: StackingGrid):
+        self._aligner = aligner
+
+        self._old_map: t.Optional[StackerMap] = None
+
+    def redo(self):
+        if self._old_map is None:
+            self._old_map = self._aligner.stacker_map
+
+        self._aligner._stacker_map = self._aligner.create_stacker_map()
+
+    def undo(self):
+        self._aligner._stacker_map = self._old_map
+
+
 class _CardInfo(object):
 
     def __init__(self, stacker: t.Optional[CardStacker] = None, position: t.Optional[int] = None):
@@ -749,7 +766,7 @@ class StackerMap(object):
 
 class StackingGrid(Aligner):
 
-    def __init__(self, scene: SelectionScene, *, margin: float = .2):
+    def __init__(self, scene: SelectionScene, *, margin: float = STANDARD_IMAGE_MARGIN):
         super().__init__(scene)
 
         self._stacked_cards: t.Dict[PhysicalCard, _CardInfo] = {}
@@ -933,3 +950,6 @@ class StackingGrid(Aligner):
         add_row_action = QtWidgets.QAction('Row', insert_stacker_menu)
         add_row_action.triggered.connect(lambda: undo_stack.push(RowInsert(self, stacker.y_index)))
         insert_stacker_menu.addAction(add_row_action)
+
+    def _resize(self) -> _AlingerResize:
+        return StackingResize(self)

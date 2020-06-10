@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import math
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QPoint, Qt, QRectF, QRect
 from PyQt5.QtGui import QPainter, QPolygonF, QTransform
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction, QDialogButtonBox
 
+from deckeditor.utils.dialogs import SingleInstanceDialog
+from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
 from yeetlong.multiset import Multiset
 
 from mtgorp.models.persistent.printing import Printing
@@ -70,6 +73,54 @@ class SearchSelectionDialog(QtWidgets.QDialog):
             self._error_label.setText(str(e))
             self._error_label.show()
             return
+
+
+class SceneResizeDialog(SingleInstanceDialog):
+
+    def __init__(self, scene: QtWidgets.QGraphicsScene):
+        super().__init__()
+
+        self._scene = scene
+
+        self._columns_selector = QtWidgets.QSpinBox()
+        self._rows_selector = QtWidgets.QSpinBox()
+        self._buttons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
+
+        self._buttons.accepted.connect(self.accept)
+        self._buttons.rejected.connect(self.reject)
+
+        for selector, dimension, scene_dimension in (
+            (
+                self._columns_selector,
+                IMAGE_WIDTH,
+                scene.width(),
+            ),
+            (
+                self._rows_selector,
+                IMAGE_HEIGHT,
+                scene.height(),
+            )
+        ):
+            selector.setRange(1, 64)
+            selector.setValue(
+                int(
+                    math.ceil(
+                        scene_dimension / ((1 + STANDARD_IMAGE_MARGIN) * dimension)
+                    )
+                )
+            )
+
+        layout = QtWidgets.QFormLayout(self)
+
+        layout.addRow('columns', self._columns_selector)
+        layout.addRow('rows', self._rows_selector)
+        layout.addWidget(self._buttons)
+
+    def get_values(self) -> t.Tuple[int, int]:
+        return (
+            self._columns_selector.value() * IMAGE_WIDTH * (1 + STANDARD_IMAGE_MARGIN),
+            self._rows_selector.value() * IMAGE_HEIGHT * (1 + STANDARD_IMAGE_MARGIN),
+        )
 
 
 class CubeImageView(QtWidgets.QGraphicsView, WithActions):
@@ -136,6 +187,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._duplicate_action = self._create_action('Duplicate', self.duplicate_selected, 'Ctrl+J')
         self._copy_action = self._create_action('Copy', self._copy, 'Ctrl+C')
         self._paste_action = self._create_action('Paste', self._paste, 'Ctrl+V')
+        self._resize_action = self._create_action('Resize', self._resize_scene)
 
         self.customContextMenuRequested.connect(self._context_menu_event)
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -149,6 +201,19 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._selected_items_info = 0
 
         self._scene.changed.connect(self._update_selected_info_text)
+
+    def _resize_scene(self):
+        dialog = SceneResizeDialog(self.scene())
+        accepted = dialog.exec_()
+
+        if not accepted:
+            return
+
+        self._undo_stack.push(
+            self._scene.aligner.resize(
+                *dialog.get_values()
+            )
+        )
 
     @property
     def selected_info_text(self):
@@ -302,7 +367,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         if isinstance(item, PhysicalCard):
             if modifiers & QtCore.Qt.ControlModifier:
                 cubeable_extractor = (
-                    (lambda c: c.cubeable.cardboard if isinstance(c.cubeable, Printing) else c.cardboard)
+                    (lambda c: c.cubeable.cardboard if isinstance(c.cubeable, Printing) else c.cubeable)
                     if Context.settings.value('doubleclick_match_on_cardboards', True, bool) else
                     (lambda c: c.cubeable)
                 )
@@ -431,6 +496,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 self._paste_action,
                 self._delete_action,
                 self._duplicate_action,
+                self._resize_action,
             )
         )
 

@@ -6,7 +6,7 @@ from PyQt5 import QtCore
 
 from deckeditor.models.cubes.alignment.stackinggrid import CardStacker, StackingGrid, StackerMap
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
+from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
 
 
 class StaticCardStacker(CardStacker):
@@ -62,7 +62,7 @@ class StaticStackingGrid(StackingGrid):
     _card_stacker_width: float
     _card_stacker_height: float
 
-    def __init__(self, scene: SelectionScene, *, margin: float = .2, stacker_height: float = 2.):
+    def __init__(self, scene: SelectionScene, *, margin: float = STANDARD_IMAGE_MARGIN, stacker_height: float = 2.):
         self._stacker_height = stacker_height
 
         super().__init__(

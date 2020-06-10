@@ -12,7 +12,6 @@ from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
 
-from deckeditor import values
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.db.database import CardDatabase
 
@@ -23,6 +22,7 @@ from cubeclient.models import ApiClient
 from mtgdraft.client import DraftClient, SinglePick, Burn
 from mtgdraft.models import Booster, DraftRound, Pick, SinglePickPick, BurnPick
 
+from deckeditor import values
 from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import Editable
 from deckeditor.components.views.editables.pool import PoolView
@@ -99,7 +99,6 @@ class DraftModel(QObject):
                 Context.notification_message.emit('OS notifications not available')
                 Context.settings.setValue('notify_on_booster_arrived', False)
 
-
     def on_pick(self, pick: Pick, pick_number: int, booster: Booster) -> None:
         new = True
         with self._pick_number_lock:
@@ -146,6 +145,12 @@ class DraftModel(QObject):
         infer: bool = True,
         toggle: bool = False,
     ) -> None:
+        if card.values.get('ghost'):
+            return
+
+        if not Context.settings.value('infer_pick_burn', True, bool):
+            infer = False
+
         if isinstance(self._draft_client.draft_format, SinglePick):
             self._pending_picked_scene = scene
             self._pending_picked_position = position
@@ -261,7 +266,7 @@ class BoosterImageView(CubeImageView):
 
         item: QGraphicsItem = self.itemAt(position)
 
-        if item and isinstance(item, PhysicalCard):
+        if item and isinstance(item, PhysicalCard) and not item.values.get('ghost'):
             menu.addSeparator()
 
             pick_action = QtWidgets.QAction('Pick', menu)
@@ -277,22 +282,23 @@ class BoosterImageView(CubeImageView):
                 )
                 menu.addAction(burn_action)
 
+        menu.addSeparator()
+
         menu.addAction(self._fit_action)
 
-        sort_menu = menu.addMenu('Sort')
+        menu.addSeparator()
+
+        menu.addAction(self._sort_action)
+
+        sort_menu = menu.addMenu('Sorts')
 
         for (_, orientation), action in self._sort_actions.items():
             if orientation == QtCore.Qt.Horizontal or self._scene.aligner.supports_sort_orientation:
                 sort_menu.addAction(action)
 
-        select_menu = menu.addMenu('Select')
+        menu.addSeparator()
 
-        for action in (
-            self._select_all_action,
-            self._selection_search_action,
-            self._deselect_all_action,
-        ):
-            select_menu.addAction(action)
+        menu.addAction(self._resize_action)
 
         menu.exec_(self.mapToGlobal(position))
 
@@ -347,6 +353,9 @@ class BoosterWidget(QtWidgets.QWidget):
         return self._booster_scene
 
     def _on_card_double_clicked(self, card: PhysicalCard, modifiers: Qt.KeyboardModifiers):
+        if not Context.settings.value('pick_on_double_click', True, bool):
+            return
+
         self._draft_model.pick(
             card = card,
             burn = modifiers == Qt.ShiftModifier,
@@ -379,16 +388,32 @@ class BoosterWidget(QtWidgets.QWidget):
 
     def _on_receive_booster(self, booster: Booster) -> None:
         self._booster_view.cube_image_view.cancel_drags()
+
+        previous_booster = (
+            self._draft_model.draft_client.get_previous_booster(booster.booster_id)
+            if Context.settings.value('ghost_cards', True, bool) else
+            None
+        )
+        ghost_cards: t.List[PhysicalCard] = list(
+            map(PhysicalCard.from_cubeable, previous_booster.cubeables - booster.cubeables)
+            if previous_booster is not None else
+            ()
+        )
+
         self._booster_scene.get_cube_modification(
             add = list(
                 map(
                     PhysicalCard.from_cubeable,
                     booster.cubeables,
                 )
-            ),
+            ) + ghost_cards,
             remove = self._booster_scene.items(),
             closed_operation = True,
         ).redo()
+
+        for ghost_card in ghost_cards:
+            ghost_card.set_highlight(QColor(127, 127, 127, 127))
+            ghost_card.values['ghost'] = True
 
     def _on_picked(
         self,

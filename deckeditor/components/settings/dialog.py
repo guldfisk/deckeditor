@@ -2,7 +2,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QDialog, QWidget
+from PyQt5.QtWidgets import QWidget
 
 from deckeditor.components.settings.setting import BooleanSetting, Setting, OptionsSetting
 from deckeditor.context.context import Context
@@ -181,6 +181,24 @@ class SettingsDialog(SingleInstanceDialog):
                                 'hide_lobbies_on_new_draft',
                                 'Hide lobby view when drafts starts',
                                 'Applies both on new drafts and reconnect.',
+                                True,
+                            ),
+                            BooleanSetting(
+                                'infer_pick_burn',
+                                'Infer pick burn',
+                                'When burn drafting, try to infer whether a pick is a burn or not when appropriate.',
+                                True,
+                            ),
+                            BooleanSetting(
+                                'pick_on_double_click',
+                                'Double click pick',
+                                'Allow picking by double clicking card.',
+                                True,
+                            ),
+                            BooleanSetting(
+                                'ghost_cards',
+                                'Ghost cards',
+                                'Show cards from booster that did not wheel as greyed out.',
                                 True,
                             ),
                         ),

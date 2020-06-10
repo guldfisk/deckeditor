@@ -60,6 +60,7 @@ class EditablesTabBar(QtWidgets.QTabBar):
 
 class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     tabBar: t.Callable[[], EditablesTabBar]
+    currentWidget: t.Callable[[], t.Optional[Editable]]
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)

@@ -11,7 +11,6 @@ from mtgorp.models.collections.deck import Deck as OrpDeck
 
 from magiccube.collections.cube import Cube
 
-from deckeditor.models.cubes.alignment.dynamicstackinggrid import DynamicStackingGrid
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
