@@ -58,7 +58,7 @@ class _Context(QObject):
     open_file = pyqtSignal(str)
 
     draft_started = pyqtSignal(object)
-    sealed_started = pyqtSignal(int)
+    sealed_started = pyqtSignal(int, bool)
 
     new_pool = pyqtSignal(object, str)
 

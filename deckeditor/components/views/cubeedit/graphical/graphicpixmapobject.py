@@ -3,6 +3,8 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 
+from deckeditor.utils.colors import overlay_colors, color_values
+
 
 class GraphicPixmapObject(QtWidgets.QGraphicsObject):
 
@@ -23,8 +25,8 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
 
         self._highlight: t.Optional[QtGui.QColor] = None
 
-    def set_highlight(self, color: QtGui.QColor) -> None:
-        self._highlight = color
+    def add_highlight(self, color: QtGui.QColor) -> None:
+        self._highlight = color if self._highlight is None else overlay_colors(color, self._highlight)
         self.update()
 
     def clear_highlight(self) -> None:
@@ -53,6 +55,7 @@ class GraphicPixmapObject(QtWidgets.QGraphicsObject):
             painter.setBrush(QtGui.QBrush(self._highlight))
             painter.setPen(QtGui.QPen(self._highlight))
             painter.drawRect(self._bounding_rect)
+            painter.setBrush(QtGui.QBrush())
 
         if self.isSelected():
             pen_width = math.ceil(self._selection_highlight_pen.width() / 2) - 1

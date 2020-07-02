@@ -181,7 +181,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
 
             Context.saved_drafts = previous_session.get('drafts', {})
 
-        except:
+        except Exception:
             confirm_dialog = QMessageBox()
             confirm_dialog.setText('Corrupt session')
             confirm_dialog.setInformativeText(

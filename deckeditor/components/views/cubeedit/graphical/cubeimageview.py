@@ -279,8 +279,8 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
             PickleStrategy.serialize(
                 Cube(
                     card.cubeable
-                    for card in
-                    cards
+                        for card in
+                        cards
                 )
             )
         )
@@ -319,9 +319,9 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     def _on_search_select(self, criteria: Criteria) -> None:
         self._scene.set_selection(
             item
-            for item in
-            self._scene.items()
-            if isinstance(item.cubeable, Printing) and criteria.match(item.cubeable, PrintingStrategy)
+                for item in
+                self._scene.items()
+                if isinstance(item.cubeable, Printing) and criteria.match(item.cubeable, PrintingStrategy)
         )
 
     def _create_sort_action_pair(
@@ -395,8 +395,8 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                     CubeDeltaOperation(
                         Multiset(
                             card.cubeable
-                            for card in
-                            cards
+                                for card in
+                                cards
                         ).elements()
                     ),
                     cards[0].pos() + QPoint(1, 1),
@@ -441,7 +441,10 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 [
                     card.get_flatten_command(Context.settings.value('flatten_recursively', True, bool))
                     for card in (selected if selected else self._scene.items())
-                    if isinstance(card, PhysicalAllCard)
+                    if isinstance(card, PhysicalAllCard) and (
+                        len(card.cubeable.node.children) < 8
+                        or not Context.settings.value('dont_auto_flatten_big')
+                    )
                 ]
             )
         )

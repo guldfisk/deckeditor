@@ -53,7 +53,7 @@ class _LobbyClient(LobbyClient):
 
     def _game_started(self, lobby: Lobby, key: str) -> None:
         if lobby.game_type == 'sealed':
-            Context.sealed_started.emit(int(key))
+            Context.sealed_started.emit(int(key), True)
         elif lobby.game_type == 'draft':
             Context.draft_started.emit(key)
 
@@ -81,11 +81,6 @@ class LobbyModelClientConnection(QObject):
         self.changed.emit()
 
     def _on_token_changed(self, token: t.Optional[str]):
-        # if not token:
-        #     self._lobby_client.close()
-        #     self.on_disconnected()
-        #     return
-
         if self._lobby_client is not None:
             self._lobby_client.close()
             self.on_disconnected()
@@ -773,12 +768,15 @@ class DraftOptionsSelector(SealedOptionsSelector):
         super().__init__(lobby_view)
 
         self._draft_format_selector = ComboSelector(lobby_view, 'draft_format', {'single_pick', 'burn'})
+        self._reverse_selector = CheckboxSelector(lobby_view, 'reverse')
 
-        self._layout.addWidget(self._draft_format_selector, 3, 0, 1, 2)
+        self._layout.addWidget(self._draft_format_selector, 3, 0, 1, 1)
+        self._layout.addWidget(self._reverse_selector, 3, 1, 1, 1)
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         super().update_content(options, enabled)
         self._draft_format_selector.update_content(options['draft_format'], enabled)
+        self._reverse_selector.update_content(options, enabled)
 
 
 class GameOptionsSelector(QtWidgets.QStackedWidget):

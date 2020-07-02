@@ -166,6 +166,12 @@ class SettingsDialog(SingleInstanceDialog):
                         'Always flatten all, instead of only selected, when cards are selected.',
                         False,
                     ),
+                    BooleanSetting(
+                        'dont_auto_flatten_big',
+                        'Do not auto flatten big traps',
+                        'Dont flatten big traps when flattening all or recursively.',
+                        False,
+                    ),
                 ),
                 (
                     (

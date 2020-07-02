@@ -12,6 +12,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
 
+from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.db.database import CardDatabase
 
@@ -93,7 +94,7 @@ class DraftModel(QObject):
             try:
                 plyer.notification.notify(
                     title = 'New pack',
-                    message = f'pack {self._draft_client.round.pack} pick {booster.pick}',
+                    message = f'pack {self._draft_client.round.pack} pick {booster.pick_number}',
                 )
             except NotImplementedError:
                 Context.notification_message.emit('OS notifications not available')
@@ -195,7 +196,7 @@ class DraftModel(QObject):
                     self._pick.clear_highlight()
                     self._pick = None
                 self._burn = card
-                self._burn.set_highlight(QColor(255, 0, 0, 100))
+                self._burn.add_highlight(BURN_COLOR)
             else:
                 if self._pick:
                     self._pick.clear_highlight()
@@ -208,7 +209,7 @@ class DraftModel(QObject):
                     self._burn.clear_highlight()
                     self._burn = None
                 self._pick = card
-                self._pick.set_highlight(QColor(0, 255, 0, 100))
+                self._pick.add_highlight(PICK_COLOR)
                 self._pending_picked_position = position
                 self._pending_picked_scene = scene
 
@@ -389,14 +390,14 @@ class BoosterWidget(QtWidgets.QWidget):
     def _on_receive_booster(self, booster: Booster) -> None:
         self._booster_view.cube_image_view.cancel_drags()
 
-        previous_booster = (
-            self._draft_model.draft_client.get_previous_booster(booster.booster_id)
+        previous_boosters = (
+            self._draft_model.draft_client.get_previous_boosters(booster.booster_id)
             if Context.settings.value('ghost_cards', True, bool) else
             None
         )
         ghost_cards: t.List[PhysicalCard] = list(
-            map(PhysicalCard.from_cubeable, previous_booster.cubeables - booster.cubeables)
-            if previous_booster is not None else
+            map(PhysicalCard.from_cubeable, previous_boosters[0].cubeables - booster.cubeables)
+            if previous_boosters else
             ()
         )
 
@@ -412,8 +413,28 @@ class BoosterWidget(QtWidgets.QWidget):
         ).redo()
 
         for ghost_card in ghost_cards:
-            ghost_card.set_highlight(QColor(127, 127, 127, 127))
+            ghost_card.add_highlight(GHOST_COLOR)
             ghost_card.values['ghost'] = True
+
+        if previous_boosters:
+            for booster in previous_boosters[:-1]:
+                if isinstance(self._draft_model.draft_client.draft_format, Burn):
+                    picked_card = None
+                    for card in ghost_cards:
+                        if card.cubeable == booster.pick.pick:
+                            picked_card = card
+                            card.add_highlight(PICK_COLOR)
+                            break
+                    if booster.pick.burn is not None:
+                        for card in ghost_cards:
+                            if card.cubeable == booster.pick.burn and card != picked_card:
+                                card.add_highlight(BURN_COLOR)
+                                break
+                else:
+                    for card in ghost_cards:
+                        if card.cubeable == booster.pick.cubeable:
+                            card.add_highlight(PICK_COLOR)
+                            break
 
     def _on_picked(
         self,
@@ -489,7 +510,7 @@ class PicksTable(QtWidgets.QTableWidget):
         self.setItem(
             0,
             1,
-            QtWidgets.QTableWidgetItem(str(booster.pick)),
+            QtWidgets.QTableWidgetItem(str(booster.pick_number)),
         )
         if isinstance(pick, SinglePickPick):
             self.setItem(
@@ -719,14 +740,17 @@ class DraftView(Editable):
         ).redo()
 
     def _on_draft_completed(self, pool_id: int, session_name: str):
-        Context.sealed_started.emit(pool_id)
-        Context.editor.add_editable(
-            self._pool_view,
-            EditablesMeta(
-                session_name,
-                key = session_name,
-            ),
-        )
+        if self._draft_model.draft_client.reverse:
+            Context.sealed_started.emit(pool_id, True)
+        else:
+            Context.sealed_started.emit(pool_id, False)
+            Context.editor.add_editable(
+                self._pool_view,
+                EditablesMeta(
+                    session_name,
+                    key = session_name,
+                ),
+            )
         Context.editor.close_editable(self)
 
     def close(self) -> None:

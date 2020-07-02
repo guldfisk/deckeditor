@@ -7,6 +7,7 @@ import simplejson
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog
+from promise import promise
 
 from cubeclient.models import LimitedSession, LimitedDeck
 from deckeditor.components.views.editables.deck import DeckView
@@ -203,8 +204,6 @@ class LimitedSessionsView(QWidget):
     def __init__(self, parent: t.Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
-        # self._sessions: t.List[LimitedSession] = []
-
         self._sessions_list = SessionsList(self)
         self._limited_session_view = LimitedSessionView(self)
 
@@ -218,20 +217,41 @@ class LimitedSessionsView(QWidget):
         self.setLayout(layout)
 
         Context.token_changed.connect(self.update)
-        Context.sealed_started.connect(self.update)
+        Context.sealed_started.connect(self._on_sealed_started)
         self.update.connect(self._on_update)
 
-    def set_sessions(self, sessions: t.Sequence[LimitedSession]) -> None:
+    def set_sessions(self, sessions: t.Sequence[LimitedSession]) -> t.Sequence[LimitedSession]:
         self._sessions_list.set_sessions(sessions)
         if not self._limited_session_view.session in sessions:
             self._limited_session_view.hide()
 
-    def _on_update(self) -> None:
+        return sessions
+
+    def _on_sealed_started(self, pool_id, open_tab) -> None:
+        if open_tab:
+            def _after_sessions_updated(sessions: t.Sequence[LimitedSession]) -> None:
+                found = False
+                for session in sessions:
+                    for pool in session.pools:
+                        if pool.id == pool_id:
+                            Context.new_pool.emit(pool.pool, session.name)
+                            found = True
+                            break
+                    if found:
+                        break
+
+            self._on_update().then(
+                _after_sessions_updated
+            )
+        else:
+            self._on_update()
+
+    def _on_update(self) -> promise.Promise[t.Sequence[LimitedSession]]:
         if Context.cube_api_client.user is None:
             self.set_sessions(())
-            return
+            return promise.Promise.resolve([])
 
-        Context.cube_api_client.limited_sessions(
+        return Context.cube_api_client.limited_sessions(
             limit = 20,
             filters = {
                 'state_filter': 'DECK_BUILDING',

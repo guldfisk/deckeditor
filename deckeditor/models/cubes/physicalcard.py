@@ -408,7 +408,10 @@ class PhysicalAllCard(PhysicalTrap):
     @property
     def flat_children(self) -> t.Iterator[PhysicalCard]:
         for child in self.node_children:
-            if isinstance(child, PhysicalAllCard):
+            if isinstance(child, PhysicalAllCard) and (
+                len(child.cubeable.node.children) < 8
+                or not Context.settings.value('dont_auto_flatten_big')
+            ):
                 yield from child.flat_children
             else:
                 yield child

@@ -1,70 +1,67 @@
-fix rubberband on windows
-fix style on windows
-fix image loading sometimes breaking on compiled version (primarily windows?)
+windows installable
 
-burns in pick log
 filter / search pick log
 "go back in time", so select previous pick from table or whatever, and booster view displays how booster looked at that point, with picked (and burned or whatever applicable) card highlighted.
-booster arrived notification when minimized (problem here is just finding out how to detect application is minimized)
 seen cards view
-add unpickable ghost cards of known non wheels from booster
-current pick info
-current pack # info
-draft bots
 
-dont add cards to hidden views on doubble click? (so when pool is hidden, default double click on card in maindeck moves to sideboard and vice versa)
-insert column/row before/after option on grid aligner
-when clicking card, set as only selected card
-ability to shrink card view more
+supports for burn drafting bots
+less ugly bot tab
+better draft bot loading
+
+ability set default graphicsscene sizes per different name type
+fix promises bug
 instead of just "select matching", full search dialog, with option to exit and select matching
 search dialog searching entire tab (all views in pool or deck or whatever)
-find out what to do with selections in multiple views at once. it is intuitive enough, but it is really unintuitive when commands that works in a view does not work even though the cards are selected (usecase: double click card, then reconsider and press delete. result: nothing happens. expected result (prob): card should be deleted)
-hard time generating db on windows. only works on 64 bit python.
-remove scenecard, just move physicalcards into same file as cubescene prob
 sort macroes
-make dynamic stacking grid able no handle arbitrary row amount
+    how does this work with align-specific sorts?
+        just extend sort api to also have a subdivision sort list
+    ability to specify sort macro for auto sort on open
 option for visual menu when selecting printing (also for cardboards with many printing, espcially relevant for basics)
-visual indicator of logged in status
-ability to log out
-make tickets work with cards in traps
-auto sort non emb files on open?
-fix bunchview drop card on last card in first column puts it in first in second.
 on cubeable view thing, set image to card back when loading instead of using previous image
-ability to point dbbuilder at exising db/json / download db directly
-db info view (checksum, latest expansion etc)
 only ask about saving when closing tab when changes has actually modified it (not just a bunch of intra scene moves)
 dont ask about saving for limited pools when it does not make sense. like, after submitting a pool and closing tab. (maybe still remember layout on reopen?)
 auto sorted mode in cubeimage view (cant move cards in view, sort selected for both directions, auto updated)
-    also option to merge identical cards like arena
-save cubeimageview transform state in session
 move cards retaining structure in stacking grid option
-should flatten all be recursive? should it be an option? (or maybe just in general)
-right click -> move to -> (maindeck etc.) on physical card
-right click -> move to -> (maindeck etc.) on table view row
 drag and drop from table
-color identity in table
 filtering in table
 flatten etc from table
-intention type in table?
 customize hotkeys
-settings editor in general
-some sort of groupes list view. doesnt necessarily have to be editable, but hoverable at least. something like a standard web view of a deck for an easy text based overview.
-dont show info only related to image view when in table mode only in cubeview (align selector etc)
-auto-focus name column when selecting table view to easier look up names
-ctrl / alt / ctrl + alt modifiers for selecting in cubeimageview (something like add, remove, intersect (and negative intersect?))
-dont let table view steal control tabbing priority
 image view in card adder
-make printings filtering in cardadder optional
+try to infer type of .json file
+    remove "open pool"
 
+migrate custom sort to sql
+bots break sometimes, possibly do to ghost cards
+    error handling for bots in general
+some sort of groups list view. doesnt necessarily have to be editable, but hoverable at least. something like a standard web view of a deck for an easy text based overview.
+    color coding / mana symbols?
+make dynamic stacking grid able no handle arbitrary row amount
+still save on close in non persistet session, ability to "undo" closed file
+dont let table view steal control tabbing priority
+server presets
+export as image / pdf
+make printings filtering in cardadder optional
+auto-focus name column when selecting table view to easier look up names
+fix bunchview drop card on last card in first column puts it in first in second.
+right click -> move to -> (maindeck etc.) on physical card
+right click -> move to -> (maindeck etc.) on table view row
+color identity in table
+intention type in table?
+dont show info only related to image view when in table mode only in cubeview (align selector etc)
+remove scenecard, just move physicalcards into same file as cubescene prob
+
+add relecvant text to aplication header
+notifications not working on debian some times
+option to merge identical cards like arena (prob only for auto sorted mode)
+hard time generating db on windows. only works on 64 bit python
+dont add cards to hidden views on doubble click? (so when pool is hidden, default double click on card in maindeck moves to sideboard and vice versa)
+make tickets work with cards in traps
 proper undo command names
 what is natural when going through a bunched pile? when you double click a card, to move to or from pool, how should the other cards be rearranged?
 merge contextmenu overlap when multiple physical cards selected
-ability to resize graphicsscenes
 save session on qt error, or at elast periodically. is it saved on computer shutdown?
 aligner cursor meme?
 alternate card image? (cropped + name?)
 draw viewport indicator on minimap? lmao
 rubberband update selection / show preview while dragging?
-find out what to do with the notification system meme
 customize enabled columns in table
-add relecvant text to aplication header
