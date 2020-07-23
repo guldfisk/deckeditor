@@ -6,22 +6,17 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCompleter, QInputDialog
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from mtgorp.models.persistent.printing import Printing
 from mtgorp.models.persistent.cardboard import Cardboard
 from mtgorp.tools.parsing.exceptions import ParseException
+from mtgorp.tools.search.extraction import PrintingStrategy
 
 from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.context.context import Context
 from deckeditor.values import DeckZoneType
-from mtgorp.tools.search.extraction import PrintingStrategy
-
-
-class CardAddable(object):
-
-    def add_printings(self, target: DeckZoneType, printings: t.Iterable[Printing]):
-        pass
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.utils.containers.cardboardlist import CardboardList, CardboardItem
 
 
 class TargetSelector(QtWidgets.QComboBox):
@@ -35,7 +30,7 @@ class TargetSelector(QtWidgets.QComboBox):
 
 class QueryEditor(QtWidgets.QLineEdit):
 
-    def __init__(self, parent: QtWidgets.QWidget = None):
+    def __init__(self, parent: CardSelector):
         super().__init__(parent)
         completer = QCompleter(Context.cardboard_names)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
@@ -51,7 +46,6 @@ class QueryEditor(QtWidgets.QLineEdit):
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         if key_event.key() == QtCore.Qt.Key_Enter or key_event.key() == QtCore.Qt.Key_Return:
             self.parent().initiate_search()
-
         else:
             super().keyPressEvent(key_event)
 
@@ -60,7 +54,7 @@ class PrintingList(QtWidgets.QListWidget):
 
     def __init__(
         self,
-        card_adder: CardAdder,
+        card_adder: PrintingSelector,
         target_selector: TargetSelector,
     ):
         super().__init__()
@@ -129,66 +123,38 @@ class PrintingList(QtWidgets.QListWidget):
             )
 
 
-class CardboardList(QtWidgets.QListWidget):
+class AddCardboardList(CardboardList):
 
     def __init__(
         self,
-        printing_list: PrintingList,
         query_editor: QueryEditor,
+        printing_list: t.Optional[PrintingList] = None,
     ):
         super().__init__()
         self._printing_list = printing_list
         self._query_editor = query_editor
 
         self._item_model = QtGui.QStandardItemModel(self)
+        self.item_selected.connect(self._on_item_selected)
 
-    def currentChanged(self, index, _index):
-        current = self.currentItem()
-
-        if current is not None:
+    def on_current_changes(self, current: CardboardItem) -> None:
+        if self._printing_list is not None:
             printings = current.cardboard.printings
             if self._query_editor.text():
                 try:
                     printings = Context.search_pattern_parser.parse(
                         self._query_editor.text(),
-                        strategy = PrintingStrategy
+                        strategy = PrintingStrategy,
                     ).matches(printings)
                 except ParseException:
                     pass
 
             self._printing_list.set_printings(printings)
             self._printing_list.setCurrentIndex(self._printing_list.model().index(0, 0))
-            self.scrollTo(self.currentIndex())
-            Context.focus_card_changed.emit(CubeableFocusEvent(current.cardboard.latest_printing))
 
-    def _select_cardboard(self):
-        self._printing_list.setFocus()
-
-    def keyPressEvent(self, key_event: QtGui.QKeyEvent):
-        if key_event.key() == QtCore.Qt.Key_Enter or key_event.key() == QtCore.Qt.Key_Return:
-            self._select_cardboard()
-        else:
-            super().keyPressEvent(key_event)
-
-    def set_cardboards(self, cardboards: t.Iterable[Cardboard]):
-        _cardboards = sorted(cardboards, key = lambda _cardboard: _cardboard.name)
-        self.clear()
-        for cardboard in _cardboards:
-            self.addItem(
-                CardboardItem(cardboard)
-            )
-
-
-class CardboardItem(QtWidgets.QListWidgetItem):
-
-    def __init__(self, cardboard: Cardboard):
-        super().__init__()
-        self._cardboard = cardboard
-        self.setText(cardboard.name)
-
-    @property
-    def cardboard(self) -> Cardboard:
-        return self._cardboard
+    def _on_item_selected(self, item: CardboardItem) -> None:
+        if self._printing_list is not None:
+            self._printing_list.setFocus()
 
 
 class PrintingItem(QtWidgets.QListWidgetItem):
@@ -203,45 +169,25 @@ class PrintingItem(QtWidgets.QListWidgetItem):
         return self._printing
 
 
-class CardAdder(QtWidgets.QWidget):
-    add_printings = QtCore.pyqtSignal(CubeDeltaOperation)
+class CardSelector(QtWidgets.QWidget):
+    _cardboard_list: AddCardboardList
 
-    def __init__(
-        self,
-        parent: QtWidgets.QWidget,
-    ):
+    cardboard_selected = QtCore.pyqtSignal(Cardboard)
+
+    def __init__(self, parent: t.Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
 
-        self._search_button = QtWidgets.QPushButton(self)
-        self._target_selector = TargetSelector(self)
-        self._printing_list = PrintingList(
-            card_adder = self,
-            target_selector = self._target_selector,
-        )
+        self._search_button = QtWidgets.QPushButton('Search', self)
 
         self._query_edit = QueryEditor(self)
         self.setFocusProxy(self._query_edit)
 
-        self._cardboard_list = CardboardList(
-            self._printing_list,
-            self._query_edit,
-        )
-
-        self._search_button.setText('Search')
-
         self._top_bar = QtWidgets.QHBoxLayout()
         self._bottom_bar = QtWidgets.QHBoxLayout()
-        self._right_panel = QtWidgets.QVBoxLayout()
         self._layout = QtWidgets.QVBoxLayout()
 
         self._top_bar.addWidget(self._query_edit)
         self._top_bar.addWidget(self._search_button)
-
-        self._right_panel.addWidget(self._target_selector)
-        self._right_panel.addWidget(self._printing_list)
-
-        self._bottom_bar.addWidget(self._cardboard_list)
-        self._bottom_bar.addLayout(self._right_panel)
 
         self._layout.addLayout(self._top_bar)
         self._layout.addLayout(self._bottom_bar)
@@ -250,16 +196,14 @@ class CardAdder(QtWidgets.QWidget):
 
         self.setLayout(self._layout)
 
-        self.setTabOrder(self._printing_list, self._cardboard_list)
-
-    @property
-    def query_edit(self) -> QueryEditor:
-        return self._query_edit
-
     def initiate_search(self):
         self._search(self._query_edit.text())
         self._cardboard_list.setCurrentIndex(self._cardboard_list.model().index(0, 0))
         self._cardboard_list.setFocus()
+
+    @property
+    def query_edit(self) -> QueryEditor:
+        return self._query_edit
 
     def _search(self, s: str) -> None:
         try:
@@ -280,3 +224,47 @@ class CardAdder(QtWidgets.QWidget):
 
         else:
             super().keyPressEvent(key_event)
+
+
+class CardboardSelector(CardSelector):
+
+    def __init__(self, parent: t.Optional[QtWidgets.QWidget] = None):
+        super().__init__(parent)
+
+        self._cardboard_list = AddCardboardList(
+            self._query_edit,
+        )
+        self._cardboard_list.item_selected.connect(lambda i: self.cardboard_selected.emit(i.cardboard))
+
+        self._bottom_bar.addWidget(self._cardboard_list)
+
+
+class PrintingSelector(CardSelector):
+    add_printings = QtCore.pyqtSignal(CubeDeltaOperation)
+
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget,
+    ):
+        super().__init__(parent)
+
+        self._target_selector = TargetSelector(self)
+
+        self._printing_list = PrintingList(
+            card_adder = self,
+            target_selector = self._target_selector,
+        )
+
+        self._cardboard_list = AddCardboardList(
+            self._query_edit,
+            self._printing_list,
+        )
+        self._cardboard_list.item_selected.connect(lambda i: self.cardboard_selected.emit(i.cardboard))
+
+        self._right_panel = QtWidgets.QVBoxLayout()
+
+        self._right_panel.addWidget(self._printing_list)
+        self._right_panel.addWidget(self._target_selector)
+
+        self._bottom_bar.addWidget(self._cardboard_list)
+        self._bottom_bar.addLayout(self._right_panel)

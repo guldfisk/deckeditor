@@ -126,7 +126,7 @@ class LimitedSessionView(QWidget):
             return
         for pool in self._session.pools:
             if pool.user == Context.cube_api_client.user:
-                Context.new_pool.emit(pool.pool, self._session.name)
+                Context.new_pool.emit(pool.pool, pool.session.infinites, self._session.name)
                 break
 
     def _on_upload_success(self, _) -> None:
@@ -234,7 +234,7 @@ class LimitedSessionsView(QWidget):
                 for session in sessions:
                     for pool in session.pools:
                         if pool.id == pool_id:
-                            Context.new_pool.emit(pool.pool, session.name)
+                            Context.new_pool.emit(pool.pool, pool.session.infinites, session.name)
                             found = True
                             break
                     if found:

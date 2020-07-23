@@ -15,6 +15,9 @@ from mtgorp.tools.parsing.search.parse import SearchParser
 
 from mtgimg.load import Loader as ImageLoader
 
+from magiccube.collections.cube import Cube
+from magiccube.collections.infinites import Infinites
+
 from cubeclient.models import AsyncClient
 from cubeclient.endpoints import AsyncNativeApiClient
 
@@ -60,7 +63,7 @@ class _Context(QObject):
     draft_started = pyqtSignal(object)
     sealed_started = pyqtSignal(int, bool)
 
-    new_pool = pyqtSignal(object, str)
+    new_pool = pyqtSignal(Cube, Infinites, str)
 
     saved_drafts: t.Mapping[str, t.Any] = {}
 

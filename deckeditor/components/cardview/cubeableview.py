@@ -5,10 +5,9 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode, BorderedNode
+from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode
 from mtgorp.models.persistent.card import Card
 from mtgorp.models.persistent.printing import Printing
 
@@ -18,6 +17,7 @@ from magiccube.collections.cubeable import Cubeable
 
 from deckeditor.context.context import Context
 from deckeditor.utils.images import ScaledImageLabel
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 
 
 class CubeableImageView(ScaledImageLabel):

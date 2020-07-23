@@ -25,7 +25,7 @@ from magiccube.laps.traps.tree.printingtree import AllNode
 from deckeditor import paths
 from deckeditor.application.embargo import EmbargoApp
 from deckeditor.components.authentication.login import LoginDialog
-from deckeditor.components.cardadd.cardadder import CardAddable, CardAdder
+from deckeditor.components.cardadd.cardadder import PrintingSelector
 from deckeditor.components.cardview.cubeableview import CubeableView
 from deckeditor.components.editables.editablestabs import FileOpenException, EditablesTabs, FileSaveException
 from deckeditor.components.lobbies.view import LobbiesView, LobbyModelClientConnection
@@ -92,7 +92,7 @@ class Dock(QtWidgets.QDockWidget):
         return self._wants_focus
 
 
-class MainWindow(QMainWindow, CardAddable):
+class MainWindow(QMainWindow):
     pool_generated = QtCore.pyqtSignal(Multiset)
 
     def __init__(self, parent = None):
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow, CardAddable):
 
         self._card_view_dock = Dock('Card View', 'card_view_dock', self, self._printing_view, wants_focus = False)
 
-        self._card_adder = CardAdder(self)
+        self._card_adder = PrintingSelector(self)
         self._card_adder.add_printings.connect(self._on_add_printings)
 
         self._card_adder_dock = Dock('Card Adder', 'card adder dock', self, self._card_adder)

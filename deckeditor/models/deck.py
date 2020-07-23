@@ -5,16 +5,19 @@ from abc import abstractmethod
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from deckeditor.models.cubes.alignment.aligners import get_default_aligner_type
 from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 from mtgorp.models.collections.deck import Deck as OrpDeck
+from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 from magiccube.collections.cube import Cube
+from magiccube.collections.infinites import Infinites
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.context.context import Context
+from deckeditor.models.cubes.alignment.aligners import get_default_aligner_type
 
 
 class TabModel(Serializeable):
@@ -165,6 +168,7 @@ class PoolModel(DeckModel):
         pool: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
         maindeck: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
         sideboard: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
+        infinites: Infinites = Infinites(),
     ):
         super().__init__(
             CubeScene(
@@ -200,17 +204,29 @@ class PoolModel(DeckModel):
             if pool is None or isinstance(pool, t.Sequence) else
             pool
         )
+        self._infinites = infinites
 
-        scenes = {self._maindeck, self._sideboard, self._pool}
+        self._scenes = {self._maindeck, self._sideboard, self._pool}
 
-        for scene in scenes:
-            scene.related_scenes = scenes
+        for scene in self._scenes:
+            scene.related_scenes = self._scenes
+            scene.infinites = self._infinites
 
         self._pool.changed.connect(self.changed)
 
     @property
     def pool(self) -> CubeScene:
         return self._pool
+
+    @property
+    def infinites(self) -> Infinites:
+        return self._infinites
+
+    @infinites.setter
+    def infinites(self, value: Infinites) -> None:
+        self._infinites = value
+        for scene in self._scenes:
+            scene.infinites = self._infinites
 
     def as_pool(self) -> Pool:
         return Pool(
@@ -220,6 +236,7 @@ class PoolModel(DeckModel):
     def persist(self) -> t.Any:
         return {
             'pool': self._pool,
+            'infinites': RawStrategy.serialize(self.infinites),
             **super().persist(),
         }
 
@@ -229,4 +246,5 @@ class PoolModel(DeckModel):
             maindeck = state['maindeck'],
             sideboard = state['sideboard'],
             pool = state['pool'],
+            infinites = RawStrategy(Context.db).deserialize(Infinites, state['infinites']),
         )

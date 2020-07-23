@@ -703,6 +703,7 @@ class DraftView(Editable):
     def _on_draft_started(self) -> None:
         if isinstance(self._draft_model.draft_client.draft_format, Burn):
             self._bottom_tabs.setTabEnabled(self._bottom_tabs.indexOf(self._bots_view), False)
+        self._pool_model.infinites = self._draft_model.draft_client.infinites
 
     def _on_bot_picked(self, pick: Cubeable, recommend: bool):
         if recommend:

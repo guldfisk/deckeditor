@@ -9,11 +9,12 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QMessageBox
 
-from deckeditor.utils.actions import WithActions
 from mtgorp.models.serilization.serializeable import SerializationException
 
+from magiccube.collections.infinites import Infinites
 from magiccube.collections.cube import Cube
 
+from deckeditor.utils.actions import WithActions
 from deckeditor.application.embargo import restart
 from deckeditor.utils.wrappers import notify_on_exception
 from deckeditor.components.views.editables.multicubestab import MultiCubesTab
@@ -106,9 +107,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                 self.setCurrentWidget(editable)
                 return
 
-        saved_draft = Context.saved_drafts.get(draft_id)
-        if saved_draft is not None:
-            del Context.saved_drafts[draft_id]
+        saved_draft = Context.saved_drafts.pop(draft_id, None)
 
         self.setCurrentWidget(
             self.add_editable(
@@ -128,7 +127,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             )
         )
 
-    def new_pool(self, pool: Cube, key: str) -> None:
+    def new_pool(self, pool: Cube, infinites: Infinites, key: str) -> None:
         for editable, meta in self._metas.items():
             if meta.key == key:
                 self.setCurrentWidget(editable)
@@ -139,6 +138,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                 PoolView(
                     PoolModel(
                         list(map(PhysicalCard.from_cubeable, pool)),
+                        infinites = infinites,
                     )
                 ),
                 EditablesMeta(

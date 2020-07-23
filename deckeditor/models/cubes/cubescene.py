@@ -18,7 +18,9 @@ from deckeditor import values
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, AlignmentMultiDrop
+from magiccube.collections.infinites import Infinites
 from mtgorp.models.persistent.printing import Printing
+from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 
 class IntraCubeSceneMove(QUndoCommand):
@@ -147,10 +149,14 @@ class CubeScene(SelectionScene):
         height: float = values.IMAGE_HEIGHT * 8,
         mode: CubeEditMode = CubeEditMode.OPEN,
         name: str = 'cube scene',
+        infinites: Infinites = Infinites(),
     ):
         super().__init__()
+
         self._mode = mode
         self._name = name
+
+        self.infinites = infinites
 
         self.setSceneRect(
             0,
@@ -316,10 +322,10 @@ class CubeScene(SelectionScene):
                     for card in
                     cards
                     if (
-                    isinstance(card, SceneCard)
-                    and isinstance(card.cubeable, Printing)
-                    and card.cubeable.cardboard in Context.basics
-                )
+                        isinstance(card, SceneCard)
+                        and isinstance(card.cubeable, Printing)
+                        and card.cubeable.cardboard in self.infinites
+                    )
                 ]
                 for cards in
                 (new_physical_cards, removed_physical_cards)

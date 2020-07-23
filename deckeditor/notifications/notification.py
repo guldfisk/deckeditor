@@ -7,19 +7,17 @@ from deckeditor import paths
 
 
 class Notification(QtWidgets.QFrame):
-
     signal = QtCore.pyqtSignal(QtWidgets.QWidget)
 
     def __init__(self, parent, message: str):
         super().__init__(parent)
 
         self.setWindowFlags(Qt.FramelessWindowHint)
-        # self.setWindowModality(Qt.WindowModal)
 
         self._label = QtWidgets.QLabel(self)
         self._icon = QtSvg.QSvgWidget(
             os.path.join(
-                paths.RESOURCE_PATH,
+                paths.ICONS_PATH,
                 'exclamation_mark.svg',
             )
         )
@@ -33,11 +31,10 @@ class Notification(QtWidgets.QFrame):
 
         self._layout = QtWidgets.QHBoxLayout()
 
-        self._layout.addWidget(self._icon, alignment=Qt.AlignTop)
-        self._layout.addWidget(self._label, alignment=Qt.AlignTop)
+        self._layout.addWidget(self._icon, alignment = Qt.AlignTop)
+        self._layout.addWidget(self._label, alignment = Qt.AlignTop)
 
         self.setLayout(self._layout)
 
     def mouseReleaseEvent(self, release_event):
         self.signal.emit(self)
-
