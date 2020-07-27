@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+import logging
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 
-from magiccube.laps.tickets.ticket import Ticket
-from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode
 from mtgorp.models.persistent.card import Card
 from mtgorp.models.persistent.printing import Printing
 
 from mtgimg.interface import ImageRequest
 
 from magiccube.collections.cubeable import Cubeable
+from magiccube.laps.tickets.ticket import Ticket
+from magiccube.laps.traps.trap import Trap
+from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode
 
 from deckeditor.context.context import Context
 from deckeditor.utils.images import ScaledImageLabel
@@ -28,16 +29,15 @@ class CubeableImageView(ScaledImageLabel):
 
         self._cubeable_view = cubeable_view
 
-        self._cubeable: t.Optional[Printing] = None
         self._image_request: t.Optional[ImageRequest] = None
         self._pixmap: QtGui.QPixmap = Context.pixmap_loader.get_default_pixmap()
 
         self.setPixmap(self._pixmap)
 
-        self._image_ready.connect(self._on_new_cubeable)
+        self._image_ready.connect(self._on_image_ready)
         self._cubeable_view.new_cubeable.connect(self.set_cubeable)
 
-    def _on_new_cubeable(self, image_request: ImageRequest, pixmap: QtGui.QPixmap):
+    def _on_image_ready(self, image_request: ImageRequest, pixmap: QtGui.QPixmap):
         if image_request == self._image_request:
             self.setPixmap(pixmap)
 
@@ -55,28 +55,32 @@ class CubeableImageView(ScaledImageLabel):
         else:
             cubeable = focus.cubeable
 
-        if cubeable == self._cubeable:
+        image_request = ImageRequest(cubeable, back = focus.back)
+
+        if image_request == self._image_request:
             return
 
-        self._cubeable = cubeable
-
-        self.setPixmap(Context.pixmap_loader.get_default_pixmap())
-
-        image_request = ImageRequest(cubeable)
         self._image_request = image_request
 
-        Context.pixmap_loader.get_pixmap(
+        promise = Context.pixmap_loader.get_pixmap(
             image_request = image_request
-        ).then(
+        )
+
+        if promise.is_pending:
+            self.setPixmap(Context.pixmap_loader.get_default_pixmap())
+
+        promise.then(
             lambda pixmap:
             self._image_ready.emit(
                 image_request, pixmap
             )
+        ).catch(
+            logging.warn
         )
 
 
 class CubeableTextView(QtWidgets.QStackedWidget):
-    printing_focused = pyqtSignal(Printing)
+    new_focus_card = pyqtSignal(CubeableFocusEvent)
 
     def __init__(self, cubeable_view: CubeableView):
         super().__init__()
@@ -106,7 +110,8 @@ class CubeableTextView(QtWidgets.QStackedWidget):
         self.setCurrentWidget(self._blank)
 
         self._cubeable_view.new_cubeable.connect(self._on_new_cubeable)
-        self._trap_view.printing_focused.connect(self.printing_focused)
+        self._trap_view.printing_focused.connect(lambda p: self.new_focus_card.emit(CubeableFocusEvent(p)))
+        self._printing_view.new_focus_card.connect(self.new_focus_card)
 
     def _on_new_cubeable(self, focus: CubeableFocusEvent) -> None:
         if self._latest_cubeable == focus.cubeable:
@@ -128,7 +133,7 @@ class CardTextView(QtWidgets.QWidget):
 
     def __init__(self, card: t.Optional[Card] = None):
         super().__init__()
-        self._card: t.Optional[Card] = card
+        self._card: t.Optional[Card] = None
 
         self._typeline_label = QtWidgets.QLabel()
         self._mana_cost_label = QtWidgets.QLabel()
@@ -152,10 +157,16 @@ class CardTextView(QtWidgets.QWidget):
         layout.addWidget(self._power_toughness_loyalty_label, alignment = QtCore.Qt.AlignRight)
         layout.addStretch()
 
-        if self._card is not None:
+        if card is not None:
             self.set_card(card)
 
+    @property
+    def card(self) -> Card:
+        return self._card
+
     def set_card(self, card: Card) -> None:
+        if card == self._card:
+            return
         self._card = card
         self._typeline_label.setText(str(card.type_line))
         self._mana_cost_label.setText(str(card.mana_cost) if card.mana_cost is not None else '')
@@ -171,6 +182,7 @@ class CardTextView(QtWidgets.QWidget):
 
 
 class PrintingTextView(QtWidgets.QWidget):
+    new_focus_card = pyqtSignal(CubeableFocusEvent)
 
     def __init__(self, printing: t.Optional[Printing] = None):
         super().__init__()
@@ -201,7 +213,20 @@ class PrintingTextView(QtWidgets.QWidget):
         if self._printing is not None:
             self.set_cubeable(printing)
 
+        self._card_views_tabs.currentChanged.connect(self._handle_tab_changed)
+
+    def _handle_tab_changed(self, idx: int) -> None:
+        if self._printing is None:
+            return
+        tab: CardTextView = self._card_views_tabs.widget(idx)
+        if tab is None:
+            return
+        self.new_focus_card.emit(CubeableFocusEvent(self._printing, back = tab.card in self._printing.cardboard.back_cards))
+
     def set_cubeable(self, printing: Printing) -> None:
+        if printing == self._printing:
+            return
+        self._printing = printing
         self._name_label.setText(printing.cardboard.name)
         self._expansion_label.setText(printing.expansion.name_and_code)
         if len(printing.cardboard.cards) > 1:
@@ -235,6 +260,9 @@ class TicketTextView(QtWidgets.QWidget):
         self.setLayout(layout)
 
     def set_cubeable(self, ticket: Ticket) -> None:
+        if ticket == self._ticket:
+            return
+        self._ticket = ticket
         self._name_label.setText(ticket.name)
         self._printings_tabs.clear()
         for printing in sorted(ticket.options, key = lambda p: p.cardboard.name):
@@ -319,6 +347,9 @@ class TrapTextView(QtWidgets.QWidget):
             item.addChild(_item)
 
     def set_cubeable(self, trap: Trap) -> None:
+        if trap == self._trap:
+            return
+        self._trap = trap
         self._intention_type_label.setText(trap.intention_type.value)
         self._node_tree.clear()
         self._printing_view.hide()
@@ -344,7 +375,7 @@ class TextImageCubeableView(QtWidgets.QWidget):
         layout.addWidget(self._image_view)
         layout.addWidget(self._text_view)
 
-        self._text_view.printing_focused.connect(lambda p: self._image_view.set_cubeable(CubeableFocusEvent(p)))
+        self._text_view.new_focus_card.connect(self._image_view.set_cubeable)
 
 
 class CubeableView(QtWidgets.QWidget):

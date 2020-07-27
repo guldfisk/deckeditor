@@ -111,6 +111,9 @@ class PrintingList(QtWidgets.QListWidget):
             if amount:
                 self._add_printings(amount)
 
+        elif key_event.key() == QtCore.Qt.Key_Left:
+            self._card_adder.cardboard_list.setFocus()
+
         else:
             super().keyPressEvent(key_event)
 
@@ -155,6 +158,12 @@ class AddCardboardList(CardboardList):
     def _on_item_selected(self, item: CardboardItem) -> None:
         if self._printing_list is not None:
             self._printing_list.setFocus()
+
+    def keyPressEvent(self, key_event: QtGui.QKeyEvent):
+        if key_event.key() == QtCore.Qt.Key_Right:
+            self.item_selected.emit(self.currentItem())
+        else:
+            super().keyPressEvent(key_event)
 
 
 class PrintingItem(QtWidgets.QListWidgetItem):
@@ -268,3 +277,7 @@ class PrintingSelector(CardSelector):
 
         self._bottom_bar.addWidget(self._cardboard_list)
         self._bottom_bar.addLayout(self._right_panel)
+
+    @property
+    def cardboard_list(self) -> AddCardboardList:
+        return self._cardboard_list

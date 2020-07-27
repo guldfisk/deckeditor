@@ -17,7 +17,6 @@ sort macroes
         just extend sort api to also have a subdivision sort list
     ability to specify sort macro for auto sort on open
 option for visual menu when selecting printing (also for cardboards with many printing, espcially relevant for basics)
-on cubeable view thing, set image to card back when loading instead of using previous image
 only ask about saving when closing tab when changes has actually modified it (not just a bunch of intra scene moves)
 dont ask about saving for limited pools when it does not make sense. like, after submitting a pool and closing tab. (maybe still remember layout on reopen?)
 auto sorted mode in cubeimage view (cant move cards in view, sort selected for both directions, auto updated)
@@ -29,6 +28,9 @@ customize hotkeys
 image view in card adder
 try to infer type of .json file
     remove "open pool"
+save session on qt error, or at elast periodically.
+    is it saved on computer shutdown?
+        does not look like it
 
 migrate custom sort to sql
 bots break sometimes, possibly do to ghost cards
@@ -57,11 +59,10 @@ hard time generating db on windows. only works on 64 bit python
 dont add cards to hidden views on doubble click? (so when pool is hidden, default double click on card in maindeck moves to sideboard and vice versa)
 make tickets work with cards in traps
 proper undo command names
-what is natural when going through a bunched pile? when you double click a card, to move to or from pool, how should the other cards be rearranged?
 merge contextmenu overlap when multiple physical cards selected
-save session on qt error, or at elast periodically. is it saved on computer shutdown?
 aligner cursor meme?
 alternate card image? (cropped + name?)
 draw viewport indicator on minimap? lmao
 rubberband update selection / show preview while dragging?
 customize enabled columns in table
+remote image mode
