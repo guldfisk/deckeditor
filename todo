@@ -28,12 +28,12 @@ customize hotkeys
 image view in card adder
 try to infer type of .json file
     remove "open pool"
-save session on qt error, or at elast periodically.
+save session on qt error, or at least periodically.
     is it saved on computer shutdown?
         does not look like it
 
 migrate custom sort to sql
-bots break sometimes, possibly do to ghost cards
+bots break sometimes, possibly due to ghost cards
     error handling for bots in general
 some sort of groups list view. doesnt necessarily have to be editable, but hoverable at least. something like a standard web view of a deck for an easy text based overview.
     color coding / mana symbols?

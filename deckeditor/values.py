@@ -5,7 +5,7 @@ from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
 APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.0.3'
+VERSION = '0.0.4'
 
 IS_WINDOWS = sys.platform.startswith('win')
 

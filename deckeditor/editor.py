@@ -254,9 +254,14 @@ class MainWindow(QMainWindow):
                 {
                     Trap(
                         AllNode(
-                            random.sample(
-                                ps,
-                                2
+                            (
+                                AllNode(
+                                    {
+                                        printing: 2,
+                                    }
+                                )
+                                for printing in
+                                random.sample(ps, 50)
                             )
                         )
                     ): 1

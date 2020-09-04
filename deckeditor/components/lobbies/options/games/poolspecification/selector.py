@@ -7,15 +7,17 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QTableWidgetItem
 
+from mtgorp.models.serilization.strategies.raw import RawStrategy
+
 from cubeclient.models import CubeBoosterSpecification
-from deckeditor.components.lobbies.controller import LOBBIES_CONTROLLER
+
 from deckeditor.components.lobbies.interfaces import LobbyViewInterface
 from deckeditor.components.lobbies.options.games.poolspecification.boosters.allcardsbooster import AllCardsBoosterSpecificationSelector
+from deckeditor.components.lobbies.options.games.poolspecification.boosters.chaosbooster import ChaosBoosterSpecificationSelector
 from deckeditor.components.lobbies.options.games.poolspecification.boosters.cubebooster import CubeBoosterSpecificationSelector
 from deckeditor.components.lobbies.options.games.poolspecification.boosters.expansionbooster import ExpansionBoosterSpecificationSelector
 from deckeditor.components.lobbies.options.games.poolspecification.interface import BoosterSpecificationSelectorInterface
 from deckeditor.context.context import Context
-from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 
 class BoosterSpecificationSelector(QtWidgets.QStackedWidget, BoosterSpecificationSelectorInterface):
@@ -27,11 +29,13 @@ class BoosterSpecificationSelector(QtWidgets.QStackedWidget, BoosterSpecificatio
         self._cube_booster_specification_selector = CubeBoosterSpecificationSelector(lobby_view, self)
         self._expansion_booster_specification_selector = ExpansionBoosterSpecificationSelector(lobby_view, self)
         self._all_cards_booster_selector = AllCardsBoosterSpecificationSelector(lobby_view, self)
+        self._chaos_booster_selector = ChaosBoosterSpecificationSelector(lobby_view, self)
 
         self.specification_type_map = {
             'CubeBoosterSpecification': self._cube_booster_specification_selector,
             'ExpansionBoosterSpecification': self._expansion_booster_specification_selector,
             'AllCardsBoosterSpecification': self._all_cards_booster_selector,
+            'ChaosBoosterSpecification': self._chaos_booster_selector,
         }
 
         for selector in self.specification_type_map.values():
@@ -142,6 +146,7 @@ class PoolSpecificationSelector(QtWidgets.QWidget):
         self._add_booster_specification_type_selector.addItem('CubeBoosterSpecification')
         self._add_booster_specification_type_selector.addItem('ExpansionBoosterSpecification')
         self._add_booster_specification_type_selector.addItem('AllCardsBoosterSpecification')
+        self._add_booster_specification_type_selector.addItem('ChaosBoosterSpecification')
 
         layout = QtWidgets.QGridLayout(self)
         layout.setContentsMargins(0, 1, 0, 1)
