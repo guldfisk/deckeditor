@@ -4,7 +4,7 @@ import time
 from magiccube.collections.cube import Cube
 from magiccube.collections.cubeable import Cubeable
 
-from mtgdraft.models import Booster
+from mtgdraft.models import DraftBooster
 
 from deckeditor.components.draft.bottemplate import DraftBot
 from deckeditor.components.draft.bots.randombot import RandomBot
@@ -12,7 +12,13 @@ from deckeditor.components.draft.bots.redbot import RedBot
 from deckeditor.context.context import Context
 
 
-def bot_pick(bot: DraftBot, booster: Booster, pool: Cube, delay: int, callback: t.Callable[[Cubeable, Booster], None]):
+def bot_pick(
+    bot: DraftBot,
+    booster: DraftBooster,
+    pool: Cube,
+    delay: int,
+    callback: t.Callable[[Cubeable, DraftBooster], None],
+):
     st = time.time()
     pick = bot.make_pick(Context.db, booster, pool)
     if delay:

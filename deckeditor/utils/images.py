@@ -24,7 +24,7 @@ class ScaledImageLabel(QtWidgets.QLabel):
     def heightForWidth(self, width: int) -> int:
         return (
             self.height()
-            if self._pixmap is None else
+            if self._pixmap is None or not self._pixmap.width() else
             int(self._pixmap.height() * width / self._pixmap.width())
         )
 

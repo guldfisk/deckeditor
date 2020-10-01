@@ -6,6 +6,8 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 
+from cubeclient.models import CubeRelease
+from magiccube.collections.nodecollection import ConstrainedNode
 from mtgorp.models.persistent.card import Card
 from mtgorp.models.persistent.printing import Printing
 
@@ -14,7 +16,7 @@ from mtgimg.interface import ImageRequest
 from magiccube.collections.cubeable import Cubeable
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode
+from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode, AllNode
 
 from deckeditor.context.context import Context
 from deckeditor.utils.images import ScaledImageLabel
@@ -47,9 +49,9 @@ class CubeableImageView(ScaledImageLabel):
             and focus.size is not None
             and focus.position is not None
             and bool(
-                focus.modifiers is not None
-                and focus.modifiers & QtCore.Qt.ShiftModifier
-            ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
+            focus.modifiers is not None
+            and focus.modifiers & QtCore.Qt.ShiftModifier
+        ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
         ):
             cubeable = focus.cubeable.get_printing_at(*focus.position, *focus.size)
         else:
@@ -126,7 +128,7 @@ class CubeableTextView(QtWidgets.QStackedWidget):
 
         else:
             self.setCurrentWidget(view)
-            view.set_cubeable(focus.cubeable)
+            view.set_cubeable(focus.cubeable, release_id = focus.release_id)
 
 
 class CardTextView(QtWidgets.QWidget):
@@ -221,9 +223,10 @@ class PrintingTextView(QtWidgets.QWidget):
         tab: CardTextView = self._card_views_tabs.widget(idx)
         if tab is None:
             return
-        self.new_focus_card.emit(CubeableFocusEvent(self._printing, back = tab.card in self._printing.cardboard.back_cards))
+        self.new_focus_card.emit(
+            CubeableFocusEvent(self._printing, back = tab.card in self._printing.cardboard.back_cards))
 
-    def set_cubeable(self, printing: Printing) -> None:
+    def set_cubeable(self, printing: Printing, release_id: t.Optional[int] = None) -> None:
         if printing == self._printing:
             return
         self._printing = printing
@@ -259,7 +262,7 @@ class TicketTextView(QtWidgets.QWidget):
 
         self.setLayout(layout)
 
-    def set_cubeable(self, ticket: Ticket) -> None:
+    def set_cubeable(self, ticket: Ticket, release_id: t.Optional[int] = None) -> None:
         if ticket == self._ticket:
             return
         self._ticket = ticket
@@ -274,20 +277,25 @@ class TicketTextView(QtWidgets.QWidget):
 
 class NodeTreeItem(QtWidgets.QTreeWidgetItem):
 
-    def __init__(self, node: PrintingNode, _type: str):
+    def __init__(self, node: PrintingNode, _type: str, constrained_node: t.Optional[ConstrainedNode] = None):
         super().__init__()
         self._node = node
         self.setData(1, 0, _type)
         self.setData(0, 0, 'any' if isinstance(node, AnyNode) else 'all')
+        self.setData(2, 0, '' if constrained_node is None else str(constrained_node.value))
+        self.setData(3, 0, '' if constrained_node is None else ', '.join(constrained_node.groups))
 
 
 class PrintingTreeItem(QtWidgets.QTreeWidgetItem):
 
-    def __init__(self, printing: Printing, _type: str):
+    def __init__(self, printing: Printing, _type: str, constrained_node: t.Optional[ConstrainedNode] = None):
         super().__init__()
+
         self._printing = printing
         self.setData(0, 0, self._printing.cardboard.name)
         self.setData(1, 0, _type)
+        self.setData(2, 0, '' if constrained_node is None else str(constrained_node.value))
+        self.setData(3, 0, '' if constrained_node is None else ', '.join(constrained_node.groups))
 
     @property
     def printing(self) -> Printing:
@@ -296,16 +304,18 @@ class PrintingTreeItem(QtWidgets.QTreeWidgetItem):
 
 class TrapTextView(QtWidgets.QWidget):
     printing_focused = pyqtSignal(Printing)
+    update_release = pyqtSignal(int)
 
     def __init__(self):
         super().__init__()
         self._trap: t.Optional[Trap] = None
+        self._release_id: t.Optional[int] = None
 
         self._intention_type_label = QtWidgets.QLabel()
 
         self._node_tree = QtWidgets.QTreeWidget()
         self._node_tree.setColumnCount(2)
-        self._node_tree.setHeaderLabels(('name', 'type'))
+        self._node_tree.setHeaderLabels(('name', 'type', 'weight', 'groups'))
         self._node_tree.currentItemChanged.connect(self._on_current_item_changed)
 
         self._printing_view = PrintingTextView()
@@ -325,18 +335,43 @@ class TrapTextView(QtWidgets.QWidget):
 
         self.setLayout(layout)
 
+        self.update_release.connect(self._on_update_release)
+
+    def _on_update_release(self, release_id: int) -> None:
+        self.set_cubeable(self._trap, release_id, force_update = True)
+
     def _on_current_item_changed(self, current, previous) -> None:
         if isinstance(current, PrintingTreeItem):
             self._printing_view.set_cubeable(current.printing)
             self._printing_view.show()
             self.printing_focused.emit(current.printing)
 
-    def _span_tree(self, option: t.Union[Printing, PrintingNode], item: t.Any, is_top_level: bool, _type: str) -> None:
+    def _span_tree(
+        self,
+        option: t.Union[Printing, PrintingNode],
+        item: t.Any,
+        is_top_level: bool,
+        _type: str,
+        release: t.Optional[CubeRelease] = None,
+    ) -> None:
+        constrained_node = (
+            release.constrained_nodes.node_for_node(
+                AllNode((option,))
+                if isinstance(option, Printing) else
+                option
+            ) if release else
+            None
+        )
+
         if isinstance(option, Printing):
-            _item = PrintingTreeItem(option, _type)
+            _item = PrintingTreeItem(option, _type, constrained_node)
 
         else:
-            _item = NodeTreeItem(option, _type)
+            _item = NodeTreeItem(
+                option,
+                _type,
+                constrained_node,
+            )
             _option_type = 'any' if isinstance(option, AnyNode) else 'all'
             for child in option.children:
                 self._span_tree(child, _item, False, _option_type)
@@ -346,16 +381,30 @@ class TrapTextView(QtWidgets.QWidget):
         else:
             item.addChild(_item)
 
-    def set_cubeable(self, trap: Trap) -> None:
-        if trap == self._trap:
+    def set_cubeable(self, trap: Trap, release_id: t.Optional[int] = None, force_update: bool = False) -> None:
+        if trap is None or trap == self._trap and self._release_id == release_id and not force_update:
             return
+
         self._trap = trap
+        self._release_id = release_id
         self._intention_type_label.setText(trap.intention_type.value)
         self._node_tree.clear()
         self._printing_view.hide()
+
         _option_type = 'any' if isinstance(trap.node, AnyNode) else 'all'
+
+        if self._release_id is not None:
+            release = Context.cube_api_client.get_release_managed_noblock(self._release_id)
+            if release is None:
+                Context.cube_api_client.get_release_managed(self._release_id).then(
+                    lambda _release: self.update_release.emit(_release.id)
+                )
+        else:
+            release = None
+
         for child in trap.node.children:
-            self._span_tree(child, self._node_tree, True, _option_type)
+            self._span_tree(child, self._node_tree, True, _option_type, release = release)
+
         self._node_tree.resizeColumnToContents(0)
         self._node_tree.expandAll()
 

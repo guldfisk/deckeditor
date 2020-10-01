@@ -22,7 +22,7 @@ from magiccube.collections.delta import CubeDeltaOperation
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import AllNode
 
-from deckeditor import paths
+from deckeditor import paths, values
 from deckeditor.application.embargo import EmbargoApp
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.cardadd.cardadder import PrintingSelector
@@ -174,59 +174,102 @@ class MainWindow(QMainWindow):
 
         menu_bar = self.menuBar()
 
-        all_menus = {
-            menu_bar.addMenu('File'): (
-                ('New Deck', 'Ctrl+N', self._new_deck),
-                ('Open Deck', 'Ctrl+O', lambda: self.open(Deck)),
-                ('Open Pool', 'Ctrl+P', lambda: self.open(Pool)),
-                ('Save', 'Ctrl+S', self._save),
-                ('Save As', 'Ctrl+Shift+S', self._save_as),
-                ('Export Deck', 'Ctrl+Shift+E', self._export_deck),
-                ('Close Tab', 'Ctrl+W', self._close_tab),
-                'line',
-                ('Exit', 'Ctrl+Q', self.close),
+        all_menus = [
+            (
+                menu_bar.addMenu('File'),
+                (
+                    ('New Deck', 'Ctrl+N', self._new_deck),
+                    ('Open Deck', 'Ctrl+O', lambda: self.open(Deck)),
+                    ('Open Pool', 'Ctrl+P', lambda: self.open(Pool)),
+                    ('Save', 'Ctrl+S', self._save),
+                    ('Save As', 'Ctrl+Shift+S', self._save_as),
+                    ('Export Deck', 'Ctrl+Shift+E', self._export_deck),
+                    ('Close Tab', 'Ctrl+W', self._close_tab),
+                    'line',
+                    ('Exit', 'Ctrl+Q', self.close),
 
+                ),
             ),
-            menu_bar.addMenu('Edit'): (
-                ('Undo', 'Ctrl+Z', Context.undo_group.undo),
-                ('Redo', 'Ctrl+Shift+Z', Context.undo_group.redo),
-                'line',
-                ('Add cards', 'Ctrl+F', self._add_cards),
+            (
+                menu_bar.addMenu('Edit'),
+                (
+                    ('Undo', 'Ctrl+Z', Context.undo_group.undo),
+                    ('Redo', 'Ctrl+Shift+Z', Context.undo_group.redo),
+                    'line',
+                    ('Add cards', 'Ctrl+F', self._add_cards),
+                ),
             ),
             # menu_bar.addMenu('Generate'): (
             #     # ('Sealed pool', 'Ctrl+G', self._generate_pool),
             #     # ('Cube Pools', 'Ctrl+C', self.generate_cube_pools),
             # ),
-            menu_bar.addMenu('View'): (
-                ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
-                ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
-                ('Limited', 'Meta+3', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
-                ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
-                ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
-                ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
+            (
+                menu_bar.addMenu('View'),
+                (
+                    ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
+                    ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
+                    ('Limited', 'Meta+3', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
+                    ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
+                    ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
+                    ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
+                ),
             ),
-            # menu_bar.addMenu('Test'): (
-            #     ('Test', 'Ctrl+T', self._test),
+            # (
+            #     menu_bar.addMenu('Simulate'),
+            #     (
+            #         ('Sample Hand', 'Ctrl+H', lambda: print('sample hand')),
+            #     )
             # ),
-            menu_bar.addMenu('Connect'): (
-                ('Login', 'Ctrl+L', LoginDialog(self).exec_),
-                ('Logout', None, LOGIN_CONTROLLER.log_out),
+            (
+                menu_bar.addMenu('Connect'),
+                (
+                    ('Login', 'Ctrl+L', LoginDialog(self).exec_),
+                    ('Logout', None, LOGIN_CONTROLLER.log_out),
+                ),
             ),
-            menu_bar.addMenu('Preferences'): (
-                ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog.get().exec_()),
+            (
+                menu_bar.addMenu('Draft'),
+                (
+                    ('Go To Latest', 'Alt+Up', self._draft_history_wrapper('go_to_latest')),
+                    ('Go Back', 'Alt+Left', self._draft_history_wrapper('go_backwards')),
+                    ('Go Forward', 'Alt+Right', self._draft_history_wrapper('go_forward')),
+                    ('Go To Start', 'Alt+Down', self._draft_history_wrapper('go_to_start')),
+                ),
             ),
-            menu_bar.addMenu('DB'): (
-                ('Info', None, lambda: DBInfoDialog().exec_()),
-                ('Update', None, lambda: DBUpdateDialog().exec_()),
-                ('Validate', None, lambda: LOGIN_CONTROLLER.validate(True)),
+            (
+                menu_bar.addMenu('Preferences'),
+                (
+                    ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog.get().exec_()),
+                ),
             ),
-            menu_bar.addMenu('Help'): (
-                ('About', None, lambda: AboutDialog().exec_()),
+            (
+                menu_bar.addMenu('DB'),
+                (
+                    ('Info', None, lambda: DBInfoDialog().exec_()),
+                    ('Update', None, lambda: DBUpdateDialog().exec_()),
+                    ('Validate', None, lambda: LOGIN_CONTROLLER.validate(True)),
+                ),
             ),
-        }
+            (
+                menu_bar.addMenu('Help'),
+                (
+                    ('About', None, lambda: AboutDialog().exec_()),
+                ),
+            ),
+        ]
 
-        for menu in all_menus:
-            for line in all_menus[menu]:
+        if Context.debug:
+            all_menus.append(
+                (
+                    menu_bar.addMenu('Test'),
+                    (
+                        ('Test', 'Ctrl+T', self._test),
+                    ),
+                )
+            )
+
+        for menu, lines in all_menus:
+            for line in lines:
                 if line == 'line':
                     menu.addSeparator()
                 else:
@@ -268,6 +311,29 @@ class MainWindow(QMainWindow):
                 }
             )
         )
+
+    def _draft_history_wrapper(self, method: str) -> t.Callable[[], None]:
+        def wrapper():
+            tab = self._main_view.editables_tabs.currentWidget()
+            if isinstance(tab, DraftView):
+                getattr(tab.draft_model, method)()
+
+        return wrapper
+
+    # def _on_draft_start(self) -> None:
+    #     tab = self._main_view.editables_tabs.currentWidget()
+    #     if isinstance(tab, DraftView):
+    #         tab.draft_model.go_backwards()
+    #
+    # def _on_draft_backwards(self) -> None:
+    #     tab = self._main_view.editables_tabs.currentWidget()
+    #     if isinstance(tab, DraftView):
+    #         tab.draft_model.go_backwards()
+    #
+    # def _on_draft_forwards(self) -> None:
+    #     tab = self._main_view.editables_tabs.currentWidget()
+    #     if isinstance(tab, DraftView):
+    #         tab.draft_model.go_forward()
 
     def _on_draft_started(self, key: str) -> None:
         if Context.settings.value('hide_lobbies_on_new_draft', True, bool):
@@ -469,6 +535,13 @@ def run():
         help = 'debug mode',
     )
     arg_parser.add_argument(
+        '-l', '--log-level',
+        action = 'store',
+        help = 'logging level',
+        default = 'info',
+        choices = values.LOGGING_LEVEL_MAP.keys(),
+    )
+    arg_parser.add_argument(
         '-n', '--no-server',
         action = 'store_true',
         help = 'dont start server',
@@ -495,7 +568,7 @@ def run():
 
     logging.basicConfig(
         format = '%(levelname)s %(message)s',
-        level = logging.DEBUG if args.debug else logging.INFO,
+        level = values.LOGGING_LEVEL_MAP[args.log_level],
     )
 
     if args.version:
@@ -520,11 +593,11 @@ def run():
     models.create(engine)
 
     try:
-        Context.init(app, compiled = compiled)
+        Context.init(app, compiled = compiled, debug = args.debug)
     except DBLoadException:
         if not DBUpdateDialog().exec_() == QDialog.Accepted:
             return
-        Context.init(app, compiled = compiled)
+        Context.init(app, compiled = compiled, debug = args.debug)
 
     init_deck_serializers()
 

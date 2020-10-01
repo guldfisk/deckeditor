@@ -148,8 +148,12 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             )
         )
 
+    @classmethod
+    def _get_session_path(cls) -> str:
+        return paths.DEBUG_SESSION_PATH if Context.debug else paths.SESSION_PATH
+
     def save_session(self) -> None:
-        with open(paths.SESSION_PATH, 'wb') as session_file:
+        with open(self._get_session_path(), 'wb') as session_file:
             tabs = []
             drafts = {}
             for editor, meta in self._metas.items():
@@ -169,7 +173,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     def load_session(self) -> None:
         try:
             try:
-                previous_session = pickle.load(open(paths.SESSION_PATH, 'rb'))
+                previous_session = pickle.load(open(self._get_session_path(), 'rb'))
             except FileNotFoundError:
                 return
             except (UnpicklingError, EOFError):
@@ -193,7 +197,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             return_code = confirm_dialog.exec_()
 
             if return_code == QMessageBox.Yes:
-                os.remove(paths.SESSION_PATH)
+                os.remove(self._get_session_path())
                 restart(save_session = False)
             else:
                 sys.exit()

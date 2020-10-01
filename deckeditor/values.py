@@ -1,3 +1,4 @@
+import logging
 import sys
 from enum import Enum
 
@@ -5,7 +6,7 @@ from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
 APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.0.4'
+VERSION = '0.0.5'
 
 IS_WINDOWS = sys.platform.startswith('win')
 
@@ -47,3 +48,10 @@ IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.MEDIUM, False))]
 STANDARD_IMAGE_MARGIN = .1
 
 SUPPORTED_EXTENSIONS = '*.deck *.cod *.json *.dec *.mwDeck *.embd *.embp'
+
+LOGGING_LEVEL_MAP = {
+    'error': logging.ERROR,
+    'warning': logging.WARNING,
+    'info': logging.INFO,
+    'debug': logging.DEBUG,
+}

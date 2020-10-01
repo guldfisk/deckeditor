@@ -10,7 +10,6 @@ from promise import promise
 
 from mtgorp.db.database import CardDatabase
 from mtgorp.db.load import Loader
-from mtgorp.models.interfaces import Cardboard
 from mtgorp.tools.parsing.search.parse import SearchParser
 
 from mtgimg.load import Loader as ImageLoader
@@ -18,7 +17,6 @@ from mtgimg.load import Loader as ImageLoader
 from magiccube.collections.cube import Cube
 from magiccube.collections.infinites import Infinites
 
-from cubeclient.models import AsyncClient
 from cubeclient.endpoints import AsyncNativeApiClient
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
@@ -29,6 +27,8 @@ from deckeditor.sorting.custom import CustomSortMap
 
 
 class _Context(QObject):
+    debug: bool = False
+
     settings: QtCore.QSettings
     pixmap_loader: PixmapLoader
 
@@ -47,7 +47,7 @@ class _Context(QObject):
 
     token_changed = pyqtSignal(str)
 
-    cube_api_client: AsyncClient
+    cube_api_client: AsyncNativeApiClient
 
     notification_message = pyqtSignal(str)
     status_message = pyqtSignal(str, int)
@@ -69,7 +69,9 @@ class _Context(QObject):
     embargo_server: t.Optional[threading.Thread] = None
 
     @classmethod
-    def init(cls, application: QApplication, compiled: bool = True) -> None:
+    def init(cls, application: QApplication, compiled: bool = True, debug: bool = False) -> None:
+        cls.debug = debug
+
         cls.compiled = compiled
 
         cls.db = Loader.load()

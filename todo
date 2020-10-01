@@ -31,6 +31,10 @@ try to infer type of .json file
 save session on qt error, or at least periodically.
     is it saved on computer shutdown?
         does not look like it
+view pools / decks for session directly through client instead of having to download them and open them manually.
+ability to move cards around between main and sideboard in deckview, and then revert, like unlock / lock sidebord in cockatrice.
+sample hand view
+    draw additional cards
 
 migrate custom sort to sql
 bots break sometimes, possibly due to ghost cards
@@ -51,6 +55,7 @@ color identity in table
 intention type in table?
 dont show info only related to image view when in table mode only in cubeview (align selector etc)
 remove scenecard, just move physicalcards into same file as cubescene prob
+option to resize scene on view resize, to keep cards in view (for sideboard primarily)
 
 add relecvant text to aplication header
 notifications not working on debian some times

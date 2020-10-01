@@ -7,20 +7,19 @@ from collections import defaultdict
 from PyQt5.QtCore import QPoint, pyqtSignal
 from PyQt5.QtWidgets import QUndoCommand
 
-from deckeditor.models.cubes.scenecard import SceneCard
-from deckeditor.sorting.sorting import SortProperty
-from magiccube.collections import cubeable as Cubeable
+from mtgorp.models.persistent.printing import Printing
+
+from magiccube.collections.cubeable import Cubeable
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
+from magiccube.collections.infinites import Infinites
 
+from deckeditor.models.cubes.scenecard import SceneCard
+from deckeditor.sorting.sorting import SortProperty
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor import values
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
-from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, AlignmentMultiDrop
-from magiccube.collections.infinites import Infinites
-from mtgorp.models.persistent.printing import Printing
-from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 
 class IntraCubeSceneMove(QUndoCommand):
@@ -85,12 +84,12 @@ class CubeSceneModification(QUndoCommand):
         point: QPoint,
     ):
         super().__init__('Cube modification')
+        self._scene = scene
 
         if not (add_cards or remove_cards):
             self.setObsolete(True)
             return
 
-        self._scene = scene
         self._add = add_cards
         self._pick_up = self._scene.aligner.pick_up(remove_cards)
         self._drop = self._scene.aligner.drop(add_cards, point)
@@ -141,6 +140,9 @@ class CubeScene(SelectionScene):
     aligner_changed = pyqtSignal(Aligner)
     content_changed = pyqtSignal()
 
+    items: t.Callable[[], t.Sequence[SceneCard]]
+    selectedItems: t.Callable[[], t.Sequence[SceneCard]]
+
     def __init__(
         self,
         aligner_type: t.Optional[t.Type[Aligner]] = None,
@@ -158,12 +160,7 @@ class CubeScene(SelectionScene):
 
         self.infinites = infinites
 
-        self.setSceneRect(
-            0,
-            0,
-            width,
-            height,
-        )
+        self.setSceneRect(0, 0, width, height)
 
         self._aligner = None if aligner_type is None else aligner_type(self)
         self._item_map: t.MutableMapping[Cubeable, t.List[SceneCard]] = defaultdict(list)
@@ -171,10 +168,7 @@ class CubeScene(SelectionScene):
 
         if cards is not None and self._aligner is not None:
             self.add_physical_cards(*cards)
-            self._aligner.drop(
-                cards,
-                QPoint(),
-            ).redo()
+            self._aligner.drop(cards, QPoint()).redo()
 
         self._last_horizontal_sort: t.Optional[t.Type[SortProperty]] = None
         self._last_vertical_sort: t.Optional[t.Type[SortProperty]] = None
@@ -322,10 +316,10 @@ class CubeScene(SelectionScene):
                     for card in
                     cards
                     if (
-                        isinstance(card, SceneCard)
-                        and isinstance(card.cubeable, Printing)
-                        and card.cubeable.cardboard in self.infinites
-                    )
+                    isinstance(card, SceneCard)
+                    and isinstance(card.cubeable, Printing)
+                    and card.cubeable.cardboard in self.infinites
+                )
                 ]
                 for cards in
                 (new_physical_cards, removed_physical_cards)
@@ -351,3 +345,8 @@ class CubeScene(SelectionScene):
             self.removeItem(card)
 
         self.content_changed.emit()
+
+    def __repr__(self):
+        return '{}()'.format(
+            self.__class__.__name__,
+        )

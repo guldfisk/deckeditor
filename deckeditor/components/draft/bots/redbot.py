@@ -7,7 +7,7 @@ from mtgorp.tools.search.pattern import PrintingPatternBuilder
 from magiccube.collections.cube import Cube
 from magiccube.collections.cubeable import Cubeable
 
-from mtgdraft.models import Booster
+from mtgdraft.models import DraftBooster
 
 from deckeditor.components.draft.bottemplate import DraftBot
 
@@ -18,7 +18,7 @@ class RedBot(DraftBot):
     pattern = PrintingPatternBuilder().color.equals(frozenset((Color.RED,))).all()
 
     @classmethod
-    def make_pick(cls, db: CardDatabase, booster: Booster, pool: Cube) -> Cubeable:
+    def make_pick(cls, db: CardDatabase, booster: DraftBooster, pool: Cube) -> Cubeable:
         red_printings = list(cls.pattern.matches(booster.cubeables.printings))
         if red_printings:
             return min(red_printings, key = lambda p: p.cardboard.front_card.cmc)

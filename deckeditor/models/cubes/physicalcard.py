@@ -9,10 +9,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu, QInputDialog
 
-from deckeditor.models.cubes.scenecard import SceneCard, C
-from deckeditor.sorting.sorting import CMCExtractor, ColorExtractor, ColorIdentityExtractor
-from deckeditor.utils.dialogs import ColorSelector
 from mtgorp.models.serilization.strategies.raw import RawStrategy
+from mtgorp.models.interfaces import Printing
+from mtgorp.models.persistent.cardboard import Cardboard
 
 from magiccube.laps.purples.purple import Purple
 from magiccube.laps.tickets.ticket import Ticket
@@ -21,14 +20,14 @@ from magiccube.laps.traps.tree.printingtree import AnyNode, AllNode
 
 from mtgimg.interface import ImageRequest, SizeSlug
 
-from mtgorp.models.interfaces import Printing
-from mtgorp.models.persistent.cardboard import Cardboard
-
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
 from deckeditor.utils.undo import CommandPackage
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.models.cubes.scenecard import SceneCard, C
+from deckeditor.sorting.sorting import CMCExtractor, ColorExtractor, ColorIdentityExtractor
+from deckeditor.utils.dialogs import ColorSelector
 
 
 class PhysicalCard(SceneCard[C]):
@@ -44,6 +43,7 @@ class PhysicalCard(SceneCard[C]):
         cubeable: C,
         node_parent: t.Optional[PhysicalCard] = None,
         values: t.Optional[t.MutableMapping[str, t.Any]] = None,
+        release_id: t.Optional[int] = None,
     ):
         super().__init__(Context.pixmap_loader.get_default_pixmap(SizeSlug.MEDIUM))
 
@@ -55,6 +55,7 @@ class PhysicalCard(SceneCard[C]):
         self._cubeable = cubeable
         self.node_parent = node_parent
         self._back = False
+        self._release_id = release_id
 
         self.values: t.MutableMapping[str, t.Any] = values if values is not None else {}
 
@@ -64,27 +65,39 @@ class PhysicalCard(SceneCard[C]):
 
         self._update_image()
 
+    @property
+    def release_id(self) -> t.Optional[int]:
+        return self._release_id
+
     @classmethod
-    def from_cubeable(cls, cubeable: C, node_parent: t.Optional[PhysicalCard] = None) -> PhysicalCard[C]:
+    def _cubeable_to_physical_type(cls, cubeable: C) -> t.Type[PhysicalCard[C]]:
         if isinstance(cubeable, Printing):
-            return PhysicalPrinting(cubeable, node_parent)
+            return PhysicalPrinting
 
         elif isinstance(cubeable, Trap):
             if isinstance(cubeable.node, AllNode):
-                return PhysicalAllCard(cubeable, node_parent)
+                return PhysicalAllCard
             elif isinstance(cubeable.node, AnyNode):
-                return PhysicalAnyCard(cubeable, node_parent)
+                return PhysicalAnyCard
             else:
                 raise ValueError('unknown node type')
 
         elif isinstance(cubeable, Ticket):
-            return PhysicalTicket(cubeable, node_parent)
+            return PhysicalTicket
 
         elif isinstance(cubeable, Purple):
-            return PhysicalPurple(cubeable, node_parent)
+            return PhysicalPurple
 
-        else:
-            return PhysicalCard(cubeable, node_parent)
+        return PhysicalCard
+
+    @classmethod
+    def from_cubeable(
+        cls,
+        cubeable: C,
+        node_parent: t.Optional[PhysicalCard] = None,
+        release_id: t.Optional[int] = None,
+    ) -> PhysicalCard[C]:
+        return cls._cubeable_to_physical_type(cubeable)(cubeable, node_parent = node_parent, release_id = release_id)
 
     def image_request(self) -> ImageRequest:
         return ImageRequest(self._cubeable, back = self._back, size_slug = SizeSlug.MEDIUM)
@@ -124,6 +137,7 @@ class PhysicalCard(SceneCard[C]):
         cubeable_type: t.Optional[t.Type],
         node_parent: t.Optional[PhysicalCard],
         values: t.MutableMapping[str, t.Any],
+        release_id: t.Optional[int],
         additional_values: t.Optional[t.Dict[str, t.Any]],
     ) -> PhysicalCard:
         card = card_type(
@@ -134,6 +148,7 @@ class PhysicalCard(SceneCard[C]):
             ),
             node_parent,
             values,
+            release_id = release_id,
         )
         if additional_values:
             card.__dict__.update(additional_values)
@@ -151,6 +166,7 @@ class PhysicalCard(SceneCard[C]):
                 type(self.cubeable),
                 self.node_parent,
                 self.values,
+                self._release_id,
                 self._get_additional_reduce(),
             )
         )
@@ -339,8 +355,9 @@ class PhysicalTrap(PhysicalCard[Trap]):
         cubeable: C,
         node_parent: t.Optional[PhysicalTrap],
         values: t.Optional[t.MutableMapping[str, t.Any]] = None,
+        release_id: t.Optional[int] = None,
     ):
-        super().__init__(cubeable, node_parent, values)
+        super().__init__(cubeable, node_parent, values, release_id = release_id)
         self.node_children: t.Sequence[PhysicalTrap] = []
 
     def _get_additional_reduce(self) -> t.Dict[str, t.Any]:
@@ -520,8 +537,9 @@ class PhysicalTicket(PhysicalCard[Ticket]):
         cubeable: C,
         node_parent: t.Optional[PhysicalCard],
         values: t.Optional[t.MutableMapping[str, t.Any]] = None,
+        release_id: t.Optional[int] = None,
     ):
-        super().__init__(cubeable, node_parent, values)
+        super().__init__(cubeable, node_parent, values, release_id = release_id)
         self.option_children: t.Sequence[PhysicalPrinting] = []
 
     def _get_additional_reduce(self) -> t.Dict[str, t.Any]:
@@ -628,10 +646,10 @@ class PhysicalTicket(PhysicalCard[Ticket]):
                             break
                     else:
                         tickets[scene] = (
-                            sorted(cards, key = lambda c: c != self)
-                            if scene == self.scene() else
-                            cards
-                        )[:remaining_required_printings]
+                                             sorted(cards, key = lambda c: c != self)
+                                             if scene == self.scene() else
+                                             cards
+                                         )[:remaining_required_printings]
                         break
 
                 _flatten.triggered.connect(
