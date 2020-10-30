@@ -1,4 +1,4 @@
-import typing as t
+from __future__ import annotations
 
 from abc import ABC
 
@@ -69,7 +69,7 @@ class Amounter(QtWidgets.QLineEdit):
 
 class ExpansionSelectorBox(QtWidgets.QGroupBox):
 
-    def __init__(self, locked: bool, parent: 'GeneratePoolDialog'):
+    def __init__(self, locked: bool, parent: GeneratePoolDialog):
         super().__init__(parent)
         self._expansion_selector = ExpansionSelector()
         self._amounter = Amounter(locked, parent)
@@ -81,7 +81,7 @@ class ExpansionSelectorBox(QtWidgets.QGroupBox):
 
         self.setLayout(self._layout)
 
-    def parent(self) -> 'GeneratePoolDialog':
+    def parent(self) -> GeneratePoolDialog:
         return super().parent()
 
     @property

@@ -10,8 +10,7 @@ from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu, QInputDialog
 
 from mtgorp.models.serilization.strategies.raw import RawStrategy
-from mtgorp.models.interfaces import Printing
-from mtgorp.models.persistent.cardboard import Cardboard
+from mtgorp.models.interfaces import Printing, Cardboard
 
 from magiccube.laps.purples.purple import Purple
 from magiccube.laps.tickets.ticket import Ticket

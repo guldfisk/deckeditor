@@ -40,7 +40,7 @@ def restart(save_session: bool = True) -> None:
             pass
 
     if not Context.compiled:
-        logging.warning('cannot restart when not compiled, qutting instead')
+        logging.warning('cannot restart when not compiled, quiting instead')
         sys.exit()
 
     os.execl(values.EXECUTE_PATH, values.EXECUTE_PATH, *sys.argv[1:])

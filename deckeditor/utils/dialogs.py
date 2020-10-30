@@ -9,7 +9,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 
 from mtgorp.models.persistent.attributes.colors import Color
-from mtgorp.models.persistent.cardboard import Cardboard
+from mtgorp.models.interfaces import Cardboard
 
 from deckeditor.components.cardadd.cardadder import CardboardSelector
 

@@ -9,7 +9,7 @@ from collections import OrderedDict
 from PyQt5 import QtCore
 
 from mtgorp.models.persistent.attributes import typeline, colors
-from mtgorp.models.persistent.printing import Printing
+from mtgorp.models.interfaces import Printing
 
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap

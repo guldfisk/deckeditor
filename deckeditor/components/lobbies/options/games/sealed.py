@@ -5,13 +5,13 @@ import typing as t
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QWidget
 
-from deckeditor.components.lobbies.options.infinites import InfinitesSelector
 from mtgorp.models.formats.format import Format
 
 from deckeditor.components.lobbies.interfaces import LobbyViewInterface
 from deckeditor.components.lobbies.options.games.poolspecification.selector import PoolSpecificationSelector
 from deckeditor.components.lobbies.options.primitives import ComboSelector, CheckboxSelector
 from deckeditor.components.lobbies.options.selector import OptionsSelector
+from deckeditor.components.lobbies.options.infinites import InfinitesSelector
 
 
 class SealedOptionsSelector(QWidget, OptionsSelector):

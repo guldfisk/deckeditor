@@ -88,7 +88,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         self._create_action(f'Go to last tab', self.go_to_last_tab, f'Alt+9')
 
     def _get_go_to_tab(self, idx: int) -> t.Callable[[], None]:
-        return lambda : self.setCurrentIndex(idx)
+        return lambda: self.setCurrentIndex(idx)
 
     def go_to_last_tab(self) -> None:
         self.setCurrentIndex(self.count() - 1)

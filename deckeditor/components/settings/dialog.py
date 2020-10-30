@@ -4,7 +4,7 @@ from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget
 
-from deckeditor.components.settings.setting import BooleanSetting, Setting, OptionsSetting
+from deckeditor.components.settings.setting import BooleanSetting, Setting, OptionsSetting, StringSetting
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligners import DEFAULT_ALIGNER, ALIGNER_TYPE_MAP
 from deckeditor.utils.dialogs import SingleInstanceDialog
@@ -212,6 +212,96 @@ class SettingsDialog(SingleInstanceDialog):
                     ),
                 ),
             ),
+            (
+                'images',
+                (
+                    BooleanSetting(
+                        'remote_images',
+                        'Remote images',
+                        'Get images from server instead of generating locally.',
+                        False,
+                        requires_restart = True,
+                    ),
+                    StringSetting(
+                        'remote_image_url',
+                        'Remote images url',
+                        'Where to get remote images from.',
+                        'http://prohunterdogkeeper.dk',
+                        requires_restart = True,
+                    ),
+                    BooleanSetting(
+                        'allow_local_image_fallback',
+                        'Allow local fallback',
+                        'Generate images locally if they are unavailable remotely.',
+                        True,
+                        requires_restart = True,
+                    ),
+                    # BooleanSetting(
+                    #     'save_images_locally',
+                    #     'Save images',
+                    #     'Save images on disk.',
+                    #     True,
+                    #     requires_restart = True,
+                    # ),
+                ),
+                (),
+            ),
+            (
+                'db',
+                (
+                    BooleanSetting(
+                        'sql_db',
+                        'Use sql database for card info',
+                        'Less start-up overhead and memory usage, but slower application in general, especially searching.',
+                        False,
+                        requires_restart = True,
+                    ),
+                    StringSetting(
+                        'sql_host',
+                        'Sql database host',
+                        'Sql database host.',
+                        'localhost',
+                        requires_restart = True,
+                    ),
+                    StringSetting(
+                        'sql_database_name',
+                        'Sql database name',
+                        'Sql database name.',
+                        'mtg',
+                        requires_restart = True,
+                    ),
+                    StringSetting(
+                        'sql_user',
+                        'Sql database user',
+                        'Sql database user.',
+                        'user',
+                        requires_restart = True,
+                    ),
+                    StringSetting(
+                        'sql_password',
+                        'Sql database password',
+                        'Sql database password.',
+                        '',
+                        requires_restart = True,
+                        hide_text = True,
+                    ),
+                    StringSetting(
+                        'sql_dialect',
+                        'Sql database dialect',
+                        'Sql database dialect.',
+                        'mysql',
+                        requires_restart = True,
+                    ),
+                    StringSetting(
+                        'sql_driver',
+                        'Sql database driver',
+                        'Sql database driver.',
+                        'mysqldb',
+                        requires_restart = True,
+                    ),
+                ),
+                (),
+            ),
         )
 
         self._setting_changes: t.MutableMapping[Setting, t.Any] = {}
@@ -329,5 +419,3 @@ class SettingsDialog(SingleInstanceDialog):
         for setting in self._walk_settings_tree(self._settings_map):
             setting.reset()
         return super().exec_()
-
-

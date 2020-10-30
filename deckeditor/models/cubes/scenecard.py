@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import typing as t
 
-from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
+from mtgorp.models.interfaces import Printing
+
 from magiccube.laps.lap import Lap
-from mtgorp.models.persistent.printing import Printing
+
+from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
 
 
 C = t.TypeVar('C', bound = t.Union[Printing, Lap])

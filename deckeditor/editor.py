@@ -16,8 +16,6 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBo
 
 from yeetlong.multiset import Multiset
 
-from mtgorp.db.load import DBLoadException
-
 from magiccube.collections.delta import CubeDeltaOperation
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import AllNode
@@ -31,7 +29,7 @@ from deckeditor.components.editables.editablestabs import FileOpenException, Edi
 from deckeditor.components.lobbies.view import LobbiesView, LobbyModelClientConnection
 from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
 from deckeditor.components.views.editables.deck import DeckView
-from deckeditor.context.context import Context
+from deckeditor.context.context import Context, DbType
 from deckeditor.models.deck import DeckModel, Deck, TabModel, Pool
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.values import SUPPORTED_EXTENSIONS
@@ -290,6 +288,10 @@ class MainWindow(QMainWindow):
 
         self._load_state()
 
+        self._save_state_timer = QtCore.QTimer()
+        self._save_state_timer.timeout.connect(self.save_state)
+        self._save_state_timer.start(1000 * 60 * 3)
+
     def _test(self) -> None:
         ps = list(Context.db.printings.values())
         self._on_add_printings(
@@ -463,6 +465,7 @@ class MainWindow(QMainWindow):
         self.save_state()
         if Context.embargo_server is not None:
             Context.embargo_server.stop()
+        Context.pixmap_loader.stop()
         super().closeEvent(close_event)
 
 
@@ -547,6 +550,14 @@ def run():
         help = 'dont start server',
     )
     arg_parser.add_argument(
+        '--db-type',
+        type = str,
+        nargs = '?',
+        choices = ['sql', 'pickle', 'default'],
+        default = 'default',
+        help = 'what type of server to use. "default" means use the one defined in application settings',
+    )
+    arg_parser.add_argument(
         '--port',
         metavar = 'P',
         type = int,
@@ -592,12 +603,14 @@ def run():
 
     models.create(engine)
 
+    db_type = DbType(args.db_type)
+
     try:
-        Context.init(app, compiled = compiled, debug = args.debug)
-    except DBLoadException:
+        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type)
+    except Exception:
         if not DBUpdateDialog().exec_() == QDialog.Accepted:
             return
-        Context.init(app, compiled = compiled, debug = args.debug)
+        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type)
 
     init_deck_serializers()
 

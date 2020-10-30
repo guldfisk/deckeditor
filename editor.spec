@@ -3,6 +3,7 @@
 import importlib
 import os
 
+
 block_cipher = None
 
 package_imports = (
@@ -26,7 +27,7 @@ a = Analysis(
     ['deckeditor/editor.py'],
     pathex = ['/home/phdk/PycharmProjects/deckeditor'],
     binaries = [],
-    hiddenimports = ['ijson.backends.python'],
+    hiddenimports = ['ijson.backends.python', 'sqlalchemy.ext.baked'],
     hookspath = [],
     runtime_hooks = [],
     excludes = [],

@@ -13,8 +13,9 @@ from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
 
-from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
-from mtgorp.models.persistent.printing import Printing
+from yeetlong.multiset import Multiset
+
+from mtgorp.models.interfaces import Printing
 from mtgorp.db.database import CardDatabase
 
 from magiccube.collections.cubeable import Cubeable
@@ -22,8 +23,7 @@ from magiccube.collections.cubeable import Cubeable
 from cubeclient.models import ApiClient, CubeBoosterSpecification
 
 from mtgdraft.client import DraftClient
-from mtgdraft.models import DraftRound, Pick, SinglePickPick, BurnPick, PickPoint, DraftConfiguration, DraftBooster, \
-    SinglePick, Burn
+from mtgdraft.models import DraftRound, SinglePickPick, BurnPick, PickPoint, DraftConfiguration, DraftBooster, SinglePick, Burn
 
 from deckeditor import values
 from deckeditor.components.views.cubeedit.cubeview import CubeView
@@ -40,7 +40,7 @@ from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.components.draft.draftbots import collect_bots, bot_pick
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
-from yeetlong.multiset import Multiset
+from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
 
 
 class _DraftClient(DraftClient):
@@ -68,7 +68,7 @@ class _DraftClient(DraftClient):
 class DraftModel(QObject):
     connected = pyqtSignal(bool)
     received_booster = pyqtSignal(PickPoint)
-    new_head = pyqtSignal(object)
+    new_head = pyqtSignal(object, bool)
     picked = pyqtSignal(PickPoint, tuple, bool)
     draft_started = pyqtSignal(DraftConfiguration)
     round_started = pyqtSignal(DraftRound)
@@ -98,9 +98,9 @@ class DraftModel(QObject):
         except IndexError:
             return None
 
-    def _update_head(self, head: int) -> None:
+    def _update_head(self, head: int, new: bool = True) -> None:
         self._pick_counter_head = head
-        self.new_head.emit(self.pick_point_head)
+        self.new_head.emit(self.pick_point_head, new)
 
     def go_to_latest(self) -> None:
         latest = self._draft_client.history.current
@@ -128,7 +128,7 @@ class DraftModel(QObject):
     def _on_received_booster(self, pick_point: PickPoint) -> None:
         self.received_booster.emit(pick_point)
         if self._pick_counter_head >= pick_point.global_pick_number:
-            self._update_head(pick_point.global_pick_number)
+            self._update_head(pick_point.global_pick_number, pick_point.global_pick_number > self._pick_number)
 
         if not Context.main_window.isActiveWindow() and Context.settings.value('notify_on_booster_arrived', True, bool):
             try:
@@ -156,7 +156,7 @@ class DraftModel(QObject):
         self._pending_picked_scene = None
         self._pending_picked_position = None
         if self._pick_counter_head >= pick_point.global_pick_number:
-            self._update_head(pick_point.global_pick_number + 1)
+            self._update_head(pick_point.global_pick_number + 1, new = new)
 
     def connect(self) -> None:
         self._draft_client = _DraftClient(
@@ -287,6 +287,7 @@ class DraftModel(QObject):
     def load(cls, state: t.Any) -> DraftModel:
         draft_model = cls(key = state['key'])
         draft_model._pick_number = state['pick_number']
+        print('loading draft model', draft_model._pick_number)
         return draft_model
 
 
@@ -507,7 +508,10 @@ class BoosterWidget(QtWidgets.QWidget):
                     card.add_highlight(color)
                 del cubeables_to_cards_map[cubeable][:multiplicity]
 
-    def _set_pick_point(self, pick_point: t.Optional[PickPoint]) -> None:
+    def _set_pick_point(self, pick_point: t.Optional[PickPoint], new: bool) -> None:
+        if not new:
+            return
+
         self._update_pick_meta()
         self._booster_view.cube_image_view.cancel_drags()
 

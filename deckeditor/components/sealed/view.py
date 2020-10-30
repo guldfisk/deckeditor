@@ -4,10 +4,11 @@ import typing as t
 
 import requests
 import simplejson
+from promise import promise
+
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog
-from promise import promise
 
 from cubeclient.models import LimitedSession, LimitedDeck
 from deckeditor.components.views.editables.deck import DeckView

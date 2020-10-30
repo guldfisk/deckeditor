@@ -6,10 +6,7 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 
-from cubeclient.models import CubeRelease
-from magiccube.collections.nodecollection import ConstrainedNode
-from mtgorp.models.persistent.card import Card
-from mtgorp.models.persistent.printing import Printing
+from mtgorp.models.interfaces import Printing, Card
 
 from mtgimg.interface import ImageRequest
 
@@ -17,6 +14,9 @@ from magiccube.collections.cubeable import Cubeable
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode, AllNode
+from magiccube.collections.nodecollection import ConstrainedNode
+
+from cubeclient.models import CubeRelease
 
 from deckeditor.context.context import Context
 from deckeditor.utils.images import ScaledImageLabel

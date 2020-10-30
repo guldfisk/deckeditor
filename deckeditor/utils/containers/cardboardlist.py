@@ -5,7 +5,7 @@ import typing as t
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import QPoint, QModelIndex
 
-from mtgorp.models.persistent.cardboard import Cardboard
+from mtgorp.models.interfaces import Cardboard
 
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from deckeditor.context.context import Context

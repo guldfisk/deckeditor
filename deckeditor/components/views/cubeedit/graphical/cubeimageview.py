@@ -12,7 +12,7 @@ from deckeditor.utils.dialogs import SingleInstanceDialog
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
 from yeetlong.multiset import Multiset
 
-from mtgorp.models.persistent.printing import Printing
+from mtgorp.models.interfaces import Printing
 from mtgorp.models.serilization.strategies.picklestrategy import PickleStrategy
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy

@@ -5,14 +5,14 @@ from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QUndoStack
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
-from mtgorp.models.persistent.printing import Printing
+from mtgorp.models.interfaces import Printing
 
 from magiccube.collections.cubeable import Cubeable
 from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 
 
 class CubeableTableItem(QTableWidgetItem):

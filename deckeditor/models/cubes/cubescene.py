@@ -7,7 +7,7 @@ from collections import defaultdict
 from PyQt5.QtCore import QPoint, pyqtSignal
 from PyQt5.QtWidgets import QUndoCommand
 
-from mtgorp.models.persistent.printing import Printing
+from mtgorp.models.interfaces import Printing
 
 from magiccube.collections.cubeable import Cubeable
 from magiccube.collections.cube import Cube

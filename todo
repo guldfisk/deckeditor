@@ -1,8 +1,8 @@
 windows installable
 
 filter / search pick log
-"go back in time", so select previous pick from table or whatever, and booster view displays how booster looked at that point, with picked (and burned or whatever applicable) card highlighted.
 seen cards view
+when selecting row in picks history, go to that point in history in the booster view
 
 supports for burn drafting bots
 less ugly bot tab
@@ -17,25 +17,27 @@ sort macroes
         just extend sort api to also have a subdivision sort list
     ability to specify sort macro for auto sort on open
 option for visual menu when selecting printing (also for cardboards with many printing, espcially relevant for basics)
-only ask about saving when closing tab when changes has actually modified it (not just a bunch of intra scene moves)
-dont ask about saving for limited pools when it does not make sense. like, after submitting a pool and closing tab. (maybe still remember layout on reopen?)
 auto sorted mode in cubeimage view (cant move cards in view, sort selected for both directions, auto updated)
 move cards retaining structure in stacking grid option
-drag and drop from table
-filtering in table
-flatten etc from table
+fix grid view intermoves (really unintuitive / buggy)
 customize hotkeys
 image view in card adder
 try to infer type of .json file
     remove "open pool"
-save session on qt error, or at least periodically.
+save session on qt error
     is it saved on computer shutdown?
         does not look like it
-view pools / decks for session directly through client instead of having to download them and open them manually.
+view pools / decks for limited session directly through client instead of having to download them and open them manually.
 ability to move cards around between main and sideboard in deckview, and then revert, like unlock / lock sidebord in cockatrice.
 sample hand view
     draw additional cards
+option to lazyload tabs (primarily for sql db mode)
 
+drag and drop from table
+filtering in table
+flatten etc from table
+dont ask about saving for limited pools when it does not make sense. like, after submitting a pool and closing tab. (maybe still remember layout on reopen?)
+only ask about saving when closing tab when changes has actually modified it (not just a bunch of intra scene moves)
 migrate custom sort to sql
 bots break sometimes, possibly due to ghost cards
     error handling for bots in general

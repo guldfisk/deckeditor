@@ -20,3 +20,4 @@ simplejson
 flask
 pysqlite3
 SQLAlchemy-JSONField
+mysqlclient

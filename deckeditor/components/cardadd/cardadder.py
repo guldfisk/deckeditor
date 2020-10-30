@@ -6,8 +6,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCompleter, QInputDialog
 
-from mtgorp.models.persistent.printing import Printing
-from mtgorp.models.persistent.cardboard import Cardboard
+from mtgorp.models.interfaces import Printing, Cardboard
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
 

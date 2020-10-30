@@ -6,7 +6,10 @@ import os
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QTableWidgetItem
+
+from mtgorp.models.serilization.strategies.raw import RawStrategy
+
+from magiccube.collections.infinites import Infinites
 
 from deckeditor import paths
 from deckeditor.components.lobbies.interfaces import LobbyViewInterface
@@ -15,8 +18,6 @@ from deckeditor.context.context import Context
 from deckeditor.utils.containers.cardboardlist import CardboardList
 from deckeditor.utils.dialogs import SelectCardboardDialog
 from deckeditor.utils.stack import DynamicSizeStack
-from magiccube.collections.infinites import Infinites
-from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 
 class InfinitesSummary(QtWidgets.QLabel, OptionsSelector):
@@ -26,11 +27,11 @@ class InfinitesSummary(QtWidgets.QLabel, OptionsSelector):
             ', '.join(
                 sorted(
                     c.name
-                        for c in
-                        RawStrategy(Context.db).deserialize(
-                            Infinites,
-                            options['infinites'],
-                        )
+                    for c in
+                    RawStrategy(Context.db).deserialize(
+                        Infinites,
+                        options['infinites'],
+                    )
                 )
             )
         )

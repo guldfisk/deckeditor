@@ -3,7 +3,7 @@ from __future__ import annotations
 import pickle
 import typing as t
 
-from mtgorp.models.persistent.cardboard import Cardboard
+from mtgorp.models.interfaces import Cardboard
 
 from deckeditor import paths
 

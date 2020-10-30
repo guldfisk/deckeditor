@@ -3,7 +3,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 
-from deckeditor.utils.colors import overlay_colors, color_values
+from deckeditor.utils.colors import overlay_colors
 
 
 class GraphicPixmapObject(QtWidgets.QGraphicsObject):
