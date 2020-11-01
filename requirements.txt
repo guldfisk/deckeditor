@@ -1,10 +1,12 @@
 sqlalchemy
 plyer
 appdirs
+yeetlong@ https://github.com/guldfisk/yeetlong/tarball/master#egg=yeetlong-1.0
+orp@ https://github.com/guldfisk/orp/tarball/master#egg=orp-1.0
 mtgorp@ https://github.com/guldfisk/mtgorp/tarball/master#egg=mtgorp-1.0
 mtgimg@ https://github.com/guldfisk/mtgimg/tarball/master#egg=mtgimg-1.0
+magiccube@ https://github.com/guldfisk/magiccube/tarball/master#egg=mmagiccube-1.0
 mtgqt@ https://github.com/guldfisk/mtgqt/tarball/master#egg=mtgqt-1.0
-orp@ https://github.com/guldfisk/orp/tarball/master#egg=orp-1.0
 mtgdraft@ https://github.com/guldfisk/mtgdraft/tarball/master#egg=mtgdraft-1.0
 lobbyclient@ https://github.com/guldfisk/lobbyclient/tarball/master#egg=lobbyclient-1.0
 cubeclient@ https://github.com/guldfisk/cubeclient/tarball/master#egg=cubeclient-1.0
