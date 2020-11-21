@@ -8,8 +8,6 @@ from PyQt5.QtCore import QPoint, Qt, QRectF, QRect
 from PyQt5.QtGui import QPainter, QPolygonF, QTransform
 from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction, QDialogButtonBox
 
-from deckeditor.utils.dialogs import SingleInstanceDialog
-from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
 from yeetlong.multiset import Multiset
 
 from mtgorp.models.interfaces import Printing
@@ -21,7 +19,6 @@ from mtgorp.tools.search.pattern import Criteria
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
 
-from deckeditor.components.views.cubeedit.graphical.sortdialog import SortDialog
 from deckeditor.utils.undo import CommandPackage
 from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
@@ -29,8 +26,13 @@ from deckeditor.context.context import Context
 from deckeditor.sorting import sorting
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from deckeditor.utils.actions import WithActions
-from deckeditor.sorting.sorting import SortProperty
+from deckeditor.sorting.sorting import SortProperty, SortMacro, SortSpecification, SortDimension
 from deckeditor.utils.transform import transform_factory
+from deckeditor.store import models
+from deckeditor.components.settings import settings
+from deckeditor.store import EDB
+from deckeditor.utils.dialogs import SingleInstanceDialog
+from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
 
 
 class QueryEdit(QtWidgets.QLineEdit):
@@ -172,7 +174,6 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         self._fit_action = self._create_action('Fit View', self._fit_cards, 'F')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
-        self._sort_action = self._create_action('Sort', self._sort, 'S')
         self._deselect_all_action = self._create_action(
             'Deselect All',
             lambda: self._scene.clear_selection(),
@@ -189,6 +190,12 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._paste_action = self._create_action('Paste', self._paste, 'Ctrl+V')
         self._resize_action = self._create_action('Resize', self._resize_scene)
 
+        self._sort_macro_actions = [
+            self._create_sort_macro_action(i)
+            for i in
+            range(9)
+        ]
+
         self.customContextMenuRequested.connect(self._context_menu_event)
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.setTransformationAnchor(QtWidgets.QGraphicsView.NoAnchor)
@@ -201,6 +208,21 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._selected_items_info = 0
 
         self._scene.changed.connect(self._update_selected_info_text)
+
+    def _create_sort_macro_action(self, idx: int) -> QAction:
+        return self._create_action('Sort macro {}'.format(idx + 1), lambda: self._sort_macro(idx), 'Ctrl+{}'.format(idx + 1))
+
+    def _sort_macro(self, idx: int) -> None:
+        macro = EDB.Session.query(models.SortMacro).filter(models.SortMacro.index == idx).scalar()
+        if not macro:
+            return
+        self._undo_stack.push(
+            self._scene.aligner.sort(
+                sort_macro = macro,
+                cards = self._scene.items() if not self._scene.selectedItems() else self._scene.selectedItems(),
+                in_place = bool(self._scene.selectedItems()),
+            )
+        )
 
     def _resize_scene(self):
         dialog = SceneResizeDialog(self.scene())
@@ -242,7 +264,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         if previous_items != self._items_info or self.hasFocus():
             self._update_status()
 
-            if Context.settings.value('on_view_card_count', True, bool):
+            if settings.ON_VIEW_CARD_COUNT.get_value():
                 self.update()
 
     @property
@@ -299,18 +321,18 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     ) -> None:
         self._undo_stack.push(
             self._scene.aligner.sort(
-                sort_property,
-                self._scene.items() if not self._scene.selectedItems() else self._scene.selectedItems(),
-                orientation,
-                bool(self._scene.selectedItems()),
+                sort_macro = SortMacro(
+                    specifications = [
+                        SortSpecification(
+                            dimension = SortDimension.HORIZONTAL if orientation == Qt.Horizontal else SortDimension.VERTICAL,
+                            sort_property = sort_property,
+                        )
+                    ],
+                ),
+                cards = self._scene.items() if not self._scene.selectedItems() else self._scene.selectedItems(),
+                in_place = bool(self._scene.selectedItems()),
             )
         )
-
-    def _sort(self) -> None:
-        dialog = SortDialog.get()
-        dialog.selection_done.connect(self._on_sort_selected)
-        dialog.exec_()
-        dialog.selection_done.disconnect(self._on_sort_selected)
 
     def _search_select(self) -> None:
         dialog = SearchSelectionDialog(self)
@@ -368,7 +390,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
             if modifiers & QtCore.Qt.ControlModifier:
                 cubeable_extractor = (
                     (lambda c: c.cubeable.cardboard if isinstance(c.cubeable, Printing) else c.cubeable)
-                    if Context.settings.value('doubleclick_match_on_cardboards', True, bool) else
+                    if settings.DOUBLECLICK_MATCH_ON_CARDBOARDS.get_value() else
                     (lambda c: c.cubeable)
                 )
                 for card in self._scene.items():
@@ -406,7 +428,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     def _fit_cards(self) -> None:
         selected = (
             None
-            if Context.settings.value('fit_all_cards', False, bool) else
+            if settings.FIT_ALL_CARDS.get_value() else
             self._scene.selectedItems()
         )
         if selected:
@@ -435,15 +457,15 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         return transform
 
     def _flatten_all_traps(self) -> None:
-        selected = None if Context.settings.value('always_flatten_all', False, bool) else self._scene.selectedItems()
+        selected = None if settings.ALWAYS_FLATTEN_ALL.get_value() else self._scene.selectedItems()
         self._undo_stack.push(
             CommandPackage(
                 [
-                    card.get_flatten_command(Context.settings.value('flatten_recursively', True, bool))
+                    card.get_flatten_command(settings.FLATTEN_RECURSIVELY.get_value())
                     for card in (selected if selected else self._scene.items())
                     if isinstance(card, PhysicalAllCard) and (
                     len(card.cubeable.node.children) < 8
-                    or not Context.settings.value('dont_auto_flatten_big')
+                    or not settings.DONT_AUTO_FLATTEN_BIG.get_value()
                 )
                 ]
             )
@@ -453,9 +475,11 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         menu = QtWidgets.QMenu(self)
 
         menu.addAction(self._fit_action)
-        menu.addAction(self._sort_action)
 
         sort_menu = menu.addMenu('Sorts')
+
+        for action in self._sort_macro_actions[:3]:
+            sort_menu.addAction(action)
 
         for (_, orientation), action in self._sort_actions.items():
             if orientation == QtCore.Qt.Horizontal or self._scene.aligner.supports_sort_orientation:
@@ -547,7 +571,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
         if (
             event.modifiers() & QtCore.Qt.ControlModifier
-            or Context.settings.value('image_view_scroll_default_zoom', True, bool)
+            or settings.IMAGE_VIEW_SCROLL_DEFAULT_ZOOM.get_value()
         ):
             transform = self.transform()
             x_scale, y_scale = transform.m11(), transform.m22()
@@ -694,7 +718,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
             )
         )
 
-        if Context.settings.value('select_on_covered_parts', False, bool):
+        if settings.SELECT_ON_COVERED_PARTS.get_value():
             self._scene.add_selection(potential_items, modifiers)
             return
 
@@ -737,7 +761,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         super().paintEvent(event)
 
-        if not Context.settings.value('on_view_card_count', True, bool):
+        if not settings.ON_VIEW_CARD_COUNT.get_value():
             return
 
         rect = self.rect()

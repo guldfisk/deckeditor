@@ -3,9 +3,12 @@ from __future__ import annotations
 import itertools
 import typing as t
 from collections import defaultdict
+from dataclasses import dataclass
 
 from PyQt5.QtCore import QPoint, pyqtSignal
 from PyQt5.QtWidgets import QUndoCommand
+
+from yeetlong.counters import Counter
 
 from mtgorp.models.interfaces import Printing
 
@@ -134,6 +137,22 @@ class ChangeAligner(QUndoCommand):
         self._multi_drops.undo()
         self._scene.aligner_changed.emit(self._from_aligner)
         self._pick_up.undo()
+
+
+@dataclass
+class PhysicalCardChange(object):
+    added: t.Collection[SceneCard] = ()
+    removed: t.Collection[SceneCard] = ()
+
+    @property
+    def cube_delta_operation(self):
+        return CubeDeltaOperation(
+            Counter(
+                card.cubeable for card in self.added
+            ) - Counter(
+                card.cubeable for card in self.removed
+            )
+        )
 
 
 class CubeScene(SelectionScene):
@@ -297,12 +316,8 @@ class CubeScene(SelectionScene):
                 )
             )
 
-            removed_physical_cards = list(
-                itertools.chain.from_iterable(
-                    self._item_map.get(cubeable, [])[:-multiplicity]
-                    for cubeable, multiplicity in
-                    modification.removed_cubeables
-                )
+            removed_physical_cards = self.get_cards_from_cubeables(
+                modification.removed_cubeables
             )
 
         else:
@@ -330,6 +345,15 @@ class CubeScene(SelectionScene):
             new_physical_cards,
             removed_physical_cards,
             QPoint() if position is None else position,
+        )
+
+    def get_cards_from_cubeables(self, cubeables: t.Iterable[t.Tuple[Cubeable, int]]) -> t.Collection[SceneCard]:
+        return list(
+            itertools.chain.from_iterable(
+                self._item_map[cubeable][:multiplicity]
+                for cubeable, multiplicity in
+                cubeables
+            )
         )
 
     def add_physical_cards(self, *physical_cards: SceneCard) -> None:

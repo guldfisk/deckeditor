@@ -21,6 +21,7 @@ from cubeclient.models import CubeRelease
 from deckeditor.context.context import Context
 from deckeditor.utils.images import ScaledImageLabel
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.components.settings import settings
 
 
 class CubeableImageView(ScaledImageLabel):
@@ -51,7 +52,7 @@ class CubeableImageView(ScaledImageLabel):
             and bool(
             focus.modifiers is not None
             and focus.modifiers & QtCore.Qt.ShiftModifier
-        ) != Context.settings.value('default_focus_trap_sub_printing', False, bool)
+        ) != settings.DEFAULT_FOCUS_TRAP_SUB_PRINTING.get_value()
         ):
             cubeable = focus.cubeable.get_printing_at(*focus.position, *focus.size)
         else:
@@ -77,7 +78,7 @@ class CubeableImageView(ScaledImageLabel):
                 image_request, pixmap
             )
         ).catch(
-            logging.warn
+            logging.warning
         )
 
 
@@ -104,9 +105,9 @@ class CubeableTextView(QtWidgets.QStackedWidget):
         self.addWidget(self._trap_view)
 
         self._cubeable_view_map = {
-            Printing: self._printing_view,
-            Ticket: self._ticket_view,
-            Trap: self._trap_view,
+            'Printing': self._printing_view,
+            'Ticket': self._ticket_view,
+            'Trap': self._trap_view,
         }
 
         self.setCurrentWidget(self._blank)
@@ -121,7 +122,7 @@ class CubeableTextView(QtWidgets.QStackedWidget):
 
         self._latest_cubeable = focus.cubeable
 
-        view = self._cubeable_view_map.get(type(focus.cubeable))
+        view = self._cubeable_view_map.get(focus.cubeable.__class__.__name__)
 
         if view is None:
             self.setCurrentWidget(self._blank)
@@ -449,7 +450,7 @@ class CubeableView(QtWidgets.QWidget):
                 'text': 1,
                 'both': 2,
             }.get(
-                Context.settings.value('default_card_view_type', 'image', str)
+                settings.DEFAULT_CARD_VIEW_TYPE.get_value()
             )
         )
 

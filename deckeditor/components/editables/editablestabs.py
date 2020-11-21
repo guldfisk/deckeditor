@@ -18,7 +18,7 @@ from deckeditor.utils.actions import WithActions
 from deckeditor.application.embargo import restart
 from deckeditor.utils.wrappers import notify_on_exception
 from deckeditor.components.views.editables.multicubestab import MultiCubesTab
-from deckeditor.sorting.sorting import CMCExtractor
+from deckeditor.sorting.sorting import CMCExtractor, SortMacro, SortSpecification
 from deckeditor.components.draft.view import DraftView, DraftModel
 from deckeditor.components.editables.editor import Editor, EditablesMeta
 from deckeditor.models.cubes.physicalcard import PhysicalCard
@@ -30,6 +30,8 @@ from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel, PoolModel, TabModel, Deck, Pool
 from deckeditor.serialization.tabmodelserializer import TabModelSerializer
 from deckeditor import paths
+from deckeditor.components.settings import settings
+from deckeditor.store import EDB, models
 
 
 class FileIOException(Exception):
@@ -287,13 +289,19 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             else:
                 raise FileOpenException('invalid load target "{}"'.format(target))
 
-            if isinstance(tab, MultiCubesTab) and Context.settings.value('auto_sort_non_emb_files_on_open', True, bool):
+            if isinstance(tab, MultiCubesTab) and settings.AUTO_SORT_NON_EMB_FILES_ON_OPEN.get_value():
                 for cube_view in tab.cube_views:
                     cube_view.cube_scene.aligner.sort(
-                        CMCExtractor,
-                        cube_view.cube_scene.items(),
-                        QtCore.Qt.Horizontal,
-                        False,
+                        sort_macro = EDB.Session.query(models.SortMacro).get(
+                            settings.AUTO_SORT_MACRO_ID.get_value()
+                        ) or SortMacro(
+                            specifications = [
+                                SortSpecification(
+                                    sort_property = CMCExtractor,
+                                )
+                            ]
+                        ),
+                        cards = cube_view.cube_scene.items(),
                     ).redo()
 
             self.add_editable(tab, meta)
@@ -447,7 +455,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         closed_tab = self.widget(index)
 
         if (
-            Context.settings.value('confirm_closing_modified_file', True, bool)
+            settings.CONFIRM_CLOSING_MODIFIED_FILE.get_value()
             and (
             not self._metas[closed_tab].path and not closed_tab.is_empty()
             or not closed_tab.undo_stack.isClean()

@@ -4,8 +4,10 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal, QObject
+from sqlalchemy.orm.attributes import QueryableAttribute
 
-from deckeditor.context.context import Context
+from deckeditor.components.settings.settings import Setting
+from deckeditor.store import EDB
 
 
 class HoverLabel(QtWidgets.QLabel):
@@ -19,41 +21,27 @@ class HoverLabel(QtWidgets.QLabel):
         self.focus_description.emit(self._description)
 
 
-class Setting(QObject):
+class SettingEditor(QObject):
     selected = pyqtSignal(object, object)
     show_description = pyqtSignal(object, str)
-    setting_type = t.Type
+    setting_type: t.Type
 
     def __init__(
         self,
-        key: str,
-        name: str,
+        setting: Setting,
         description: str,
-        default_value: t.Any,
-        requires_restart: bool = False,
     ):
         super().__init__()
-        self._key = key
-        self._name = name
+        self._setting = setting
         self._description = description
-        self._default_value = default_value
-        self._requires_restart = requires_restart
 
     @property
-    def key(self) -> str:
-        return self._key
+    def setting(self) -> Setting:
+        return self._setting
 
     @property
     def value(self):
-        return Context.settings.value(self._key, self._default_value, self.setting_type)
-
-    @property
-    def default_value(self) -> t.Any:
-        return self._default_value
-
-    @property
-    def requires_restart(self) -> bool:
-        return self._requires_restart
+        return self._setting.get_value()
 
     def reset(self) -> None:
         pass
@@ -62,20 +50,17 @@ class Setting(QObject):
         pass
 
 
-class BooleanSetting(Setting):
+class BooleanSettingEditor(SettingEditor):
     setting_type = bool
 
     def __init__(
         self,
-        key: str,
-        name: str,
+        setting: Setting,
         description: str,
-        default_value: bool,
-        requires_restart: bool = False,
     ):
-        super().__init__(key, name, description, default_value, requires_restart = requires_restart)
+        super().__init__(setting, description)
 
-        self._label = HoverLabel(self._name, self._description)
+        self._label = HoverLabel(self._setting.name, self._description)
         self._box = QtWidgets.QCheckBox()
 
         self._box.stateChanged.connect(lambda v: self.selected.emit(self, v == 2))
@@ -88,22 +73,19 @@ class BooleanSetting(Setting):
         layout.addRow(self._label, self._box)
 
 
-class StringSetting(Setting):
+class StringSettingEditor(SettingEditor):
     setting_type = str
 
     def __init__(
         self,
-        key: str,
-        name: str,
+        setting: Setting,
         description: str,
-        default_value: str,
-        requires_restart: bool = False,
         *,
         hide_text: bool = False,
     ):
-        super().__init__(key, name, description, default_value, requires_restart = requires_restart)
+        super().__init__(setting, description)
 
-        self._label = HoverLabel(self._name, self._description)
+        self._label = HoverLabel(self._setting.name, self._description)
         self._field = QtWidgets.QLineEdit()
 
         if hide_text:
@@ -120,21 +102,18 @@ class StringSetting(Setting):
         layout.addRow(self._label, self._field)
 
 
-class OptionsSetting(Setting):
+class OptionsSettingEditor(SettingEditor):
     setting_type = str
 
     def __init__(
         self,
-        key: str,
-        name: str,
+        setting: Setting,
         description: str,
-        default_value: str,
         options: t.Sequence[str],
-        requires_restart: bool = False,
     ):
-        super().__init__(key, name, description, default_value, requires_restart = requires_restart)
+        super().__init__(setting, description)
 
-        self._label = HoverLabel(self._name, self._description)
+        self._label = HoverLabel(self._setting.name, self._description)
         self._combo = QtWidgets.QComboBox()
 
         self._combo.addItems(options)
@@ -144,6 +123,50 @@ class OptionsSetting(Setting):
 
     def reset(self) -> None:
         self._combo.setCurrentText(self.value)
+
+    def render(self, layout: QtWidgets.QFormLayout):
+        layout.addRow(self._label, self._combo)
+
+
+class AlchemySettingEditor(SettingEditor):
+    setting_type = int
+
+    def __init__(
+        self,
+        setting: Setting,
+        description: str,
+        model_type: object,
+        field: QueryableAttribute,
+    ):
+        super().__init__(setting, description)
+
+        self._model_type = model_type
+        self._field = field
+
+        self._pk_column = self._model_type.__mapper__.primary_key[0]
+
+        self._label = HoverLabel(self._setting.name, self._description)
+        self._combo = QtWidgets.QComboBox()
+
+        self._combo.currentTextChanged.connect(
+            lambda v: self.selected.emit(self, EDB.Session.query(self._pk_column).filter(self._field == v).scalar() or 0)
+        )
+        self._label.focus_description.connect(lambda d: self.show_description.emit(self, d))
+
+    def reset(self) -> None:
+        self._combo.clear()
+        self._combo.addItems(
+            row
+            for row, in
+            EDB.Session.query(self._field)
+        )
+        model = EDB.Session.query(self._model_type).get(self.value)
+        if model is None:
+            self._combo.addItem('Select macro')
+            model = 'Select macro'
+        else:
+            model = getattr(model, self._field.name)
+        self._combo.setCurrentText(model)
 
     def render(self, layout: QtWidgets.QFormLayout):
         layout.addRow(self._label, self._combo)

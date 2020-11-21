@@ -41,6 +41,7 @@ from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeIma
 from deckeditor.components.draft.draftbots import collect_bots, bot_pick
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
+from deckeditor.components.settings import settings
 
 
 class _DraftClient(DraftClient):
@@ -130,7 +131,7 @@ class DraftModel(QObject):
         if self._pick_counter_head >= pick_point.global_pick_number:
             self._update_head(pick_point.global_pick_number, pick_point.global_pick_number > self._pick_number)
 
-        if not Context.main_window.isActiveWindow() and Context.settings.value('notify_on_booster_arrived', True, bool):
+        if not Context.main_window.isActiveWindow() and settings.NOTIFY_ON_BOOSTER_ARRIVED.get_value():
             try:
                 plyer.notification.notify(
                     title = 'New pack',
@@ -194,7 +195,7 @@ class DraftModel(QObject):
         if card.values.get('ghost'):
             return
 
-        if not Context.settings.value('infer_pick_burn', True, bool):
+        if not settings.INFER_PICK_BURN.get_value():
             infer = False
 
         if isinstance(self._draft_client.draft_format, SinglePick):
@@ -287,7 +288,6 @@ class DraftModel(QObject):
     def load(cls, state: t.Any) -> DraftModel:
         draft_model = cls(key = state['key'])
         draft_model._pick_number = state['pick_number']
-        print('loading draft model', draft_model._pick_number)
         return draft_model
 
 
@@ -341,9 +341,10 @@ class BoosterImageView(CubeImageView):
 
         menu.addSeparator()
 
-        menu.addAction(self._sort_action)
-
         sort_menu = menu.addMenu('Sorts')
+
+        for action in self._sort_macro_actions[:3]:
+            sort_menu.addAction(action)
 
         for (_, orientation), action in self._sort_actions.items():
             if orientation == QtCore.Qt.Horizontal or self._scene.aligner.supports_sort_orientation:
@@ -456,7 +457,7 @@ class BoosterWidget(QtWidgets.QWidget):
         self._update_pick_meta()
 
     def _on_card_double_clicked(self, card: PhysicalCard, modifiers: Qt.KeyboardModifiers):
-        if not Context.settings.value('pick_on_double_click', True, bool):
+        if not settings.PICK_ON_DOUBLE_CLICK.get_value():
             return
 
         self._draft_model.pick(

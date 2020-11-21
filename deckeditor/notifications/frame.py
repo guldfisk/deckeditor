@@ -58,7 +58,7 @@ class NotificationFrame(object):
             notification.move(
                 self._window.width() - notification.width() - self._spacing,
                 position,
-                )
+            )
 
     def notify(self, message: str) -> None:
         notification = Notification(

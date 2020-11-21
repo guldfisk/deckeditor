@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections
 import typing as t
 
 from sqlalchemy import Integer, String, Column, update, Enum, Boolean, ForeignKey
@@ -11,8 +10,10 @@ from sqlalchemy.orm import relationship
 
 import sqlalchemy_jsonfield
 
-from deckeditor.store import Session
-from deckeditor.values import SortDimension, SortDirection
+from deckeditor.store import EDB
+from deckeditor.sorting import sorting
+from deckeditor.sorting.sorting import SortDimension, SortDirection, SortProperty, DimensionContinuity
+from deckeditor.store.fields import SortPropertyField
 
 
 Base = declarative_base()
@@ -22,22 +23,22 @@ class GameTypeOptions(Base):
     __tablename__ = 'game_type_options'
 
     id = Column(Integer, primary_key = True)
-    game_type = Column(String, unique = True)
+    game_type = Column(String(127), unique = True)
     options = Column(sqlalchemy_jsonfield.JSONField())
 
     @classmethod
     def save_options(cls, game_type: str, options: t.Mapping[str, t.Any]) -> None:
         try:
-            Session.add(cls(game_type = game_type, options = options))
-            Session.commit()
+            EDB.Session.add(cls(game_type = game_type, options = options))
+            EDB.Session.commit()
         except IntegrityError:
-            Session.rollback()
-            Session.execute(update(cls).where(cls.game_type == game_type).values(options = options))
-            Session.commit()
+            EDB.Session.rollback()
+            EDB.Session.execute(update(cls).where(cls.game_type == game_type).values(options = options))
+            EDB.Session.commit()
 
     @classmethod
     def get_options_for_game_type(cls, game_type: str) -> t.Optional[t.Mapping[str, t.Any]]:
-        instance = Session.query(cls.options).filter(cls.game_type == game_type).first()
+        instance = EDB.Session.query(cls.options).filter(cls.game_type == game_type).first()
         if instance is None:
             return instance
         return instance.options
@@ -47,28 +48,28 @@ class LobbyOptions(Base):
     __tablename__ = 'lobby_options'
 
     id = Column(Integer, primary_key = True)
-    name = Column(String, unique = True)
+    name = Column(String(127), unique = True)
     options = Column(sqlalchemy_jsonfield.JSONField())
 
     @classmethod
     def save_options(cls, name: str, options: t.Mapping[str, t.Any]) -> None:
         try:
-            Session.add(cls(name = name, options = options))
-            Session.commit()
+            EDB.Session.add(cls(name = name, options = options))
+            EDB.Session.commit()
         except IntegrityError:
-            Session.rollback()
-            Session.execute(update(cls).where(cls.name == name).values(options = options))
-            Session.commit()
+            EDB.Session.rollback()
+            EDB.Session.execute(update(cls).where(cls.name == name).values(options = options))
+            EDB.Session.commit()
 
     @classmethod
     def get_options_for_name(cls, name: str) -> t.Optional[t.Mapping[str, t.Any]]:
-        instance = Session.query(cls.options).filter(cls.name == name).first()
+        instance = EDB.Session.query(cls.options).filter(cls.name == name).first()
         if instance is None:
             return instance
         return instance.options
 
 
-class SortSpecification(Base):
+class SortSpecification(Base, sorting.SortSpecification):
     __tablename__ = 'sort_specification'
 
     id = Column(Integer, primary_key = True)
@@ -77,43 +78,36 @@ class SortSpecification(Base):
 
     dimension: SortDimension = Column(Enum(SortDimension))
     direction: SortDirection = Column(Enum(SortDirection))
-    sort_property = Column(String)
+    sort_property: t.Type[SortProperty] = Column(SortPropertyField(63))
 
     respect_custom = Column(Boolean, default = True)
 
     macro_id = Column(
         Integer,
-        ForeignKey('sort_macro.id'),
+        ForeignKey('sort_macro.id', ondelete = 'CASCADE'),
         nullable = False,
     )
     macro: SortMacro = relationship('SortMacro', back_populates = 'specifications')
 
 
-class SortMacro(Base):
+class SortMacro(Base, sorting.SortMacro):
     __tablename__ = 'sort_macro'
 
     id = Column(Integer, primary_key = True)
+
+    index = Column(Integer)
+    name = Column(String(127))
 
     specifications: t.Sequence[SortSpecification] = relationship(
         'SortSpecification',
         back_populates = 'macro',
         cascade = 'all, delete-orphan',
+        order_by = SortSpecification.index,
     )
 
-    @property
-    def dimension_specifications_map(self) -> t.Sequence[t.Tuple[SortDimension, t.Sequence[SortSpecification]]]:
-        _map = collections.defaultdict(list)
-        for specification in self.specifications:
-            _map[specification.dimension].append(specification)
-
-        return sorted(
-            (
-                (dimension, sorted(specifications, key = lambda s: s.index))
-                for dimension, specifications in
-                _map.items()
-            ),
-            key = lambda p: p[0],
-        )
+    horizontal_continuity: DimensionContinuity = Column(Enum(DimensionContinuity), default = DimensionContinuity.AUTO)
+    vertical_continuity: DimensionContinuity = Column(Enum(DimensionContinuity), default = DimensionContinuity.AUTO)
+    sub_continuity: DimensionContinuity = Column(Enum(DimensionContinuity), default = DimensionContinuity.AUTO)
 
 
 def create(engine: Engine):

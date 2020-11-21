@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing as t
 import logging
 import sys
 from enum import Enum
@@ -6,7 +9,7 @@ from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
 APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.0.6'
+VERSION = '0.0.7'
 
 IS_WINDOWS = sys.platform.startswith('win')
 
@@ -28,19 +31,6 @@ class Direction(Enum):
     RIGHT = (1, 0)
     DOWN = (0, 1)
     LEFT = (-1, 0)
-
-
-class SortDirection(Enum):
-    ASCENDING = 'asc'
-    DESCENDING = 'desc'
-    AUTO = 'auto'
-
-
-class SortDimension(Enum):
-    HORIZONTAL = 'horizontal'
-    VERTICAL = 'vertical'
-    SUB_DIVISIONS = 'sub divisions'
-    AUTO = 'auto'
 
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.MEDIUM, False))]

@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.models.cubes.scenecard import SceneCard
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.sorting.sorting import SortProperty
+from deckeditor.sorting.sorting import SortProperty, SortMacro
 
 
 class AlignmentCommand(ABC):
@@ -151,9 +151,8 @@ class Aligner(ABC):
     @abstractmethod
     def sort(
         self,
-        sort_property: t.Type[SortProperty],
+        sort_macro: SortMacro,
         cards: t.Sequence[SceneCard],
-        orientation: int,
         in_place: bool = False,
     ) -> QUndoCommand:
         pass

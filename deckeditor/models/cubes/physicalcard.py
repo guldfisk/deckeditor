@@ -9,6 +9,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu, QInputDialog
 
+from deckeditor.components.settings import settings
 from mtgorp.models.serilization.strategies.raw import RawStrategy
 from mtgorp.models.interfaces import Printing, Cardboard
 
@@ -426,7 +427,7 @@ class PhysicalAllCard(PhysicalTrap):
         for child in self.node_children:
             if isinstance(child, PhysicalAllCard) and (
                 len(child.cubeable.node.children) < 8
-                or not Context.settings.value('dont_auto_flatten_big')
+                or not settings.DONT_AUTO_FLATTEN_BIG.get_value()
             ):
                 yield from child.flat_children
             else:
@@ -445,7 +446,7 @@ class PhysicalAllCard(PhysicalTrap):
 
     def _flatten(self, undo_stack: QUndoStack) -> None:
         undo_stack.push(
-            self.get_flatten_command(Context.settings.value('flatten_recursively', True, bool))
+            self.get_flatten_command(settings.FLATTEN_RECURSIVELY.get_value())
         )
 
     def context_child_menu(self, child: PhysicalCard, menu: QtWidgets.QMenu, undo_stack: QUndoStack) -> None:

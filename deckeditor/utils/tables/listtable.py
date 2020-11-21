@@ -75,8 +75,8 @@ class EnumField(MappingField):
         )
 
 
-@dataclasses.dataclass
 class TableLine(object):
+    __dataclass_fields__: t.Mapping[str, TableLineField]
 
     def to_primitive(self, field: TableLineField) -> Primitive:
         v = getattr(self, field.name)
@@ -100,11 +100,11 @@ T = t.TypeVar('T', bound = TableLine)
 
 class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
 
-    def __init__(self, line_type: t.Type[TableLine], lines: t.List[T]):
+    def __init__(self, line_type: t.Type[TableLine], lines: t.Iterable[T]):
         super().__init__()
 
         self._line_type = line_type
-        self._lines: t.List[T] = lines
+        self._lines: t.List[T] = list(lines)
 
         self._headers = tuple(field for field in dataclasses.fields(self._line_type))
         self._header_names = tuple(' '.join(v.capitalize() for v in header.name.split('_')) for header in self._headers)
@@ -188,26 +188,22 @@ class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
         self.endMoveRows()
         return True
 
-    # def moveRow(
-    #     self,
-    #     sourceParent: QModelIndex,
-    #     sourceRow: int,
-    #     destinationParent: QModelIndex,
-    #     destinationChild: int,
-    # ) -> bool:
-    #     print('move row', sourceParent, sourceRow, destinationParent, destinationChild)
-    #     self.beginMoveRows(sourceParent, sourceRow, sourceRow, destinationParent, destinationChild)
-    #     print('begin move complete')
-    #     print(self._lines)
-    #     if sourceRow >= len(self._lines) or destinationChild >= len(self._lines):
-    #         return False
-    #     line = self._lines.pop(sourceRow)
-    #     self._lines.insert(destinationChild, line)
-    #     print(self._lines)
-    #     print('about to end this shit')
-    #     print(sourceParent.isValid(), destinationParent.isValid())
-    #     self.endMoveRows()
-    #     return True
+    def moveRow(
+        self,
+        sourceParent: QModelIndex,
+        sourceRow: int,
+        destinationParent: QModelIndex,
+        destinationChild: int,
+    ) -> bool:
+        if not self.beginMoveRows(sourceParent, sourceRow, sourceRow, destinationParent, destinationChild):
+            return False
+        # if sourceRow >= len(self._lines) or destinationChild >= len(self._lines) + 1:
+        #     print('end', sourceRow, len(self._lines), destinationChild)
+        #     return False
+        line = self._lines.pop(sourceRow)
+        self._lines.insert(destinationChild if destinationChild < sourceRow else destinationChild - 1, line)
+        self.endMoveRows()
+        return True
 
     # def insertRows(self, row: int, count: int, parent: QModelIndex = ...) -> bool:
     #     if not 0 <= row <= len(self._sorts):
@@ -229,3 +225,8 @@ class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
         self.beginInsertRows(QModelIndex(), idx, idx)
         self._lines.insert(idx, line)
         self.endInsertRows()
+
+    def set_lines(self, lines: t.Sequence[T]) -> None:
+        self.beginResetModel()
+        self._lines[:] = lines
+        self.endResetModel()

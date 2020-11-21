@@ -1,24 +1,72 @@
 from __future__ import annotations
 
+import collections
 import datetime
+import functools
+import itertools
 import typing as t
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, ABC
 from collections import OrderedDict
-
-from PyQt5 import QtCore
+from dataclasses import dataclass
+from enum import Enum
 
 from mtgorp.models.persistent.attributes import typeline, colors
 from mtgorp.models.interfaces import Printing
 
 from magiccube.laps.tickets.ticket import Ticket
-from magiccube.laps.traps.trap import Trap
+from magiccube.laps.traps.trap import Trap, IntentionType
 from magiccube.collections.cubeable import Cubeable
 
 from deckeditor.context.context import Context
 
 
 SortValue = t.Union[str, int, datetime.datetime]
+
+
+class DimensionContinuity(Enum):
+    AUTO = 'auto'
+    CONTINUOUS = 'continuous'
+    GROUPED = 'grouped'
+
+    def continuity_for(self, sort_property: t.Type[SortProperty]) -> DimensionContinuity:
+        if self == self.AUTO:
+            return sort_property.auto_continuity
+        return self
+
+
+class SortDirection(Enum):
+    AUTO = 'auto'
+    ASCENDING = 'asc'
+    DESCENDING = 'desc'
+
+    def direction_for(self, sort_property: t.Type[SortProperty]) -> bool:
+        if self == self.AUTO:
+            return sort_property.auto_reverse
+        return self == self.DESCENDING
+
+
+@functools.total_ordering
+class SortDimension(Enum):
+    AUTO = 'auto'
+    HORIZONTAL = 'horizontal'
+    VERTICAL = 'vertical'
+    SUB_DIVISIONS = 'sub divisions'
+
+    def dimension_for(self, sort_property: t.Type[SortProperty]) -> SortDimension:
+        if self == self.AUTO:
+            return sort_property.auto_dimension
+        return self
+
+    def __lt__(self, other):
+        return DIMENSION_ORDER_MAP[self] < DIMENSION_ORDER_MAP[other]
+
+
+DIMENSION_ORDER_MAP = {
+    dimension: idx
+    for idx, dimension in
+    enumerate(SortDimension)
+}
 
 
 class _SortPropertyMeta(ABCMeta):
@@ -35,30 +83,148 @@ class _SortPropertyMeta(ABCMeta):
 
 class SortProperty(object, metaclass = _SortPropertyMeta):
     name: str = None
-    auto_direction: QtCore.Qt.Orientation = QtCore.Qt.Horizontal
+    auto_dimension: SortDimension = SortDimension.HORIZONTAL
     auto_reverse: bool = False
+    auto_continuity: DimensionContinuity = DimensionContinuity.GROUPED
 
     @classmethod
     @abstractmethod
-    def extract(cls, cubeable: Cubeable) -> SortValue:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> SortValue:
         pass
+
+
+@dataclass
+class SortSpecification(object):
+    sort_property: t.Type[SortProperty]
+    index: int = 0
+    dimension: SortDimension = SortDimension.AUTO
+    direction: SortDirection = SortDirection.AUTO
+    respect_custom: bool = True
+    macro: SortMacro = None
+
+    def __repr__(self) -> str:
+        return '{}({}, {}, {}, {}, {})'.format(
+            self.__class__.__name__,
+            self.index,
+            self.sort_property.name,
+            self.dimension.value,
+            self.direction.value,
+            self.respect_custom,
+        )
+
+
+@dataclass
+class SortMacro(object):
+    specifications: t.Sequence[SortSpecification]
+    index: int = 0
+    name: str = ''
+    horizontal_continuity: DimensionContinuity = DimensionContinuity.AUTO
+    vertical_continuity: DimensionContinuity = DimensionContinuity.AUTO
+    sub_continuity: DimensionContinuity = DimensionContinuity.AUTO
+
+    def continuity_for_dimension(self, dimension: SortDimension) -> DimensionContinuity:
+        if dimension == SortDimension.HORIZONTAL:
+            return self.horizontal_continuity
+        if dimension == SortDimension.VERTICAL:
+            return self.vertical_continuity
+        return self.sub_continuity
+
+    @property
+    def dimension_specifications_map(self) -> t.Sequence[t.Tuple[SortDimension, t.Sequence[SortSpecification]]]:
+        _map = collections.defaultdict(list)
+        for specification in self.specifications:
+            _map[specification.dimension.dimension_for(specification.sort_property)].append(specification)
+
+        return sorted(
+            (
+                (dimension, sorted(specifications, key = lambda s: s.index))
+                for dimension, specifications in
+                _map.items()
+            ),
+            key = lambda p: p[0],
+        )
+
+    def __repr__(self) -> str:
+        return '{}({}, {})'.format(
+            self.__class__.__name__,
+            self.name,
+            self.index,
+        )
+
+
+@functools.total_ordering
+class SortIdentity(object):
+
+    def __init__(self, values: t.Tuple[t.Type[SortValue, bool], ...]):
+        self._values = values
+
+    @property
+    def values(self) -> t.Tuple[t.Type[SortValue, bool], ...]:
+        return self._values
+
+    @classmethod
+    def for_cubeable(cls, cubeable: Cubeable, specifications: t.Sequence[SortSpecification]) -> SortIdentity:
+        return cls(
+            tuple(
+                (
+                    specification.sort_property.extract(cubeable, respect_custom = specification.respect_custom),
+                    specification.direction.direction_for(specification.sort_property),
+                )
+                for specification in
+                specifications
+            )
+        )
+
+    def __hash__(self) -> int:
+        return hash(self._values)
+
+    def __eq__(self, other) -> bool:
+        return (
+            isinstance(other, self.__class__)
+            and self._values == other._values
+        )
+
+    def __lt__(self, other) -> bool:
+        # print(self._values, other.values)
+        for s, o in itertools.zip_longest(self._values, other.values):
+            if s is None:
+                # print('true')
+                return True
+            if o is None:
+                # print('true')
+                return False
+            if s[0] < o[0]:
+                # print(not s[1])
+                return not s[1]
+            if s[0] > o[0]:
+                return s[1]
+        # print(False)
+        return False
+
+    def __repr__(self) -> str:
+        return '{}({})'.format(
+            self.__class__.__name__,
+            self._values,
+        )
 
 
 class ColorExtractor(SortProperty):
     name = 'Color'
 
     @classmethod
-    def extract_color(cls, cubeable: Printing):
+    def extract_color(cls, cubeable: Printing, *, respect_custom: bool = True):
+        if not respect_custom:
+            return cubeable.cardboard.front_card.color
         return Context.sort_map.get_cardboard_value(cubeable.cardboard, 'colors', cubeable.cardboard.front_card.color)
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -2
         if typeline.LAND in cubeable.cardboard.front_card.type_line:
             return -1
         return colors.color_set_sort_value_len_first(
-            cls.extract_color(cubeable)
+            cls.extract_color(cubeable, respect_custom = respect_custom)
         )
 
 
@@ -66,7 +232,9 @@ class ColorIdentityExtractor(SortProperty):
     name = 'Color Identity'
 
     @classmethod
-    def extract_color_identity(cls, cubeable: Printing):
+    def extract_color_identity(cls, cubeable: Printing, *, respect_custom: bool = True):
+        if not respect_custom:
+            return cubeable.cardboard.front_card.color_identity
         return Context.sort_map.get_cardboard_value(
             cubeable.cardboard,
             'color_identity',
@@ -74,7 +242,7 @@ class ColorIdentityExtractor(SortProperty):
         )
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -1
         return colors.color_set_sort_value_len_first(
@@ -86,12 +254,13 @@ class CMCExtractor(SortProperty):
     name = 'Cmc'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -2
-        custom_cmc = Context.sort_map.get_cardboard_value(cubeable.cardboard, 'cmc')
-        if custom_cmc is not None:
-            return custom_cmc
+        if respect_custom:
+            custom_cmc = Context.sort_map.get_cardboard_value(cubeable.cardboard, 'cmc')
+            if custom_cmc is not None:
+                return custom_cmc
         if typeline.LAND in cubeable.cardboard.front_card.type_line:
             return -1
         return cubeable.cardboard.front_card.cmc
@@ -99,9 +268,10 @@ class CMCExtractor(SortProperty):
 
 class NameExtractor(SortProperty):
     name = 'Name'
+    auto_continuity = DimensionContinuity.CONTINUOUS
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> str:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> str:
         if not isinstance(cubeable, Printing):
             return ''
         return cubeable.cardboard.front_card.name
@@ -109,10 +279,10 @@ class NameExtractor(SortProperty):
 
 class IsLandExtractor(SortProperty):
     name = 'Land Split'
-    auto_direction = QtCore.Qt.Vertical
+    auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -1
         return int(typeline.LAND in cubeable.cardboard.front_card.type_line)
@@ -120,10 +290,10 @@ class IsLandExtractor(SortProperty):
 
 class IsPermanentSplit(SortProperty):
     name = 'Permanent Split'
-    auto_direction = QtCore.Qt.Vertical
+    auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -1
         return int(cubeable.cardboard.front_card.type_line.is_permanent)
@@ -131,10 +301,10 @@ class IsPermanentSplit(SortProperty):
 
 class IsCreatureExtractor(SortProperty):
     name = 'Creature Split'
-    auto_direction = QtCore.Qt.Vertical
+    auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -1
         return int(typeline.CREATURE in cubeable.cardboard.front_card.type_line)
@@ -144,11 +314,11 @@ class CubeableTypeExtractor(SortProperty):
     name = 'Cubeable Type'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if isinstance(cubeable, Printing):
             return 0
         if isinstance(cubeable, Trap):
-            if cubeable.intention_type != Trap.IntentionType.SYNERGY:
+            if cubeable.intention_type != IntentionType.SYNERGY:
                 return 1
             return 2
         if isinstance(cubeable, Ticket):
@@ -158,10 +328,10 @@ class CubeableTypeExtractor(SortProperty):
 
 class IsMonoExtractor(SortProperty):
     name = 'Mono Split'
-    auto_direction = QtCore.Qt.Vertical
+    auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -1
         return int(len(cubeable.cardboard.front_card.color) == 1)
@@ -171,7 +341,7 @@ class RarityExtractor(SortProperty):
     name = 'Rarity'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         if not isinstance(cubeable, Printing):
             return -2
         return -1 if cubeable.rarity is None else cubeable.rarity.value
@@ -179,9 +349,10 @@ class RarityExtractor(SortProperty):
 
 class ReleaseDateExtractor(SortProperty):
     name = 'Release Date'
+    auto_continuity = DimensionContinuity.CONTINUOUS
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> datetime.datetime:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> datetime.datetime:
         return (
             datetime.datetime.fromtimestamp(0)
             if not isinstance(cubeable, Printing) or cubeable.expansion is None else
@@ -193,7 +364,7 @@ class ExpansionExtractor(SortProperty):
     name = 'Expansion'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> str:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> str:
         return (
             ''
             if not isinstance(cubeable, Printing) or cubeable.expansion is None else
@@ -203,9 +374,10 @@ class ExpansionExtractor(SortProperty):
 
 class CollectorNumberExtractor(SortProperty):
     name = 'Collector Number'
+    auto_continuity = DimensionContinuity.CONTINUOUS
 
     @classmethod
-    def extract(cls, cubeable: Cubeable) -> int:
+    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
         return (
             cubeable.collector_number
             if isinstance(cubeable, Printing) else

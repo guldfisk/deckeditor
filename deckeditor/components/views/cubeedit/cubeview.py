@@ -10,6 +10,7 @@ from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor import paths
+from deckeditor.components.settings import settings
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligner import Aligner
@@ -157,7 +158,7 @@ class CubeView(QtWidgets.QWidget):
         self._tool_bar.addWidget(self._aligner_selector)
         self._tool_bar.addWidget(self._layout_selector)
 
-        self._spoiler = Spoiler(not Context.settings.value('default_cubeview_header_hidden', True, bool))
+        self._spoiler = Spoiler(not settings.DEFAULT_CUBEVIEW_HEADER_HIDDEN.get_value())
         self._spoiler.set_content_layout(self._tool_bar)
 
         box.addWidget(self._spoiler)
@@ -168,8 +169,6 @@ class CubeView(QtWidgets.QWidget):
         splitter.addWidget(self._cube_list_view)
 
         box.addWidget(splitter)
-
-        self.setLayout(box)
 
         self.layout_changed.connect(self._on_layout_change)
 

@@ -11,9 +11,13 @@ from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, _AlingerResize
 from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.scenecard import SceneCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting import sorting
+from deckeditor.sorting.sorting import SortIdentity, SortMacro, SortDimension, DimensionContinuity
+from deckeditor.store.models import SortSpecification
 from deckeditor.utils.math import minmax
+from deckeditor.utils.undo import CommandPackage
 from deckeditor.values import IMAGE_WIDTH, STANDARD_IMAGE_MARGIN
 
 
@@ -256,9 +260,9 @@ class StackingPickUp(AlignmentDrop):
 
 class SortStacker(QUndoCommand):
 
-    def __init__(self, stacker: CardStacker, sort_property: t.Type[sorting.SortProperty]):
+    def __init__(self, stacker: CardStacker, specifications: t.Sequence[SortSpecification]):
         self._stacker = stacker
-        self._sort_property = sort_property
+        self._specifications = specifications
         super().__init__('Sort stacker')
 
         self._original_order: t.List[PhysicalCard] = []
@@ -269,7 +273,7 @@ class SortStacker(QUndoCommand):
 
         self._stacker.cards[:] = sorted(
             self._stacker.cards,
-            key = lambda card: self._sort_property.extract(card.cubeable),
+            key = lambda card: SortIdentity.for_cubeable(card.cubeable, self._specifications),
         )
         self._stacker.update()
 
@@ -280,9 +284,9 @@ class SortStacker(QUndoCommand):
 
 class SortAllStackers(QUndoCommand):
 
-    def __init__(self, grid: StackingGrid, sort_property: t.Type[sorting.SortProperty]):
+    def __init__(self, grid: StackingGrid, specifications: t.Sequence[SortSpecification]):
         self._grid = grid
-        self._sort_property = sort_property
+        self._specifications = specifications
         super().__init__('Sort all stacker')
 
         self._original_orders: t.MutableMapping[CardStacker, t.List[PhysicalCard]] = defaultdict(list)
@@ -295,9 +299,8 @@ class SortAllStackers(QUndoCommand):
         for stacker in self._grid.stacker_map.stackers:
             stacker.cards[:] = sorted(
                 stacker.cards,
-                key = lambda card: self._sort_property.extract(card.cubeable),
+                key = lambda card: SortIdentity.for_cubeable(card.cubeable, self._specifications),
             )
-
             stacker.update()
 
     def undo(self) -> None:
@@ -306,12 +309,19 @@ class SortAllStackers(QUndoCommand):
             stacker.update()
 
 
-class _StackingSort(QUndoCommand):
-    sort_property_extractor: t.Type[sorting.SortProperty]
+class ContinuousSort(QUndoCommand):
 
-    def __init__(self, grid: StackingGrid, cards: t.Sequence[PhysicalCard], orientation: int, in_place: bool):
+    def __init__(
+        self,
+        grid: StackingGrid,
+        cards: t.Sequence[PhysicalCard],
+        specifications: t.Sequence[SortSpecification],
+        orientation: int,
+        in_place: bool,
+    ):
         self._grid = grid
         self._cards = cards
+        self._specifications = specifications
         self._orientation = orientation
         self._in_place = in_place
 
@@ -320,20 +330,18 @@ class _StackingSort(QUndoCommand):
         self._stackers: t.MutableMapping[CardStacker, t.List[t.Tuple[int, PhysicalCard]]] = defaultdict(list)
         self._sorted_stackers: t.MutableMapping[CardStacker, t.List[PhysicalCard]] = defaultdict(list)
 
+        super().__init__('Sort')
+
+    def _init(self):
         for card in self._cards:
             info = self._grid.get_card_info(card)
             self._stackers[info.card_stacker].append((info.position, card))
             self._card_infos[card] = (info.card_stacker, info.position)
 
-        super().__init__('Sort')
-
     def _sorted_cards(self) -> t.List[PhysicalCard]:
         return sorted(
-            sorted(
-                self._card_infos.keys(),
-                key = lambda card: sorting.NameExtractor.extract(card.cubeable),
-            ),
-            key = lambda card: self.sort_property_extractor.extract(card.cubeable),
+            self._card_infos.keys(),
+            key = lambda card: SortIdentity.for_cubeable(card.cubeable, self._specifications),
         )
 
     @property
@@ -365,13 +373,16 @@ class _StackingSort(QUndoCommand):
         )
 
         for card, i in self._cards_separated:
-            yield (card, *info_extractor(i, self._card_infos[card]))
+            yield card, *info_extractor(i, self._card_infos[card])
 
     def _make_sorted_stackers(self) -> None:
         for card, x, y in self._card_sorted_indexes():
             self._sorted_stackers[self._grid.get_card_stacker_at_index(x, y)].append(card)
 
     def redo(self) -> None:
+        if not self._card_infos:
+            self._init()
+
         if self._in_place and not self._smallest_index:
             if self._orientation == QtCore.Qt.Horizontal:
                 self._smallest_index = min(
@@ -409,10 +420,7 @@ class _StackingSort(QUndoCommand):
             stacker.update()
 
 
-class _ValueToPositionSort(_StackingSort):
-
-    def _sort_value(self, card: PhysicalCard) -> t.Union[str, int]:
-        return self.sort_property_extractor.extract(card.cubeable)
+class GroupedSort(ContinuousSort):
 
     @property
     def _cards_separated(self) -> t.Iterable[t.Tuple[PhysicalCard, int]]:
@@ -425,7 +433,7 @@ class _ValueToPositionSort(_StackingSort):
         value_map = defaultdict(list)
 
         for card in self._card_infos.keys():
-            value_map[self._sort_value(card)].append(card)
+            value_map[SortIdentity.for_cubeable(card.cubeable, self._specifications)].append(card)
 
         for key, cards, in value_map.items():
             value_map[key] = sorted(
@@ -446,68 +454,6 @@ class _ValueToPositionSort(_StackingSort):
         for value in values:
             for card in value_map[value]:
                 yield card, parts - 1
-
-
-class CmcSort(_ValueToPositionSort):
-    sort_property_extractor = sorting.CMCExtractor
-
-
-class IsPermanentSplit(_ValueToPositionSort):
-    sort_property_extractor = sorting.IsPermanentSplit
-
-
-class IsCreatureSplit(_ValueToPositionSort):
-    sort_property_extractor = sorting.IsCreatureExtractor
-
-
-class IsLandSplit(_ValueToPositionSort):
-    sort_property_extractor = sorting.IsLandExtractor
-
-
-class IsMonoSplit(_ValueToPositionSort):
-    sort_property_extractor = sorting.IsMonoExtractor
-
-
-class RaritySort(_ValueToPositionSort):
-    sort_property_extractor = sorting.RarityExtractor
-
-
-class ColorSort(_ValueToPositionSort):
-    sort_property_extractor = sorting.ColorExtractor
-
-
-class CubeableTypeSort(_ValueToPositionSort):
-    sort_property_extractor = sorting.CubeableTypeExtractor
-
-
-class ColorIdentitySort(_ValueToPositionSort):
-    sort_property_extractor = sorting.ColorIdentityExtractor
-
-
-class NameSort(_StackingSort):
-
-    def _sorted_cards(self) -> t.List[PhysicalCard]:
-        return sorted(
-            self._card_infos.keys(),
-            key = lambda card: sorting.NameExtractor.extract(card.cubeable),
-        )
-
-
-class ReleaseDateSort(_StackingSort):
-
-    def _sorted_cards(self) -> t.List[PhysicalCard]:
-        return sorted(
-            self._card_infos.keys(),
-            key = lambda card: sorting.ReleaseDateExtractor.extract(card.cubeable),
-        )
-
-
-class ExpansionSort(_ValueToPositionSort):
-    sort_property_extractor = sorting.ExpansionExtractor
-
-
-class CollectorsNumberSort(_StackingSort):
-    sort_property_extractor = sorting.CollectorNumberExtractor
 
 
 class RowColumnInsert(QUndoCommand):
@@ -861,30 +807,43 @@ class StackingGrid(Aligner):
             *self._stacker_map.map_position_to_index(x, y)
         )
 
-    SORT_PROPERTY_MAP: t.Mapping[t.Type[sorting.SortProperty], t.Type[_StackingSort]] = {
-        sorting.ColorExtractor: ColorSort,
-        sorting.ColorIdentityExtractor: ColorIdentitySort,
-        sorting.CMCExtractor: CmcSort,
-        sorting.NameExtractor: NameSort,
-        sorting.IsLandExtractor: IsLandSplit,
-        sorting.IsPermanentSplit: IsPermanentSplit,
-        sorting.IsCreatureExtractor: IsCreatureSplit,
-        sorting.CubeableTypeExtractor: CubeableTypeSort,
-        sorting.IsMonoExtractor: IsMonoSplit,
-        sorting.RarityExtractor: RaritySort,
-        sorting.ReleaseDateExtractor: ReleaseDateSort,
-        sorting.ExpansionExtractor: ExpansionSort,
-        sorting.CollectorNumberExtractor: CollectorsNumberSort,
-    }
+    def sort(self, sort_macro: SortMacro, cards: t.Sequence[PhysicalCard], in_place: bool = False) -> QUndoCommand:
+        commands = []
+        for dimension, specifications in sort_macro.dimension_specifications_map:
+            continuity = sort_macro.continuity_for_dimension(dimension)
+            if continuity == DimensionContinuity.AUTO:
+                if len(specifications) == 1:
+                    continuity = continuity.continuity_for(specifications[0].sort_property)
+                else:
+                    continuity = DimensionContinuity.CONTINUOUS
 
-    def sort(
-        self,
-        sort_property: t.Type[sorting.SortProperty],
-        cards: t.Sequence[PhysicalCard],
-        orientation: int,
-        in_place: bool = False,
-    ) -> QUndoCommand:
-        return self.SORT_PROPERTY_MAP[sort_property](self, cards, orientation, in_place)
+            if dimension == SortDimension.SUB_DIVISIONS:
+                commands.append(
+                    SortAllStackers(
+                        grid = self,
+                        specifications = specifications,
+                    )
+                )
+
+            else:
+                commands.append(
+                    (
+                        ContinuousSort
+                        if continuity == DimensionContinuity.CONTINUOUS else
+                        GroupedSort
+                    )(
+                        grid = self,
+                        cards = cards,
+                        specifications = specifications,
+                        orientation = QtCore.Qt.Horizontal if dimension == SortDimension.HORIZONTAL else QtCore.Qt.Vertical,
+                        in_place = in_place,
+                    )
+                )
+
+        if len(commands) == 1:
+            return commands[0]
+
+        return CommandPackage(commands)
 
     @classmethod
     def _get_sort_stack(
@@ -896,8 +855,8 @@ class StackingGrid(Aligner):
         def _sort_stack() -> None:
             undo_stack.push(
                 SortStacker(
-                    stacker,
-                    sort_property,
+                    stacker = stacker,
+                    specifications = [sorting.SortSpecification(sort_property = sort_property)],
                 )
             )
 
@@ -911,8 +870,8 @@ class StackingGrid(Aligner):
         def _sort_all_stackers() -> None:
             undo_stack.push(
                 SortAllStackers(
-                    self,
-                    sort_property,
+                    grid = self,
+                    specifications = [sorting.SortSpecification(sort_property = sort_property)],
                 )
             )
 

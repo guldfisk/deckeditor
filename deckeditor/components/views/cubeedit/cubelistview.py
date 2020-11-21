@@ -73,7 +73,6 @@ class CubeListView(QTableWidget):
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         pressed_key = key_event.key()
-        modifiers = key_event.modifiers()
 
         if pressed_key == QtCore.Qt.Key_Delete:
             self._undo_stack.push(

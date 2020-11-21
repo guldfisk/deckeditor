@@ -112,6 +112,8 @@ class _Context(QObject):
         # https://github.com/syrusakbary/promise/issues/57
         promise.async_instance.disable_trampoline()
 
+        use_disk_with_remote = cls.settings.value('allow_disk_with_local_images', False, bool)
+
         cls.pixmap_loader = PixmapLoader(
             image_loader = ImageClient(
                 cls.settings.value('remote_image_url', 'prohunterdogkeeper.dk', str),
@@ -119,6 +121,8 @@ class _Context(QObject):
                 imageables_executor = 8,
                 use_scryfall_when_available = True,
                 image_cache_size = None,
+                allow_save_to_disk = use_disk_with_remote,
+                allow_load_from_disk = use_disk_with_remote,
                 allow_local_fallback = cls.settings.value('allow_local_image_fallback', True, bool),
             ) if cls.settings.value('remote_images', False, bool) else
             ImageLoader(

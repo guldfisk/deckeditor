@@ -46,7 +46,9 @@ from deckeditor.server.client import EmbargoClient
 from deckeditor.server.server import EmbargoServer
 from deckeditor.sorting.custom import CustomSortMap
 from deckeditor.utils.version import version_formatted
-from deckeditor.store import models, engine
+from deckeditor.store import models, EDB
+from deckeditor.components.settings import settings
+from deckeditor.components.views.cubeedit.graphical.sortdialog import EditMacroesDialog
 
 
 class MainView(QWidget):
@@ -97,7 +99,7 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
 
         self.setWindowIcon(QtGui.QIcon(paths.ICON_PATH))
-        if Context.settings.value('frameless', True, bool):
+        if settings.FRAMELESS.get_value():
             self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.FramelessWindowHint)
 
         self._notification_frame = NotificationFrame(self)
@@ -195,6 +197,7 @@ class MainWindow(QMainWindow):
                     ('Redo', 'Ctrl+Shift+Z', Context.undo_group.redo),
                     'line',
                     ('Add cards', 'Ctrl+F', self._add_cards),
+                    ('Sort Macroes', 'Ctrl+M', self._edit_sort_macroes),
                 ),
             ),
             # menu_bar.addMenu('Generate'): (
@@ -322,23 +325,8 @@ class MainWindow(QMainWindow):
 
         return wrapper
 
-    # def _on_draft_start(self) -> None:
-    #     tab = self._main_view.editables_tabs.currentWidget()
-    #     if isinstance(tab, DraftView):
-    #         tab.draft_model.go_backwards()
-    #
-    # def _on_draft_backwards(self) -> None:
-    #     tab = self._main_view.editables_tabs.currentWidget()
-    #     if isinstance(tab, DraftView):
-    #         tab.draft_model.go_backwards()
-    #
-    # def _on_draft_forwards(self) -> None:
-    #     tab = self._main_view.editables_tabs.currentWidget()
-    #     if isinstance(tab, DraftView):
-    #         tab.draft_model.go_forward()
-
     def _on_draft_started(self, key: str) -> None:
-        if Context.settings.value('hide_lobbies_on_new_draft', True, bool):
+        if settings.HIDE_LOBBIES_ON_NEW_DRAFT.get_value():
             self._lobby_view_dock.hide()
 
     @property
@@ -381,6 +369,9 @@ class MainWindow(QMainWindow):
         self._main_view.editables_tabs.tabCloseRequested.emit(
             self._main_view.editables_tabs.currentIndex()
         )
+
+    def _edit_sort_macroes(self) -> None:
+        EditMacroesDialog().exec_()
 
     def _add_cards(self):
         self._card_adder_dock.activateWindow()
@@ -601,8 +592,6 @@ def run():
 
     compiled = __file__ == os.path.split(__file__)[-1]
 
-    models.create(engine)
-
     db_type = DbType(args.db_type)
 
     try:
@@ -611,6 +600,10 @@ def run():
         if not DBUpdateDialog().exec_() == QDialog.Accepted:
             return
         Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type)
+
+    EDB.init()
+
+    models.create(EDB.engine)
 
     init_deck_serializers()
 
@@ -626,7 +619,7 @@ def run():
 
     main_window.showMaximized()
 
-    if Context.settings.value('auto_login', False, bool):
+    if settings.AUTO_LOGIN.get_value():
         LOGIN_CONTROLLER.re_login()
 
     if args.files:
