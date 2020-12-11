@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing as t
 
 import requests
@@ -11,6 +12,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog
 
 from cubeclient.models import LimitedSession, LimitedDeck
+
 from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.context.context import Context
 
@@ -66,11 +68,11 @@ class DeckList(QTableWidget):
         )
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        self._decks: t.List[LimitedDeck] = [] if decks is None else decks
+        self._decks: t.Sequence[LimitedDeck] = [] if decks is None else decks
 
         self._update_content()
 
-    def set_decks(self, decks: t.List[LimitedDeck]) -> None:
+    def set_decks(self, decks: t.Sequence[LimitedDeck]) -> None:
         self._decks = decks
         self._update_content()
 
@@ -118,6 +120,10 @@ class LimitedSessionView(QWidget):
         self._view_button.clicked.connect(self._on_view)
         self._submit_button.clicked.connect(self._on_submit)
 
+    def set_session(self, session: LimitedSession) -> None:
+        self._session = session
+        self._update_content()
+
     @property
     def session(self) -> t.Optional[LimitedSession]:
         return self._session
@@ -133,6 +139,7 @@ class LimitedSessionView(QWidget):
     def _on_upload_success(self, _) -> None:
         Context.notification_message.emit('Deck submitted')
         self._limited_sessions_view.update.emit()
+        Context.cube_api_client.limited_session(self._session.id).then(self.set_session).catch(logging.warning)
 
     def _on_upload_error(self, error: Exception) -> None:
         if isinstance(error, ConnectionError):
@@ -168,7 +175,12 @@ class LimitedSessionView(QWidget):
         deck_name, success = QInputDialog.getText(
             self,
             'Submit Deck',
-            'Deck name',
+            (
+                'Deck name'
+                + '. Session is not in deck building state. This is, in fact, C H E A T I N G.'
+                if self._session.state != LimitedSession.SealedSessionState.DECK_BUILDING else
+                ''
+            ),
             text = 'deck',
         )
 
@@ -194,7 +206,7 @@ class LimitedSessionView(QWidget):
         self._name_label.setText(self._session.name)
         for pool in self._session.pools:
             if pool.user == Context.cube_api_client.user:
-                self._deck_list.set_decks([pool.deck] if pool.deck is not None else [])
+                self._deck_list.set_decks(list(reversed(pool.decks)))
                 break
 
 
@@ -255,7 +267,7 @@ class LimitedSessionsView(QWidget):
         return Context.cube_api_client.limited_sessions(
             limit = 20,
             filters = {
-                'state_filter': 'DECK_BUILDING',
+                'state_filter': ['DECK_BUILDING', 'PLAYING'],
                 'players_filter': Context.cube_api_client.user.username,
             },
         ).then(

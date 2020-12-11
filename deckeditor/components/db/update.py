@@ -65,24 +65,16 @@ class DownloadFromRemoteWorker(DbWorker):
     def run(self) -> None:
         os.makedirs(os.path.join(*os.path.split(DB_PATH)[:-1]), exist_ok = True)
         download_db_from_remote(self._host, DB_PATH)
-        # self._dialog.add_log_entry.emit('Database downloaded')
         self._dialog.completed.emit()
 
 
 class DBUpdateDialog(QDialog):
-    # add_log_entry = pyqtSignal(str)
     completed = pyqtSignal()
 
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle('Update MTG DB')
-
-        # self._info_label = QtWidgets.QLabel('Rebuild database')
-        #
-        # self._log_value = ''
-        # self._log_view = QtWidgets.QTextEdit()
-        # self._log_view.setReadOnly(True)
 
         self._download_and_generate_button = QtWidgets.QPushButton('Download and generate')
         self._download_and_generate_button.clicked.connect(self._download_and_generate)
@@ -105,18 +97,10 @@ class DBUpdateDialog(QDialog):
 
         layout = QtWidgets.QVBoxLayout(self)
 
-        # layout.addWidget(self._info_label)
-        # layout.addWidget(self._log_view)
         for button in self._buttons:
             layout.addWidget(button)
 
-        # self.add_log_entry.connect(self._log)
-
         self.completed.connect(self.accept)
-
-    # def _log(self, text: str) -> None:
-    #     self._log_value += text + '\n'
-    #     self._log_view.setText(self._log_value)
 
     def set_enabled(self, enabled: bool) -> None:
         for button in self._buttons:

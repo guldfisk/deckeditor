@@ -12,7 +12,7 @@ lobbyclient@ https://github.com/guldfisk/lobbyclient/tarball/master#egg=lobbycli
 cubeclient@ https://github.com/guldfisk/cubeclient/tarball/master#egg=cubeclient-1.0
 pillow
 promise
-PyQt5
+PyQt5==5.11.3
 frozendict
 requests
 websocket-client
@@ -24,3 +24,4 @@ pysqlite3
 SQLAlchemy-JSONField
 mysqlclient
 lru-dict
+sortedcontainers

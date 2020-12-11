@@ -273,7 +273,6 @@ class GridAligner(Aligner):
                         specifications
                         for dimension, specifications in
                         sort_macro.dimension_specifications_map
-                        if dimension in (SortDimension.HORIZONTAL, SortDimension.VERTICAL)
                     )
                 )
             ),
@@ -281,21 +280,6 @@ class GridAligner(Aligner):
             original_order = copy.copy(self._cards),
             in_place = in_place,
         )
-
-    # def sort(
-    #     self,
-    #     sort_property: t.Type[SortProperty],
-    #     cards: t.Sequence[PhysicalCard],
-    #     orientation: int,
-    #     in_place: bool = False,
-    # ) -> GridSort:
-    #     return GridSort(
-    #         self,
-    #         sort_property,
-    #         cards,
-    #         copy.copy(self._cards),
-    #         in_place,
-    #     )
 
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
         pass

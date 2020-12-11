@@ -16,6 +16,7 @@ from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.models.cubes.alignment.aligners import ALIGNER_TYPE_MAP
+from deckeditor.models.cubes.cubelist import CubeList
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.utils.spoiler import Spoiler
 from deckeditor.utils.transform import serialize_transform, deserialize_transform
@@ -138,10 +139,11 @@ class CubeView(QtWidgets.QWidget):
             self._cube_image_view = cube_image_view
             self._cube_image_view.undo_stack = self._undo_stack
 
-        self._cube_list_view = CubeListView(
-            self._cube_scene,
-            undo_stack,
-        )
+        cube_list_model = CubeList(self._cube_scene, undo_stack = self._undo_stack)
+        sort_model = QtCore.QSortFilterProxyModel()
+        sort_model.setSourceModel(cube_list_model)
+        self._cube_list_view = CubeListView()
+        self._cube_list_view.setModel(sort_model)
         self._cube_list_view.hide()
 
         self._aligner_selector = AlignSelector(self._cube_scene, self._undo_stack)

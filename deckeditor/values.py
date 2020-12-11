@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import typing as t
 import logging
 import sys
 from enum import Enum
@@ -9,7 +8,7 @@ from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
 APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.0.7'
+VERSION = '0.0.8'
 
 IS_WINDOWS = sys.platform.startswith('win')
 

@@ -49,6 +49,28 @@ class QueryEditor(QtWidgets.QLineEdit):
             super().keyPressEvent(key_event)
 
 
+# class PrintingSelector(QtWidgets.QWidget):
+#     printing_selected = pyqtSignal(Printing)
+#
+#     def __init__(self):
+#         super().__init__()
+#
+#         self._model = CubeablesGrid()
+#
+#         self._stack = QtWidgets.QStackedWidget()
+#         self._list_view = QtWidgets.QListView()
+#
+#         self._list_view.setModel(self._model)
+#
+#         layout = QtWidgets.QVBoxLayout(self)
+#
+#         layout.addWidget(self._stack)
+#         layout.addWidget(self._list_view)
+#
+#     def set_printings(self, printings: t.Iterable[Printing]) -> None:
+#         self._model.set_cubeables(list(printings))
+
+
 class PrintingList(QtWidgets.QListWidget):
 
     def __init__(

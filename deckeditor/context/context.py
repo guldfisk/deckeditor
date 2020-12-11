@@ -27,6 +27,7 @@ from deckeditor.components.editables.editor import Editor
 from deckeditor.components.cardview.focuscard import CubeableFocusEvent
 from deckeditor.sorting.custom import CustomSortMap
 from deckeditor.context.sql import SqlContext
+from deckeditor.utils.executors import LIFOExecutor
 
 
 class DbType(Enum):
@@ -117,8 +118,8 @@ class _Context(QObject):
         cls.pixmap_loader = PixmapLoader(
             image_loader = ImageClient(
                 cls.settings.value('remote_image_url', 'prohunterdogkeeper.dk', str),
-                executor = 16,
-                imageables_executor = 8,
+                executor = LIFOExecutor(max_workers = 16),
+                imageables_executor = LIFOExecutor(max_workers = 8),
                 use_scryfall_when_available = True,
                 image_cache_size = None,
                 allow_save_to_disk = use_disk_with_remote,
@@ -126,8 +127,8 @@ class _Context(QObject):
                 allow_local_fallback = cls.settings.value('allow_local_image_fallback', True, bool),
             ) if cls.settings.value('remote_images', False, bool) else
             ImageLoader(
-                printing_executor = 16,
-                imageable_executor = 8,
+                printing_executor = LIFOExecutor(max_workers = 16),
+                imageable_executor = LIFOExecutor(max_workers = 8),
                 image_cache_size = None,
             ),
         )

@@ -185,20 +185,15 @@ class SortIdentity(object):
         )
 
     def __lt__(self, other) -> bool:
-        # print(self._values, other.values)
         for s, o in itertools.zip_longest(self._values, other.values):
             if s is None:
-                # print('true')
                 return True
             if o is None:
-                # print('true')
                 return False
             if s[0] < o[0]:
-                # print(not s[1])
                 return not s[1]
             if s[0] > o[0]:
                 return s[1]
-        # print(False)
         return False
 
     def __repr__(self) -> str:

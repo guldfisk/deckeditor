@@ -11,7 +11,7 @@ import plyer
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox, QHeaderView
 
 from yeetlong.multiset import Multiset
 
@@ -91,6 +91,14 @@ class DraftModel(QObject):
 
         self._pick: t.Optional[PhysicalCard] = None
         self._burn: t.Optional[PhysicalCard] = None
+
+    @property
+    def pick(self) -> PhysicalCard:
+        return self._pick
+
+    @property
+    def burn(self) -> PhysicalCard:
+        return self._burn
 
     @property
     def pick_point_head(self) -> t.Optional[PickPoint]:
@@ -179,7 +187,7 @@ class DraftModel(QObject):
     def key(self) -> str:
         return self._key
 
-    def pick(
+    def perform_pick_action(
         self,
         card: PhysicalCard,
         scene: t.Optional[CubeScene] = None,
@@ -302,7 +310,7 @@ class BoosterImageView(CubeImageView):
             self.floating[:] = []
             return False
 
-        self._draft_model.pick(
+        self._draft_model.perform_pick_action(
             self.floating[0],
             image_view.scene(),
             image_view.mapToScene(drop_event.pos()),
@@ -324,14 +332,14 @@ class BoosterImageView(CubeImageView):
 
             pick_action = QtWidgets.QAction('Pick', menu)
             pick_action.triggered.connect(
-                lambda: self._draft_model.pick(item, burn = False, infer = False, toggle = False)
+                lambda: self._draft_model.perform_pick_action(item, burn = False, infer = False, toggle = False)
             )
             menu.addAction(pick_action)
 
             if isinstance(self._draft_model.draft_client.draft_format, Burn):
                 burn_action = QtWidgets.QAction('Burn', menu)
                 burn_action.triggered.connect(
-                    lambda: self._draft_model.pick(item, burn = True, infer = False, toggle = False)
+                    lambda: self._draft_model.perform_pick_action(item, burn = True, infer = False, toggle = False)
                 )
                 menu.addAction(burn_action)
 
@@ -460,7 +468,7 @@ class BoosterWidget(QtWidgets.QWidget):
         if not settings.PICK_ON_DOUBLE_CLICK.get_value():
             return
 
-        self._draft_model.pick(
+        self._draft_model.perform_pick_action(
             card = card,
             burn = modifiers == Qt.ShiftModifier,
             infer = True,
@@ -493,7 +501,7 @@ class BoosterWidget(QtWidgets.QWidget):
         self,
         cards: t.List[PhysicalCard],
         picked: Multiset[Cubeable],
-        burned: Multiset[Cubeable]
+        burned: Multiset[Cubeable],
     ):
         cubeables_to_cards_map: t.MutableMapping[Cubeable, PhysicalCard] = defaultdict(list)
 
@@ -565,6 +573,12 @@ class BoosterWidget(QtWidgets.QWidget):
             else:
                 picks.add(_pick_point.pick.cubeable)
 
+        if pick_point == self._draft_model.draft_client.history.current:
+            if self._draft_model.pick is not None:
+                picks.add(self._draft_model.pick.cubeable)
+            if self._draft_model.burn is not None:
+                burns.add(self._draft_model.burn.cubeable)
+
         self._highlight_picks_burns(cards, picks, burns)
 
     def _on_picked(
@@ -595,6 +609,9 @@ class PicksTable(QtWidgets.QTableWidget):
 
         self.setMouseTracking(True)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
+        self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
         self._current_pack = 0
 
@@ -852,7 +869,7 @@ class DraftView(Editable):
         else:
             for card in self._booster_widget.booster_scene.items():
                 if card.cubeable == pick:
-                    self._draft_model.pick(card)
+                    self._draft_model.perform_pick_action(card)
                     return
 
     def _on_picked(

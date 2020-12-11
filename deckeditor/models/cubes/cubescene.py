@@ -157,7 +157,7 @@ class PhysicalCardChange(object):
 
 class CubeScene(SelectionScene):
     aligner_changed = pyqtSignal(Aligner)
-    content_changed = pyqtSignal()
+    content_changed = pyqtSignal(PhysicalCardChange)
 
     items: t.Callable[[], t.Sequence[SceneCard]]
     selectedItems: t.Callable[[], t.Sequence[SceneCard]]
@@ -317,6 +317,8 @@ class CubeScene(SelectionScene):
             )
 
             removed_physical_cards = self.get_cards_from_cubeables(
+                (cubeable, -multiplicity)
+                for cubeable, multiplicity in
                 modification.removed_cubeables
             )
 
@@ -331,10 +333,10 @@ class CubeScene(SelectionScene):
                     for card in
                     cards
                     if (
-                    isinstance(card, SceneCard)
-                    and isinstance(card.cubeable, Printing)
-                    and card.cubeable.cardboard in self.infinites
-                )
+                        isinstance(card, SceneCard)
+                        and isinstance(card.cubeable, Printing)
+                        and card.cubeable.cardboard in self.infinites
+                    )
                 ]
                 for cards in
                 (new_physical_cards, removed_physical_cards)
@@ -361,14 +363,14 @@ class CubeScene(SelectionScene):
             self._item_map[card.cubeable].append(card)
             self.addItem(card)
 
-        self.content_changed.emit()
+        self.content_changed.emit(PhysicalCardChange(added = physical_cards))
 
     def remove_physical_cards(self, *physical_cards: SceneCard) -> None:
         for card in physical_cards:
             self._item_map[card.cubeable].remove(card)
             self.removeItem(card)
 
-        self.content_changed.emit()
+        self.content_changed.emit(PhysicalCardChange(removed = physical_cards))
 
     def __repr__(self):
         return '{}()'.format(

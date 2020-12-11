@@ -14,6 +14,7 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
+from deckeditor.views.cubeablegrid import SelectCubeableDialog
 from yeetlong.multiset import Multiset
 
 from magiccube.collections.delta import CubeDeltaOperation
@@ -215,12 +216,6 @@ class MainWindow(QMainWindow):
                     ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
                 ),
             ),
-            # (
-            #     menu_bar.addMenu('Simulate'),
-            #     (
-            #         ('Sample Hand', 'Ctrl+H', lambda: print('sample hand')),
-            #     )
-            # ),
             (
                 menu_bar.addMenu('Connect'),
                 (
@@ -267,6 +262,14 @@ class MainWindow(QMainWindow):
                         ('Test', 'Ctrl+T', self._test),
                     ),
                 )
+            )
+            all_menus.append(
+                (
+                    menu_bar.addMenu('Simulate'),
+                    (
+                        ('Sample Hand', 'Ctrl+H', self._sample_hand),
+                    )
+                ),
             )
 
         for menu, lines in all_menus:
@@ -316,6 +319,14 @@ class MainWindow(QMainWindow):
                 }
             )
         )
+
+    def _sample_hand(self) -> None:
+        tab = self._main_view.editables_tabs.currentWidget()
+
+        SelectCubeableDialog(
+            # [c.cubeable for c in tab.deck_model.maindeck.items()]
+            list(Context.db.printings.values())
+        ).exec_()
 
     def _draft_history_wrapper(self, method: str) -> t.Callable[[], None]:
         def wrapper():

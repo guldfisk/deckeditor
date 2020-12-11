@@ -205,7 +205,7 @@ class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass = _SqlAlc
             return None
 
         if orientation == Qt.Vertical:
-            return str(section)
+            return str(section + 1)
 
         return self._header_names[section]
 

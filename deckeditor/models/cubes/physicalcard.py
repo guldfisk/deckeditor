@@ -9,16 +9,15 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QUndoCommand, QMenu, QInputDialog
 
-from deckeditor.components.settings import settings
 from mtgorp.models.serilization.strategies.raw import RawStrategy
-from mtgorp.models.interfaces import Printing, Cardboard
+from mtgorp.models.interfaces import Printing
+
+from mtgimg.interface import ImageRequest, SizeSlug
 
 from magiccube.laps.purples.purple import Purple
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
 from magiccube.laps.traps.tree.printingtree import AnyNode, AllNode
-
-from mtgimg.interface import ImageRequest, SizeSlug
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
@@ -28,6 +27,8 @@ from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.models.cubes.scenecard import SceneCard, C
 from deckeditor.sorting.sorting import CMCExtractor, ColorExtractor, ColorIdentityExtractor
 from deckeditor.utils.dialogs import ColorSelector
+from deckeditor.components.settings import settings
+from deckeditor.views.cubeablegrid import SelectCubeableDialog
 
 
 class PhysicalCard(SceneCard[C]):
@@ -176,23 +177,26 @@ SceneCard.from_cubeable = PhysicalCard.from_cubeable
 
 
 class PhysicalPrinting(PhysicalCard[Printing]):
+    cubeable: Printing
 
-    def _get_change_printing_action(self, printing: Printing, undo_stack: QUndoStack) -> t.Callable[[], None]:
+    def _get_change_printing_action(self, undo_stack: QUndoStack) -> t.Callable[[], None]:
         def _change_printing():
-            undo_stack.push(
-                self.scene().get_cube_modification(
-                    add = (PhysicalCard.from_cubeable(printing),),
-                    remove = (self,),
-                    position = self.pos() + QPoint(1, 1),
+            dialog = SelectCubeableDialog(self.cubeable.alternative_printings_chronologically)
+            dialog.cubeable_selected.connect(
+                lambda p: undo_stack.push(
+                    self.scene().get_cube_modification(
+                        add = (PhysicalCard.from_cubeable(p),),
+                        remove = (self,),
+                        position = self.pos() + QPoint(1, 1),
+                    )
                 )
             )
+            dialog.exec_()
 
         return _change_printing
 
     def _get_change_all_printings_to_printing(
         self,
-        from_printing: Printing,
-        to_printing: Printing,
         undo_stack: QUndoStack,
     ) -> t.Callable[[], None]:
         def _change_all_printings_to_printing():
@@ -200,26 +204,28 @@ class PhysicalPrinting(PhysicalCard[Printing]):
                 item
                 for item in
                 self.scene().items()
-                if isinstance(item, PhysicalPrinting) and item.cubeable == from_printing
+                if isinstance(item, PhysicalPrinting) and item.cubeable == self.cubeable
             ]
-            undo_stack.push(
-                self.scene().get_cube_modification(
-                    add = [
-                        PhysicalCard.from_cubeable(to_printing)
-                        for _ in
-                        cards
-                    ],
-                    remove = cards,
-                    position = self.pos() + QPoint(1, 1),
+            dialog = SelectCubeableDialog(self.cubeable.alternative_printings_chronologically)
+            dialog.cubeable_selected.connect(
+                lambda p: undo_stack.push(
+                    self.scene().get_cube_modification(
+                        add = [
+                            PhysicalCard.from_cubeable(p)
+                            for _ in
+                            cards
+                        ],
+                        remove = cards,
+                        position = self.pos() + QPoint(1, 1),
+                    )
                 )
             )
+            dialog.exec_()
 
         return _change_all_printings_to_printing
 
     def _get_change_all_cardboards_to_printing(
         self,
-        cardboard: Cardboard,
-        printing: Printing,
         undo_stack: QUndoStack,
     ) -> t.Callable[[], None]:
         def _change_all_cardboards_to_printing():
@@ -227,12 +233,14 @@ class PhysicalPrinting(PhysicalCard[Printing]):
                 item
                 for item in
                 self.scene().items()
-                if isinstance(item, PhysicalPrinting) and item.cubeable.cardboard == cardboard
+                if isinstance(item, PhysicalPrinting) and item.cubeable.cardboard == self.cubeable.cardboard
             ]
-            undo_stack.push(
+            dialog = SelectCubeableDialog(self.cubeable.alternative_printings_chronologically)
+            dialog.cubeable_selected.connect(
+                lambda p: undo_stack.push(
                 self.scene().get_cube_modification(
                     add = [
-                        PhysicalCard.from_cubeable(printing)
+                        PhysicalCard.from_cubeable(p)
                         for _ in
                         cards
                     ],
@@ -240,6 +248,9 @@ class PhysicalPrinting(PhysicalCard[Printing]):
                     position = self.pos() + QPoint(1, 1),
                 )
             )
+            )
+            dialog.exec_()
+
 
         return _change_all_cardboards_to_printing
 
@@ -305,34 +316,21 @@ class PhysicalPrinting(PhysicalCard[Printing]):
             _menu.addAction(_action)
 
         if len(self.cubeable.cardboard.printings) > 1:
-            change_this_menu = printing_reselection_menu.addMenu('This')
-            change_printings_like_this_menu = printing_reselection_menu.addMenu('All of This Printing')
-            change_cardboards_like_this_menu = printing_reselection_menu.addMenu('All of This Cardboard')
-
-            for printing in sorted(
-                (
-                    p
-                    for p in
-                    self.cubeable.cardboard.printings
-                    if not p == self.cubeable
-                ),
-                key = lambda p: p.expansion.name,
-            ):
-                _add_action_to_menu(
-                    change_this_menu,
-                    self._get_change_printing_action(printing, undo_stack),
-                    printing.expansion.name,
-                )
-                _add_action_to_menu(
-                    change_printings_like_this_menu,
-                    self._get_change_all_printings_to_printing(self.cubeable, printing, undo_stack),
-                    printing.expansion.name,
-                )
-                _add_action_to_menu(
-                    change_cardboards_like_this_menu,
-                    self._get_change_all_cardboards_to_printing(self.cubeable.cardboard, printing, undo_stack),
-                    printing.expansion.name,
-                )
+            _add_action_to_menu(
+                printing_reselection_menu,
+                self._get_change_all_cardboards_to_printing(undo_stack),
+                'All of this Cardboard',
+            )
+            _add_action_to_menu(
+                printing_reselection_menu,
+                self._get_change_all_printings_to_printing(undo_stack),
+                'All of this Printing',
+            )
+            _add_action_to_menu(
+                printing_reselection_menu,
+                self._get_change_printing_action(undo_stack),
+                'This',
+            )
 
         else:
             printing_reselection_menu.setEnabled(False)
