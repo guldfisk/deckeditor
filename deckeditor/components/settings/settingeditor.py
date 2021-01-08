@@ -4,6 +4,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal, QObject
+
 from sqlalchemy.orm.attributes import QueryableAttribute
 
 from deckeditor.components.settings.settings import Setting
@@ -97,6 +98,39 @@ class StringSettingEditor(SettingEditor):
 
     def reset(self) -> None:
         self._field.setText(self.value)
+
+    def render(self, layout: QtWidgets.QFormLayout):
+        layout.addRow(self._label, self._field)
+
+
+class IntegerSettingEditor(SettingEditor):
+    setting_type = int
+
+    def __init__(
+        self,
+        setting: Setting,
+        description: str,
+        *,
+        min_value: t.Optional[int] = None,
+        max_value: t.Optional[int] = None,
+    ):
+        super().__init__(setting, description)
+
+        self._label = HoverLabel(self._setting.name, self._description)
+        self._field = QtWidgets.QSpinBox()
+
+        if min_value is not None:
+            self._field.setMinimum(min_value)
+        if max_value is not None:
+            self._field.setMaximum(max_value)
+
+        self._field.editingFinished.connect(lambda: self.selected.emit(self, self._field.text()))
+        self._field.valueChanged.connect(lambda v: self.selected.emit(self, v))
+
+        self._label.focus_description.connect(lambda d: self.show_description.emit(self, d))
+
+    def reset(self) -> None:
+        self._field.setValue(self.value)
 
     def render(self, layout: QtWidgets.QFormLayout):
         layout.addRow(self._label, self._field)

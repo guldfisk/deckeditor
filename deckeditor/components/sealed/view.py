@@ -11,7 +11,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog
 
-from cubeclient.models import LimitedSession, LimitedDeck
+from cubeclient.models import LimitedSession, LimitedDeck, LimitedPool
 
 from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.context.context import Context
@@ -162,7 +162,7 @@ class LimitedSessionView(QWidget):
         else:
             deck = editable.pool_model.as_deck().as_primitive_deck()
 
-        player_pool = None
+        player_pool: t.Optional[LimitedPool] = None
 
         for pool in self._session.pools:
             if pool.user == Context.cube_api_client.user:
@@ -178,7 +178,10 @@ class LimitedSessionView(QWidget):
             (
                 'Deck name'
                 + '. Session is not in deck building state. This is, in fact, C H E A T I N G.'
-                if self._session.state != LimitedSession.SealedSessionState.DECK_BUILDING else
+                if (
+                    self._session.state != LimitedSession.SealedSessionState.DECK_BUILDING
+                    or player_pool.decks and self._session.open_decks
+                ) else
                 ''
             ),
             text = 'deck',

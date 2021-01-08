@@ -14,7 +14,6 @@ import typing as t
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
-from deckeditor.views.cubeablegrid import SelectCubeableDialog
 from yeetlong.multiset import Multiset
 
 from magiccube.collections.delta import CubeDeltaOperation
@@ -323,10 +322,10 @@ class MainWindow(QMainWindow):
     def _sample_hand(self) -> None:
         tab = self._main_view.editables_tabs.currentWidget()
 
-        SelectCubeableDialog(
-            # [c.cubeable for c in tab.deck_model.maindeck.items()]
-            list(Context.db.printings.values())
-        ).exec_()
+        # SelectCubeableDialog(
+        #     # [c.cubeable for c in tab.deck_model.maindeck.items()]
+        #     list(Context.db.printings.values())
+        # ).exec_()
 
     def _draft_history_wrapper(self, method: str) -> t.Callable[[], None]:
         def wrapper():
@@ -598,7 +597,7 @@ def run():
                     client.open_file(os.path.abspath(file))
             return
 
-    app = EmbargoApp(sys.argv)
+    app = EmbargoApp.init(sys.argv)
     app.setQuitOnLastWindowClosed(True)
 
     compiled = __file__ == os.path.split(__file__)[-1]

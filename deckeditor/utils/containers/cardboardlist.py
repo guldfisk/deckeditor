@@ -7,7 +7,7 @@ from PyQt5.QtCore import QPoint, QModelIndex
 
 from mtgorp.models.interfaces import Cardboard
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.context.context import Context
 
 
@@ -42,7 +42,7 @@ class CardboardList(QtWidgets.QListWidget):
 
         if current is not None:
             self.scrollTo(self.currentIndex())
-            Context.focus_card_changed.emit(CubeableFocusEvent(current.cardboard.latest_printing))
+            Context.focus_card_changed.emit(FocusEvent(current.cardboard.latest_printing))
             self.on_current_changes(current)
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):

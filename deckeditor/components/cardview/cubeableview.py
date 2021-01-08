@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 import typing as t
+from abc import abstractmethod
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
 
-from mtgorp.models.interfaces import Printing, Card
+from mtgorp.models.interfaces import Printing, Card, Cardboard
 
 from mtgimg.interface import ImageRequest
 
@@ -20,7 +21,7 @@ from cubeclient.models import CubeRelease
 
 from deckeditor.context.context import Context
 from deckeditor.utils.images import ScaledImageLabel
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.components.cardview.focuscard import FocusEvent, Focusable
 from deckeditor.components.settings import settings
 
 
@@ -44,21 +45,23 @@ class CubeableImageView(ScaledImageLabel):
         if image_request == self._image_request:
             self.setPixmap(pixmap)
 
-    def set_cubeable(self, focus: CubeableFocusEvent) -> None:
+    def set_cubeable(self, focus_event: FocusEvent) -> None:
         if (
-            isinstance(focus.cubeable, Trap)
-            and focus.size is not None
-            and focus.position is not None
+            isinstance(focus_event.focusable, Trap)
+            and focus_event.size is not None
+            and focus_event.position is not None
             and bool(
-            focus.modifiers is not None
-            and focus.modifiers & QtCore.Qt.ShiftModifier
+            focus_event.modifiers is not None
+            and focus_event.modifiers & QtCore.Qt.ShiftModifier
         ) != settings.DEFAULT_FOCUS_TRAP_SUB_PRINTING.get_value()
         ):
-            cubeable = focus.cubeable.get_printing_at(*focus.position, *focus.size)
+            pictureable = focus_event.focusable.get_printing_at(*focus_event.position, *focus_event.size)
+        elif isinstance(focus_event.focusable, Cardboard):
+            pictureable = focus_event.focusable.original_printing
         else:
-            cubeable = focus.cubeable
+            pictureable = focus_event.focusable
 
-        image_request = ImageRequest(cubeable, back = focus.back)
+        image_request = ImageRequest(pictureable, back = focus_event.back)
 
         if image_request == self._image_request:
             return
@@ -73,8 +76,7 @@ class CubeableImageView(ScaledImageLabel):
             self.setPixmap(Context.pixmap_loader.get_default_pixmap())
 
         promise.then(
-            lambda pixmap:
-            self._image_ready.emit(
+            lambda pixmap: self._image_ready.emit(
                 image_request, pixmap
             )
         ).catch(
@@ -83,7 +85,7 @@ class CubeableImageView(ScaledImageLabel):
 
 
 class CubeableTextView(QtWidgets.QStackedWidget):
-    new_focus_card = pyqtSignal(CubeableFocusEvent)
+    new_focus_card = pyqtSignal(FocusEvent)
 
     def __init__(self, cubeable_view: CubeableView):
         super().__init__()
@@ -96,16 +98,19 @@ class CubeableTextView(QtWidgets.QStackedWidget):
         self._blank = QtWidgets.QWidget()
 
         self._printing_view = PrintingTextView()
+        self._cardboard_view = CardboardTextView()
         self._ticket_view = TicketTextView()
         self._trap_view = TrapTextView()
 
         self.addWidget(self._blank)
         self.addWidget(self._printing_view)
+        self.addWidget(self._cardboard_view)
         self.addWidget(self._ticket_view)
         self.addWidget(self._trap_view)
 
         self._cubeable_view_map = {
             'Printing': self._printing_view,
+            'Cardboard': self._cardboard_view,
             'Ticket': self._ticket_view,
             'Trap': self._trap_view,
         }
@@ -113,23 +118,23 @@ class CubeableTextView(QtWidgets.QStackedWidget):
         self.setCurrentWidget(self._blank)
 
         self._cubeable_view.new_cubeable.connect(self._on_new_cubeable)
-        self._trap_view.printing_focused.connect(lambda p: self.new_focus_card.emit(CubeableFocusEvent(p)))
+        self._trap_view.printing_focused.connect(lambda p: self.new_focus_card.emit(FocusEvent(p)))
         self._printing_view.new_focus_card.connect(self.new_focus_card)
 
-    def _on_new_cubeable(self, focus: CubeableFocusEvent) -> None:
-        if self._latest_cubeable == focus.cubeable:
+    def _on_new_cubeable(self, focus: FocusEvent) -> None:
+        if self._latest_cubeable == focus.focusable:
             return
 
-        self._latest_cubeable = focus.cubeable
+        self._latest_cubeable = focus.focusable
 
-        view = self._cubeable_view_map.get(focus.cubeable.__class__.__name__)
+        view = self._cubeable_view_map.get(focus.focusable.__class__.__name__)
 
         if view is None:
             self.setCurrentWidget(self._blank)
 
         else:
             self.setCurrentWidget(view)
-            view.set_cubeable(focus.cubeable, release_id = focus.release_id)
+            view.set_cubeable(focus.focusable, release_id = focus.release_id)
 
 
 class CardTextView(QtWidgets.QWidget):
@@ -184,16 +189,18 @@ class CardTextView(QtWidgets.QWidget):
             self._power_toughness_loyalty_label.hide()
 
 
-class PrintingTextView(QtWidgets.QWidget):
-    new_focus_card = pyqtSignal(CubeableFocusEvent)
+F = t.TypeVar('F', bound = Focusable)
 
-    def __init__(self, printing: t.Optional[Printing] = None):
+
+class FocusableTextView(t.Generic[F], QtWidgets.QWidget):
+    new_focus_card = pyqtSignal(FocusEvent)
+
+    def __init__(self, focusable: t.Optional[F] = None):
         super().__init__()
 
-        self._printing: t.Optional[Printing] = printing
+        self._focusable: t.Optional[F] = focusable
 
         self._name_label = QtWidgets.QLabel()
-        self._expansion_label = QtWidgets.QLabel()
 
         self._card_view = CardTextView()
         self._card_views_tabs = QtWidgets.QTabWidget()
@@ -203,47 +210,75 @@ class PrintingTextView(QtWidgets.QWidget):
         self._cards_stack.addWidget(self._card_views_tabs)
         self._cards_stack.setCurrentWidget(self._card_view)
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        self._layout = QtWidgets.QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(self._name_label)
-        layout.addWidget(self._expansion_label)
-        layout.addWidget(self._cards_stack)
-        layout.addStretch()
+        self._layout.addWidget(self._name_label)
+        self._layout.addWidget(self._cards_stack)
+        self._layout.addStretch()
 
-        self.setLayout(layout)
-
-        if self._printing is not None:
-            self.set_cubeable(printing)
+        if self._focusable is not None:
+            self.set_cubeable(focusable)
 
         self._card_views_tabs.currentChanged.connect(self._handle_tab_changed)
 
+    @property
+    @abstractmethod
+    def cardboard(self) -> Cardboard:
+        pass
+
     def _handle_tab_changed(self, idx: int) -> None:
-        if self._printing is None:
+        if self._focusable is None:
             return
         tab: CardTextView = self._card_views_tabs.widget(idx)
         if tab is None:
             return
         self.new_focus_card.emit(
-            CubeableFocusEvent(self._printing, back = tab.card in self._printing.cardboard.back_cards))
+            FocusEvent(self._focusable, back = tab.card in self.cardboard.back_cards)
+        )
 
-    def set_cubeable(self, printing: Printing, release_id: t.Optional[int] = None) -> None:
-        if printing == self._printing:
+    def set_cubeable(self, focusable: F, release_id: t.Optional[int] = None) -> None:
+        if focusable == self._focusable:
             return
-        self._printing = printing
-        self._name_label.setText(printing.cardboard.name)
-        self._expansion_label.setText(printing.expansion.name_and_code)
-        if len(printing.cardboard.cards) > 1:
+        self._focusable = focusable
+
+        self._name_label.setText(self.cardboard.name)
+        # self._expansion_label.setText(self.expansion.name_and_code)
+        if len(self.cardboard.cards) > 1:
             self._card_views_tabs.clear()
-            for card in printing.cardboard.cards:
+            for card in self.cardboard.cards:
                 self._card_views_tabs.addTab(
                     CardTextView(card),
                     card.name,
                 )
             self._cards_stack.setCurrentWidget(self._card_views_tabs)
         else:
-            self._card_view.set_card(printing.cardboard.front_card)
+            self._card_view.set_card(self.cardboard.front_card)
             self._cards_stack.setCurrentWidget(self._card_view)
+
+
+class CardboardTextView(FocusableTextView[Cardboard]):
+
+    @property
+    def cardboard(self) -> Cardboard:
+        return self._focusable
+
+
+class PrintingTextView(FocusableTextView[Printing]):
+
+    def __init__(self, focusable: t.Optional[Printing] = None):
+        super().__init__(focusable)
+        self._expansion_label = QtWidgets.QLabel()
+
+        self._layout.insertWidget(1, self._expansion_label)
+
+    @property
+    def cardboard(self) -> Cardboard:
+        return self._focusable.cardboard
+
+    def set_cubeable(self, focusable: Printing, release_id: t.Optional[int] = None) -> None:
+        super().set_cubeable(focusable, release_id)
+        self._expansion_label.setText(focusable.expansion.name_and_code)
 
 
 class TicketTextView(QtWidgets.QWidget):
@@ -429,7 +464,7 @@ class TextImageCubeableView(QtWidgets.QWidget):
 
 
 class CubeableView(QtWidgets.QWidget):
-    new_cubeable = QtCore.pyqtSignal(CubeableFocusEvent)
+    new_cubeable = QtCore.pyqtSignal(FocusEvent)
 
     def __init__(self, parent: t.Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)

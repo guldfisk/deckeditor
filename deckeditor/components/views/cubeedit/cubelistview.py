@@ -6,7 +6,7 @@ from mtgorp.models.interfaces import Printing
 
 from magiccube.collections.cubeable import Cubeable
 
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.context.context import Context
 from deckeditor.utils.tables.listdelete import LineDeleteMixin
 
@@ -29,7 +29,7 @@ class CubeListView(QTableView, LineDeleteMixin):
         super().mouseMoveEvent(event)
         idx = self.model().mapToSource(self.indexAt(event.pos())).row()
         if idx >= 0:
-            Context.focus_card_changed.emit(CubeableFocusEvent(self.model().sourceModel().items_at(idx)[0]))
+            Context.focus_card_changed.emit(FocusEvent(self.model().sourceModel().items_at(idx)[0]))
 
 
 class CubeableTableItem(QTableWidgetItem):

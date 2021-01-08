@@ -3,7 +3,7 @@ import typing as t
 from PyQt5.QtCore import QSettings
 
 from deckeditor.context.context import Context
-from deckeditor.models.cubes.alignment.aligners import DEFAULT_ALIGNER
+# from deckeditor.models.cubes.alignment.aligners import DEFAULT_ALIGNER
 
 
 T = t.TypeVar('T')
@@ -61,7 +61,7 @@ SELECT_ON_COVERED_PARTS = BooleanSetting('select_on_covered_parts', 'Select all 
 ON_VIEW_CARD_COUNT = BooleanSetting('on_view_card_count', 'Show card count overlay', True)
 FIT_ALL_CARDS = BooleanSetting('fit_all_cards', 'Fit all cards', False)
 DOUBLECLICK_MATCH_ON_CARDBOARDS = BooleanSetting('doubleclick_match_on_cardboards', 'Doubleclick matches on cardboards', True)
-DEFAULT_ALIGNER_TYPE = StringSetting('default_aligner_type', 'Default aligner type', DEFAULT_ALIGNER.name)
+DEFAULT_ALIGNER_TYPE = StringSetting('default_aligner_type', 'Default aligner type', 'Dynamic Stacking Grid')
 AUTO_SORT_NON_EMB_FILES_ON_OPEN = BooleanSetting('auto_sort_non_emb_files_on_open', 'Auto sort files on open', True)
 AUTO_SORT_MACRO_ID = IntegerSetting('auto_sort_macro_id', 'Auto sort macro', 0)
 
@@ -77,6 +77,7 @@ INFER_PICK_BURN = BooleanSetting('infer_pick_burn', 'Infer pick burn', True)
 PICK_ON_DOUBLE_CLICK = BooleanSetting('pick_on_double_click', 'Double click pick', True)
 GHOST_CARDS = BooleanSetting('ghost_cards', 'Ghost cards', True)
 
+IMAGE_CACHE_SIZE = IntegerSetting('image_cache_size', 'Image cache size', 64, requires_restart = True)
 REMOTE_IMAGES = BooleanSetting('remote_images', 'Remote images', False, requires_restart = True)
 REMOTE_IMAGE_URL = StringSetting('remote_image_url', 'Remote images url', 'http://prohunterdogkeeper.dk', requires_restart = True)
 ALLOW_LOCAL_IMAGE_FALLBACK = BooleanSetting('allow_local_image_fallback', 'Allow local fallback', True, requires_restart = True)

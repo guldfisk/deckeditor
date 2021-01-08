@@ -12,6 +12,7 @@ from deckeditor.components.lobbies.options.games.poolspecification.selector impo
 from deckeditor.components.lobbies.options.primitives import ComboSelector, CheckboxSelector
 from deckeditor.components.lobbies.options.selector import OptionsSelector
 from deckeditor.components.lobbies.options.infinites import InfinitesSelector
+from deckeditor.components.lobbies.options.tournaments import TournamentOptionsSelector
 
 
 class BaseGameOptionsSelector(QWidget, OptionsSelector):
@@ -30,6 +31,8 @@ class BaseGameOptionsSelector(QWidget, OptionsSelector):
 
         self._infinites_selector = InfinitesSelector(lobby_view)
 
+        self._tournaments_selector = TournamentOptionsSelector(self._lobby_view)
+
         self._layout = QtWidgets.QGridLayout(self)
         self._layout.setContentsMargins(0, 1, 0, 1)
 
@@ -40,6 +43,8 @@ class BaseGameOptionsSelector(QWidget, OptionsSelector):
         self._layout.addWidget(self._open_pools_selector, 2, 1, 1, 1)
 
         self._layout.addWidget(self._infinites_selector, 3, 0, 1, 2)
+
+        self._layout.addWidget(self._tournaments_selector, 4, 0, 1, 2)
 
     def _on_open_decks_state_changed(self, state) -> None:
         self._lobby_view.lobby_model.set_options(
@@ -54,3 +59,5 @@ class BaseGameOptionsSelector(QWidget, OptionsSelector):
 
         self._open_decks_selector.update_content(options, enabled)
         self._open_pools_selector.update_content(options, enabled)
+
+        self._tournaments_selector.update_content(options['tournament_options'], enabled)

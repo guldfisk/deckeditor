@@ -16,8 +16,8 @@ from deckeditor.components.lobbies.interfaces import LobbyViewInterface
 from deckeditor.components.lobbies.options.selector import OptionsSelector
 from deckeditor.context.context import Context
 from deckeditor.utils.containers.cardboardlist import CardboardList
-from deckeditor.utils.dialogs import SelectCardboardDialog
 from deckeditor.utils.stack import DynamicSizeStack
+from deckeditor.views.focusables.dialogs import SelectCardboardDialog
 
 
 class InfinitesSummary(QtWidgets.QLabel, OptionsSelector):
@@ -110,6 +110,7 @@ class InfinitesSelector(QtWidgets.QWidget, OptionsSelector):
 
         self._stack = DynamicSizeStack()
         self._stack.addWidget(self._summary)
+        self._stack.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum)
         self._stack.addWidget(self._table)
         self._stack.setCurrentWidget(self._summary)
 

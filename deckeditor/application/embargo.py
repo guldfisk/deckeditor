@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import logging
 import os
 import sys
 import typing
 import re
+import typing as t
 
 from PyQt5.QtWidgets import QApplication
 
@@ -11,6 +14,7 @@ from deckeditor.context.context import Context
 
 
 class EmbargoApp(QApplication):
+    current: t.Optional[EmbargoApp]
 
     def __init__(self, argv: typing.List[str]) -> None:
         super().__init__(argv)
@@ -30,6 +34,11 @@ class EmbargoApp(QApplication):
 
         self.setOrganizationDomain('prohunterdogkeeper.dk')
         self.setApplicationName(values.APPLICATION_NAME)
+
+    @classmethod
+    def init(cls, argv: typing.List[str]) -> EmbargoApp:
+        cls.current = cls(argv)
+        return cls.current
 
 
 def restart(save_session: bool = True) -> None:

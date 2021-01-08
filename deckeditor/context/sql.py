@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, scoped_session, Session
 
-from orp.alchemy import patch_alchemy, ScopedSessionContainer
+from orp.alchemy import patch_alchemy
 
 
 class SqlContext(object):
@@ -15,8 +15,6 @@ class SqlContext(object):
 
     @classmethod
     def init(cls, settings: QtCore.QSettings):
-        patch_alchemy()
-
         uri = '{dialect}+{driver}://{username}:{password}@{host}/{database}?charset=utf8'.format(
             dialect = settings.value('sql_dialect', 'mysql', str),
             driver = settings.value('sql_driver', 'mysqldb', str),
@@ -34,4 +32,4 @@ class SqlContext(object):
 
         session_factory = sessionmaker(bind = cls.engine)
         cls.scoped_session = scoped_session(session_factory)
-        ScopedSessionContainer.scoped_session = cls.scoped_session
+        patch_alchemy(cls.scoped_session)

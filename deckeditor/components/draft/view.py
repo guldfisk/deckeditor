@@ -11,7 +11,7 @@ import plyer
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QMouseEvent
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox, QHeaderView
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
 
 from yeetlong.multiset import Multiset
 
@@ -39,7 +39,7 @@ from deckeditor.components.editables.editor import EditablesMeta
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.components.draft.draftbots import collect_bots, bot_pick
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
 from deckeditor.components.settings import settings
 
@@ -421,6 +421,7 @@ class BoosterWidget(QtWidgets.QWidget):
         self._head_meta_info.setVisible(False)
 
         self._picking_info = QtWidgets.QLabel('')
+        self._picking_info.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
 
         self._booster_scene = CubeScene(
             GridAligner,
@@ -624,7 +625,7 @@ class PicksTable(QtWidgets.QTableWidget):
         super().mouseMoveEvent(event)
         item = self.itemAt(event.pos())
         if item is not None:
-            Context.focus_card_changed.emit(CubeableFocusEvent(self.item(item.row(), 2).cubeable))
+            Context.focus_card_changed.emit(FocusEvent(self.item(item.row(), 2).cubeable))
 
     def _handle_current_cell_changed(
         self,
@@ -633,7 +634,7 @@ class PicksTable(QtWidgets.QTableWidget):
         previous_row: int,
         previous_column: int,
     ):
-        Context.focus_card_changed.emit(CubeableFocusEvent(self.item(current_row, 2).cubeable))
+        Context.focus_card_changed.emit(FocusEvent(self.item(current_row, 2).cubeable))
 
     def _on_round_started(self, draft_round: DraftRound) -> None:
         self._current_pack = draft_round.pack
@@ -842,10 +843,6 @@ class DraftView(Editable):
     @property
     def pool_model(self) -> PoolModel:
         return self._pool_model
-
-    # @property
-    # def booster_widget(self) -> BoosterWidget:
-    #     return self._booster_widget
 
     @property
     def draft_model(self) -> DraftModel:

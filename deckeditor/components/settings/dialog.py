@@ -5,7 +5,7 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget
 
 from deckeditor.components.settings.settingeditor import (
-    SettingEditor, OptionsSettingEditor, BooleanSettingEditor, StringSettingEditor, AlchemySettingEditor
+    SettingEditor, OptionsSettingEditor, BooleanSettingEditor, StringSettingEditor, AlchemySettingEditor, IntegerSettingEditor
 )
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.aligners import ALIGNER_TYPE_MAP
@@ -181,6 +181,12 @@ class SettingsDialog(SingleInstanceDialog):
             (
                 'images',
                 (
+                    IntegerSettingEditor(
+                        settings.IMAGE_CACHE_SIZE,
+                        'Max amount of images to cache, dont make to small or it gets weird.',
+                        min_value = 0,
+                        max_value = 1024,
+                    ),
                     BooleanSettingEditor(
                         settings.REMOTE_IMAGES,
                         'Get images from server instead of generating locally.',

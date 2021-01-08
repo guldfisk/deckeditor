@@ -28,7 +28,7 @@ from deckeditor.models.cubes.scenecard import SceneCard, C
 from deckeditor.sorting.sorting import CMCExtractor, ColorExtractor, ColorIdentityExtractor
 from deckeditor.utils.dialogs import ColorSelector
 from deckeditor.components.settings import settings
-from deckeditor.views.cubeablegrid import SelectCubeableDialog
+from deckeditor.views.focusables.dialogs import SelectCubeableDialog
 
 
 class PhysicalCard(SceneCard[C]):

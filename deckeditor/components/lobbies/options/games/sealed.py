@@ -14,7 +14,7 @@ class SealedOptionsSelector(BaseGameOptionsSelector):
 
         self._mirrored_selector = CheckboxSelector(lobby_view, 'mirrored')
 
-        self._layout.addWidget(self._mirrored_selector, 4, 0, 1, 1)
+        self._layout.addWidget(self._mirrored_selector, 5, 0, 1, 1)
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         super().update_content(options, enabled)

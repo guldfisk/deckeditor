@@ -9,9 +9,6 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 
 from mtgorp.models.persistent.attributes.colors import Color
-from mtgorp.models.interfaces import Cardboard
-
-from deckeditor.components.cardadd.cardadder import CardboardSelector
 
 
 class SingleInstanceDialog(QDialog):
@@ -80,36 +77,3 @@ class ColorSelector(QDialog):
             return dialog.colors, True
         else:
             return None, False
-
-
-class SelectCardboardDialog(SingleInstanceDialog):
-
-    def __init__(self):
-        super().__init__()
-        self._cardboard_selector = CardboardSelector()
-
-        self._cardboard_selector.cardboard_selected.connect(self._handle_cardboard_selected)
-
-        self._cardboard: t.Optional[Cardboard] = None
-
-        layout = QtWidgets.QVBoxLayout(self)
-
-        self._buttons = QDialogButtonBox(QDialogButtonBox.Cancel)
-        self._buttons.rejected.connect(self.reject)
-
-        layout.addWidget(self._cardboard_selector)
-        layout.addWidget(self._buttons)
-
-        self.setFocusProxy(self._cardboard_selector)
-
-    def _handle_cardboard_selected(self, cardboard: Cardboard) -> None:
-        self._cardboard = cardboard
-        self.accept()
-
-    @classmethod
-    def get_cardboard(cls) -> t.Tuple[t.Optional[Cardboard], bool]:
-        dialog = cls.get()
-        dialog._cardboard_selector.setFocus()
-        if dialog.exec_():
-            return dialog._cardboard, True
-        return None, False

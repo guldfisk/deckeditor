@@ -24,7 +24,7 @@ from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
 from deckeditor.sorting import sorting
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.utils.actions import WithActions
 from deckeditor.sorting.sorting import SortProperty, SortMacro, SortSpecification, SortDimension
 from deckeditor.utils.transform import transform_factory
@@ -660,8 +660,8 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 card_mapped_position = self.mapToScene(mouse_event.pos()) - item.pos()
 
                 Context.focus_card_changed.emit(
-                    CubeableFocusEvent(
-                        cubeable = item.cubeable,
+                    FocusEvent(
+                        focusable = item.cubeable,
                         size = (
                             item.boundingRect().width(),
                             item.boundingRect().height(),

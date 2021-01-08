@@ -2,7 +2,6 @@ import typing as t
 
 from collections import OrderedDict
 
-from deckeditor.context.context import Context
 from deckeditor.components.settings import settings
 from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.models.cubes.alignment.bunchingstackinggrid import BunchingStackingGrid

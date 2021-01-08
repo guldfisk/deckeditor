@@ -2,6 +2,7 @@ sqlalchemy
 plyer
 appdirs
 yeetlong@ https://github.com/guldfisk/yeetlong/tarball/master#egg=yeetlong-1.0
+hardcandy@ https://github.com/guldfisk/hardcandy/tarball/master#egg=hardcandy-1.0
 orp@ https://github.com/guldfisk/orp/tarball/master#egg=orp-1.0
 mtgorp@ https://github.com/guldfisk/mtgorp/tarball/master#egg=mtgorp-1.0
 mtgimg@ https://github.com/guldfisk/mtgimg/tarball/master#egg=mtgimg-1.0

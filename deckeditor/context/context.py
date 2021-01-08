@@ -24,7 +24,7 @@ from cubeclient.images import ImageClient
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
 from deckeditor.components.editables.editor import Editor
-from deckeditor.components.cardview.focuscard import CubeableFocusEvent
+from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.sorting.custom import CustomSortMap
 from deckeditor.context.sql import SqlContext
 from deckeditor.utils.executors import LIFOExecutor
@@ -62,7 +62,7 @@ class _Context(QObject):
     notification_message = pyqtSignal(str)
     status_message = pyqtSignal(str, int)
 
-    focus_card_changed = pyqtSignal(CubeableFocusEvent)
+    focus_card_changed = pyqtSignal(FocusEvent)
     focus_scene_changed = pyqtSignal(QGraphicsScene)
 
     open_file = pyqtSignal(str)
@@ -131,6 +131,7 @@ class _Context(QObject):
                 imageable_executor = LIFOExecutor(max_workers = 8),
                 image_cache_size = None,
             ),
+            image_cache_size = cls.settings.value('image_cache_size', 64, int),
         )
 
         cls.cardboard_names = sorted(cls.db.cardboards.keys())
