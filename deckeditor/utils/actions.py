@@ -1,6 +1,6 @@
 import typing as t
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 
 class WithActions(object):
@@ -16,3 +16,9 @@ class WithActions(object):
         self.addAction(action)
 
         return action
+
+    def _create_shortcut(self, result: t.Callable, shortcut: t.Optional[str] = None) -> QtWidgets.QShortcut:
+        shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(shortcut), self)
+        shortcut.activated.connect(result)
+        shortcut.setContext(QtCore.Qt.WidgetWithChildrenShortcut)
+        return shortcut

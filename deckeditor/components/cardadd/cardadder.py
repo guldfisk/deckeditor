@@ -123,7 +123,7 @@ class PrintingSelector(CardSelector):
         parent: t.Optional[QtWidgets.QWidget] = None,
         *,
         cardboard_image_size: SizeSlug = SizeSlug.THUMBNAIL,
-        printing_image_size: SizeSlug = SizeSlug.MEDIUM,
+        printing_image_size: SizeSlug = SizeSlug.SMALL,
     ):
         super().__init__(parent, cardboard_image_size = cardboard_image_size)
 

@@ -5,7 +5,8 @@ import typing as t
 from collections import defaultdict
 from dataclasses import dataclass
 
-from PyQt5.QtCore import QPoint, pyqtSignal
+from PyQt5 import QtGui, QtCore
+from PyQt5.QtCore import QPoint, pyqtSignal, QLine, QLineF
 from PyQt5.QtWidgets import QUndoCommand
 
 from yeetlong.counters import Counter
@@ -333,10 +334,10 @@ class CubeScene(SelectionScene):
                     for card in
                     cards
                     if (
-                        isinstance(card, SceneCard)
-                        and isinstance(card.cubeable, Printing)
-                        and card.cubeable.cardboard in self.infinites
-                    )
+                    isinstance(card, SceneCard)
+                    and isinstance(card.cubeable, Printing)
+                    and card.cubeable.cardboard in self.infinites
+                )
                 ]
                 for cards in
                 (new_physical_cards, removed_physical_cards)
@@ -371,6 +372,10 @@ class CubeScene(SelectionScene):
             self.removeItem(card)
 
         self.content_changed.emit(PhysicalCardChange(removed = physical_cards))
+
+    def drawBackground(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
+        if self._aligner:
+            self._aligner.draw_background(painter, rect)
 
     def __repr__(self):
         return '{}()'.format(

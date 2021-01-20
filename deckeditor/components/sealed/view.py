@@ -120,10 +120,6 @@ class LimitedSessionView(QWidget):
         self._view_button.clicked.connect(self._on_view)
         self._submit_button.clicked.connect(self._on_submit)
 
-    def set_session(self, session: LimitedSession) -> None:
-        self._session = session
-        self._update_content()
-
     @property
     def session(self) -> t.Optional[LimitedSession]:
         return self._session

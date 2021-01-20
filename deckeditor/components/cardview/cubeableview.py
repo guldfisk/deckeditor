@@ -195,10 +195,10 @@ F = t.TypeVar('F', bound = Focusable)
 class FocusableTextView(t.Generic[F], QtWidgets.QWidget):
     new_focus_card = pyqtSignal(FocusEvent)
 
-    def __init__(self, focusable: t.Optional[F] = None):
+    def __init__(self):
         super().__init__()
 
-        self._focusable: t.Optional[F] = focusable
+        self._focusable: t.Optional[F] = None
 
         self._name_label = QtWidgets.QLabel()
 
@@ -216,9 +216,6 @@ class FocusableTextView(t.Generic[F], QtWidgets.QWidget):
         self._layout.addWidget(self._name_label)
         self._layout.addWidget(self._cards_stack)
         self._layout.addStretch()
-
-        if self._focusable is not None:
-            self.set_cubeable(focusable)
 
         self._card_views_tabs.currentChanged.connect(self._handle_tab_changed)
 
@@ -243,7 +240,6 @@ class FocusableTextView(t.Generic[F], QtWidgets.QWidget):
         self._focusable = focusable
 
         self._name_label.setText(self.cardboard.name)
-        # self._expansion_label.setText(self.expansion.name_and_code)
         if len(self.cardboard.cards) > 1:
             self._card_views_tabs.clear()
             for card in self.cardboard.cards:
@@ -266,8 +262,8 @@ class CardboardTextView(FocusableTextView[Cardboard]):
 
 class PrintingTextView(FocusableTextView[Printing]):
 
-    def __init__(self, focusable: t.Optional[Printing] = None):
-        super().__init__(focusable)
+    def __init__(self):
+        super().__init__()
         self._expansion_label = QtWidgets.QLabel()
 
         self._layout.insertWidget(1, self._expansion_label)
@@ -305,8 +301,10 @@ class TicketTextView(QtWidgets.QWidget):
         self._name_label.setText(ticket.name)
         self._printings_tabs.clear()
         for printing in sorted(ticket.options, key = lambda p: p.cardboard.name):
+            printing_text_view = PrintingTextView()
+            printing_text_view.set_cubeable(printing)
             self._printings_tabs.addTab(
-                PrintingTextView(printing),
+                printing_text_view,
                 printing.cardboard.name,
             )
 

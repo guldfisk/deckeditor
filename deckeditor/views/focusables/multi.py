@@ -28,7 +28,7 @@ class FocusableMultiView(t.Generic[F], QtWidgets.QStackedWidget, WithActions):
         parent: typing.Optional[QWidget] = None,
         *,
         image_mode: bool = False,
-        image_size: SizeSlug = SizeSlug.MEDIUM,
+        image_size: SizeSlug = SizeSlug.SMALL,
     ) -> None:
         super().__init__(parent)
         self._grid_proxy = CubeablesGrid()
@@ -38,8 +38,8 @@ class FocusableMultiView(t.Generic[F], QtWidgets.QStackedWidget, WithActions):
         self._list_selector.current_focusable_changed.connect(self.current_focusable_changed)
 
         self._grid = FocusableGridView(size_slug = image_size)
-        self._grid.cubeable_clicked.connect(self.focusable_selected)
-        self._grid.cubeable_changed.connect(self.current_focusable_changed)
+        self._grid.focusable_selected.connect(self.focusable_selected)
+        self._grid.current_focusable_changed.connect(self.current_focusable_changed)
 
         self._image_mode = None
         self._button = QtWidgets.QPushButton(self)

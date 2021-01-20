@@ -55,6 +55,8 @@ class StringSetting(Setting[str]):
 
 DEFAULT_CARD_VIEW_TYPE = StringSetting('default_card_view_type', 'Default card view', 'image')
 FRAMELESS = BooleanSetting('frameless', 'Frameless', True, requires_restart = True)
+LAZY_TABS = BooleanSetting('lazy_tabs', 'Lazy Tabs', True, requires_restart = True)
+
 DEFAULT_CUBEVIEW_HEADER_HIDDEN = BooleanSetting('default_cubeview_header_hidden', 'Header collapsed by default', True)
 IMAGE_VIEW_SCROLL_DEFAULT_ZOOM = BooleanSetting('image_view_scroll_default_zoom', 'Zoom with scroll wheel', True)
 SELECT_ON_COVERED_PARTS = BooleanSetting('select_on_covered_parts', 'Select all cards intersecting rubber band', False)

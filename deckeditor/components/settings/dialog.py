@@ -58,6 +58,10 @@ class SettingsDialog(SingleInstanceDialog):
                         settings.FRAMELESS,
                         'Removes title bar of main window.',
                     ),
+                    BooleanSettingEditor(
+                        settings.LAZY_TABS,
+                        'Don\'t load editor tabs before they receive focus.',
+                    ),
                 ),
                 (),
             ),

@@ -4,41 +4,39 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 
-from mtgorp.models.interfaces import Cardboard
+from mtgorp.models.interfaces import Cardboard, Printing
 
-from mtgimg.interface import SizeSlug
+from mtgimg.interface import SizeSlug, IMAGE_SIZE_MAP
 
-from magiccube.collections.cubeable import Cubeable
-
-from deckeditor.models.focusables.grid import CubeablesGrid
-from deckeditor.models.focusables.lists import CubeablesList
-from deckeditor.views.focusables.grid import FocusableGridView
+from deckeditor.models.focusables.lists import ExpansionPrintingList
 from deckeditor.components.cardadd.cardadder import CardboardSelector
 from deckeditor.utils.dialogs import SingleInstanceDialog
+from deckeditor.views.focusables.multi import FocusableMultiView
 
 
-class SelectCubeableDialog(QDialog):
+class SelectOneOfPrintingsDialog(QDialog):
     cubeable_selected = pyqtSignal(object)
 
-    def __init__(self, cubeables: t.Sequence[Cubeable]):
+    def __init__(self, printings: t.Sequence[Printing]):
         super().__init__()
         self.setWindowTitle('Select cubeable')
 
-        self._list_model = CubeablesList(cubeables)
+        self._list_model = ExpansionPrintingList(printings)
 
-        self._table_model = CubeablesGrid()
-        self._table_model.setSourceModel(self._list_model)
-
-        self._view = FocusableGridView(SizeSlug.SMALL)
-        self._view.setModel(self._table_model)
-        self._view.cubeable_clicked.connect(self._on_cubeable_clicked)
+        self._view = FocusableMultiView(image_mode = True, image_size = SizeSlug.SMALL)
+        self._view.set_model(self._list_model)
+        self._view.focusable_selected.connect(self._on_cubeable_clicked)
 
         layout = QtWidgets.QVBoxLayout(self)
 
         layout.addWidget(self._view)
 
-    def _on_cubeable_clicked(self, cubeable: Cubeable) -> None:
-        self.cubeable_selected.emit(cubeable)
+        width, height = IMAGE_SIZE_MAP[frozenset((SizeSlug.SMALL, False))]
+
+        self.resize(int(width * 3.25), height * 2)
+
+    def _on_cubeable_clicked(self, printings: Printing) -> None:
+        self.cubeable_selected.emit(printings)
         self.accept()
 
 

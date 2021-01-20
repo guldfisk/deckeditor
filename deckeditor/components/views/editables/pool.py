@@ -6,32 +6,29 @@ from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoStack, QGraphicsScene
 
-from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.cubeedit.cubeview import CubeView
-from deckeditor.components.views.editables.multicubestab import MultiCubesTab
-from deckeditor.context.context import Context
+from deckeditor.components.views.editables.editable import TabType
+from deckeditor.components.views.editables.multicubesview import MultiCubesView
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.deck import PoolModel
 
 
-class PoolView(MultiCubesTab):
+class PoolView(MultiCubesView):
 
     def __init__(
         self,
         pool_model: PoolModel,
+        undo_stack: QUndoStack,
         *,
         maindeck_cube_view: t.Optional[CubeView] = None,
         sideboard_cube_view: t.Optional[CubeView] = None,
-        pool_cube_view: t.Optional[CubeEditMode] = None,
-        undo_stack: t.Optional[QUndoStack] = None,
+        pool_cube_view: t.Optional[CubeView] = None,
     ) -> None:
-        super().__init__()
-
-        self._undo_stack = undo_stack if undo_stack is not None else Context.get_undo_stack()
+        super().__init__(undo_stack)
 
         self._pool_model = pool_model
 
-        layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(3, 3, 3, 1)
 
         self._vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical, self)
@@ -78,8 +75,6 @@ class PoolView(MultiCubesTab):
         self._vertical_splitter.addWidget(self._horizontal_splitter)
 
         layout.addWidget(self._vertical_splitter)
-
-        self.setLayout(layout)
 
         self._connect_move_cubeable(self._maindeck_cube_view, self._pool_cube_view, self._sideboard_cube_view)
         self._connect_move_cubeable(self._sideboard_cube_view, self._pool_cube_view, self._maindeck_cube_view)
@@ -130,6 +125,10 @@ class PoolView(MultiCubesTab):
     def pool_model(self) -> PoolModel:
         return self._pool_model
 
+    @property
+    def tab_type(self) -> TabType:
+        return TabType.POOL
+
     def persist(self) -> t.Any:
         return {
             'maindeck_view': self._maindeck_cube_view.persist(),
@@ -138,13 +137,12 @@ class PoolView(MultiCubesTab):
             'horizontal_splitter': self._horizontal_splitter.saveState(),
             'vertical_splitter': self._vertical_splitter.saveState(),
             'pool_model': self._pool_model.persist(),
-            'tab_type': 'pool',
+            'tab_type': self.tab_type,
         }
 
     @classmethod
-    def load(cls, state: t.Any) -> PoolView:
+    def load(cls, state: t.Any, undo_stack: QUndoStack) -> PoolView:
         pool_model = PoolModel.load(state['pool_model'])
-        undo_stack = Context.get_undo_stack()
         pool_view = cls(
             pool_model,
             maindeck_cube_view = CubeView.load(
@@ -167,7 +165,3 @@ class PoolView(MultiCubesTab):
         pool_view._horizontal_splitter.restoreState(state['horizontal_splitter'])
         pool_view._vertical_splitter.restoreState(state['vertical_splitter'])
         return pool_view
-
-    @property
-    def undo_stack(self) -> QUndoStack:
-        return self._undo_stack

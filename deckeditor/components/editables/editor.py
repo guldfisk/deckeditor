@@ -1,11 +1,12 @@
 import typing as t
 import os
 import uuid
+from abc import abstractmethod
 
-from deckeditor.components.views.editables.editable import Editable
+from deckeditor.components.views.editables.editable import Editable, Tab
 
 
-class EditablesMeta(object):
+class TabMeta(object):
 
     def __init__(self, name: str, path: t.Optional[str] = None, key: t.Optional[str] = None):
         self._path: t.Optional[str] = path
@@ -42,14 +43,24 @@ class EditablesMeta(object):
             and self._key == other._key
         )
 
+    def __repr__(self) -> str:
+        return '{}({}, {})'.format(
+            self.__class__.__name__,
+            self._name,
+            self._key,
+        )
+
 
 class Editor(object):
 
+    @abstractmethod
     def current_editable(self) -> t.Optional[Editable]:
         pass
 
-    def add_editable(self, editable: Editable, meta: EditablesMeta) -> Editable:
+    @abstractmethod
+    def add_editable(self, editable: Editable, meta: TabMeta) -> Editable:
         pass
 
-    def close_editable(self, editable: Editable) -> None:
+    @abstractmethod
+    def close_tab(self, tab: Tab) -> None:
         pass

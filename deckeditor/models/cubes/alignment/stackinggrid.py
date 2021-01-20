@@ -5,13 +5,12 @@ import typing as t
 from abc import abstractmethod, ABC
 from collections import defaultdict
 
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import QPoint
+from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5.QtCore import QPoint, QLineF
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, _AlingerResize
 from deckeditor.models.cubes.physicalcard import PhysicalCard
-from deckeditor.models.cubes.scenecard import SceneCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting import sorting
 from deckeditor.sorting.sorting import SortIdentity, SortMacro, SortDimension, DimensionContinuity
@@ -33,7 +32,7 @@ class CardStacker(ABC):
 
         self._cards: t.List[PhysicalCard] = []
 
-        self._requested_size: t.Tuple[float, float] = (0., 0.)
+        self._requested_size: t.Tuple[float, float] = 0., 0.
 
     @property
     def grid(self) -> StackingGrid:
@@ -669,6 +668,18 @@ class StackerMap(object):
     def set_column_width_at(self, index: int, width: float) -> None:
         self._column_widths[index] = width
 
+    def row_termination_points(self) -> t.Iterator[int]:
+        v = 0
+        for i in range(self.row_length):
+            v += self.column_width_at(i)
+            yield v
+
+    def column_termination_points(self) -> t.Iterator[int]:
+        v = 0
+        for i in range(self.column_height):
+            v += self.row_height_at(i)
+            yield v
+
     def map_position_to_index(self, x: float, y: float) -> t.Tuple[int, int]:
         xi = self.row_length
         for i in range(self.row_length):
@@ -711,15 +722,21 @@ class StackerMap(object):
 
 
 class StackingGrid(Aligner):
+    _show_grid = False
 
-    def __init__(self, scene: SelectionScene, *, margin: float = STANDARD_IMAGE_MARGIN):
+    def __init__(
+        self,
+        scene: SelectionScene,
+        *,
+        margin: float = STANDARD_IMAGE_MARGIN,
+        show_grid: bool = False,
+    ):
         super().__init__(scene)
 
         self._stacked_cards: t.Dict[PhysicalCard, _CardInfo] = {}
-
         self._margin_pixel_size = margin * IMAGE_WIDTH
-
         self._stacker_map = self.create_stacker_map()
+        self._show_grid = show_grid
 
     @abstractmethod
     def create_stacker_map(self) -> StackerMap:
@@ -883,6 +900,9 @@ class StackingGrid(Aligner):
     def insert_column(self, idx: int) -> QUndoCommand:
         pass
 
+    def _set_show_grid(self, show_grid: bool) -> None:
+        self._show_grid = show_grid
+
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
         stacker = self.get_card_stacker(position.x(), position.y())
 
@@ -910,5 +930,39 @@ class StackingGrid(Aligner):
         add_row_action.triggered.connect(lambda: undo_stack.push(RowInsert(self, stacker.y_index)))
         insert_stacker_menu.addAction(add_row_action)
 
+        toggle_grid_action = QtWidgets.QAction('Hide Grid' if self._show_grid else 'Show Grid', menu)
+        toggle_grid_action.triggered.connect(lambda: self._set_show_grid(not self._show_grid))
+        menu.addAction(toggle_grid_action)
+
     def _resize(self) -> _AlingerResize:
         return StackingResize(self)
+
+    def draw_background(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
+        if not self._show_grid:
+            return
+
+        painter.setPen(
+            QtGui.QPen(
+                QtGui.QColor(0, 0, 0)
+            )
+        )
+
+        lines = []
+
+        for x in list(self.stacker_map.row_termination_points())[:-1]:
+            if rect.left() <= x <= rect.right():
+                lines.append(
+                    QLineF(
+                        x, rect.top(), x, rect.bottom(),
+                    )
+                )
+
+        for y in list(self.stacker_map.column_termination_points())[:-1]:
+            if rect.top() <= y <= rect.bottom():
+                lines.append(
+                    QLineF(
+                        rect.left(), y, rect.right(), y,
+                    )
+                )
+
+        painter.drawLines(lines)

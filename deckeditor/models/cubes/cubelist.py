@@ -4,6 +4,7 @@ import typing as t
 
 from sortedcontainers import SortedDict
 
+from PyQt5 import QtGui
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QAbstractTableModel, QModelIndex
 from PyQt5.QtWidgets import QUndoStack
@@ -13,6 +14,7 @@ from mtgorp.models.interfaces import Printing
 from magiccube.collections.delta import CubeDeltaOperation
 
 from deckeditor.models.cubes.cubescene import CubeScene, PhysicalCardChange
+from deckeditor.models.focusables.color import UIColor
 
 
 class ChangeOperationCheck(object):
@@ -114,7 +116,7 @@ class CubeList(QAbstractTableModel):
         return True
 
     def data(self, index: QModelIndex, role: int = ...) -> t.Any:
-        if not role in (Qt.DisplayRole, Qt.EditRole):
+        if not role in (Qt.DisplayRole, Qt.EditRole, Qt.BackgroundRole):
             return None
 
         try:
@@ -123,6 +125,11 @@ class CubeList(QAbstractTableModel):
             return None
 
         c = index.column()
+
+        if role == Qt.BackgroundRole:
+            return QtGui.QBrush(
+                UIColor.for_focusable(cubeable).value
+            )
 
         if c == 0:
             return quantity

@@ -1,6 +1,6 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QModelIndex
 from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QTableWidgetItem, QTableView
+from PyQt5.QtWidgets import QTableWidgetItem, QTableView, QHeaderView
 
 from mtgorp.models.interfaces import Printing
 
@@ -19,6 +19,7 @@ class CubeListView(QTableView, LineDeleteMixin):
         self._enable_row_header_delete()
         self.setSortingEnabled(True)
         self.setMouseTracking(True)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
         self.doubleClicked.connect(self._on_double_clicked)
 

@@ -32,6 +32,14 @@ class FocusableListSelector(t.Generic[F], QtWidgets.QListView):
         Context.focus_card_changed.emit(FocusEvent(focusable))
         self.current_focusable_changed.emit(focusable)
 
+    def mouseDoubleClickEvent(self, e: QtGui.QMouseEvent) -> None:
+        focusable = self.model().get_item(self.indexAt(e.pos()))
+
+        if focusable is None:
+            return
+
+        self.focusable_selected.emit(focusable)
+
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
         if key_event.key() in (
             QtCore.Qt.Key_Right,
@@ -43,12 +51,11 @@ class FocusableListSelector(t.Generic[F], QtWidgets.QListView):
             if current_index is None:
                 return
 
-            cardboard = self.model().get_item(current_index)
+            focusable = self.model().get_item(current_index)
 
-            if cardboard is None:
+            if focusable is None:
                 return
 
-            self.focusable_selected.emit(cardboard)
+            self.focusable_selected.emit(focusable)
         else:
             super().keyPressEvent(key_event)
-

@@ -4,7 +4,7 @@ import typing as t
 
 from abc import ABC, abstractmethod
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
 
@@ -171,3 +171,6 @@ class Aligner(ABC):
             width,
             height,
         )
+
+    def draw_background(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
+        pass

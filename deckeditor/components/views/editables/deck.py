@@ -8,27 +8,25 @@ from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QVBoxLayout, QUndoStack, QGraphicsScene
 
 from deckeditor.components.views.cubeedit.cubeview import CubeView
-from deckeditor.components.views.editables.multicubestab import MultiCubesTab
-from deckeditor.context.context import Context
+from deckeditor.components.views.editables.editable import TabType
+from deckeditor.components.views.editables.multicubesview import MultiCubesView
 from deckeditor.models.deck import DeckModel
 
 
-class DeckView(MultiCubesTab):
+class DeckView(MultiCubesView):
 
     def __init__(
         self,
         deck_model: DeckModel,
+        undo_stack: QUndoStack,
         file_path: t.Optional[str] = None,
         *,
         maindeck_cube_view: t.Optional[CubeView] = None,
         sideboard_cube_view: t.Optional[CubeView] = None,
-        undo_stack: t.Optional[QUndoStack] = None
     ) -> None:
-        super().__init__()
+        super().__init__(undo_stack)
         self._file_path = file_path
         self._uuid = str(uuid.uuid4())
-
-        self._undo_stack = undo_stack if undo_stack is not None else Context.get_undo_stack()
 
         self._deck_model = deck_model
 
@@ -104,19 +102,22 @@ class DeckView(MultiCubesTab):
     def is_empty(self) -> bool:
         return not (self._deck_model.maindeck.items() or self._deck_model.sideboard.items())
 
+    @property
+    def tab_type(self) -> TabType:
+        return TabType.DECK
+
     def persist(self) -> t.Any:
         return {
             'maindeck_view': self._maindeck_cube_view.persist(),
             'sideboard_view': self._sideboard_cube_view.persist(),
             'splitter': self._horizontal_splitter.saveState(),
             'deck_model': self._deck_model.persist(),
-            'tab_type': 'deck',
+            'tab_type': self.tab_type,
         }
 
     @classmethod
-    def load(cls, state: t.Any) -> DeckView:
+    def load(cls, state: t.Any, undo_stack: QUndoStack) -> DeckView:
         deck_model = DeckModel.load(state['deck_model'])
-        undo_stack = Context.get_undo_stack()
         deck_view = DeckView(
             deck_model,
             maindeck_cube_view = CubeView.load(
@@ -134,19 +135,6 @@ class DeckView(MultiCubesTab):
         deck_view._horizontal_splitter.restoreState(state['splitter'])
         return deck_view
 
-    # @property
-    # def file_path(self) -> t.Optional[str]:
-    #     return self._file_path
-    #
-    # def get_key(self) -> str:
-    #     if self._file_path is not None:
-    #         return self._file_path
-    #     return self._uuid
-
     @property
     def deck_model(self) -> DeckModel:
         return self._deck_model
-
-    @property
-    def undo_stack(self) -> QUndoStack:
-        return self._undo_stack

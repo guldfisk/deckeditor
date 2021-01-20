@@ -21,14 +21,14 @@ from magiccube.laps.traps.tree.printingtree import AnyNode, AllNode
 
 from mtgqt.pixmapload.pixmaploader import PixmapLoader
 
-from deckeditor.utils.undo import CommandPackage
+from deckeditor.components.settings import settings
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.models.cubes.scenecard import SceneCard, C
 from deckeditor.sorting.sorting import CMCExtractor, ColorExtractor, ColorIdentityExtractor
 from deckeditor.utils.dialogs import ColorSelector
-from deckeditor.components.settings import settings
-from deckeditor.views.focusables.dialogs import SelectCubeableDialog
+from deckeditor.utils.undo import CommandPackage
+from deckeditor.views.focusables.dialogs import SelectOneOfPrintingsDialog
 
 
 class PhysicalCard(SceneCard[C]):
@@ -181,7 +181,7 @@ class PhysicalPrinting(PhysicalCard[Printing]):
 
     def _get_change_printing_action(self, undo_stack: QUndoStack) -> t.Callable[[], None]:
         def _change_printing():
-            dialog = SelectCubeableDialog(self.cubeable.alternative_printings_chronologically)
+            dialog = SelectOneOfPrintingsDialog(self.cubeable.alternative_printings_chronologically)
             dialog.cubeable_selected.connect(
                 lambda p: undo_stack.push(
                     self.scene().get_cube_modification(
@@ -195,18 +195,15 @@ class PhysicalPrinting(PhysicalCard[Printing]):
 
         return _change_printing
 
-    def _get_change_all_printings_to_printing(
+    def _get_change_multiple_cards_to_printing(
         self,
         undo_stack: QUndoStack,
+        get_cards: t.Callable[[PhysicalPrinting], t.Sequence[PhysicalCard]],
+
     ) -> t.Callable[[], None]:
         def _change_all_printings_to_printing():
-            cards = [
-                item
-                for item in
-                self.scene().items()
-                if isinstance(item, PhysicalPrinting) and item.cubeable == self.cubeable
-            ]
-            dialog = SelectCubeableDialog(self.cubeable.alternative_printings_chronologically)
+            cards = get_cards(self)
+            dialog = SelectOneOfPrintingsDialog(self.cubeable.alternative_printings_chronologically)
             dialog.cubeable_selected.connect(
                 lambda p: undo_stack.push(
                     self.scene().get_cube_modification(
@@ -223,36 +220,6 @@ class PhysicalPrinting(PhysicalCard[Printing]):
             dialog.exec_()
 
         return _change_all_printings_to_printing
-
-    def _get_change_all_cardboards_to_printing(
-        self,
-        undo_stack: QUndoStack,
-    ) -> t.Callable[[], None]:
-        def _change_all_cardboards_to_printing():
-            cards = [
-                item
-                for item in
-                self.scene().items()
-                if isinstance(item, PhysicalPrinting) and item.cubeable.cardboard == self.cubeable.cardboard
-            ]
-            dialog = SelectCubeableDialog(self.cubeable.alternative_printings_chronologically)
-            dialog.cubeable_selected.connect(
-                lambda p: undo_stack.push(
-                self.scene().get_cube_modification(
-                    add = [
-                        PhysicalCard.from_cubeable(p)
-                        for _ in
-                        cards
-                    ],
-                    remove = cards,
-                    position = self.pos() + QPoint(1, 1),
-                )
-            )
-            )
-            dialog.exec_()
-
-
-        return _change_all_cardboards_to_printing
 
     def choose_custom_sort_cmc(self) -> None:
         amount, ok = QInputDialog.getInt(
@@ -318,12 +285,28 @@ class PhysicalPrinting(PhysicalCard[Printing]):
         if len(self.cubeable.cardboard.printings) > 1:
             _add_action_to_menu(
                 printing_reselection_menu,
-                self._get_change_all_cardboards_to_printing(undo_stack),
+                self._get_change_multiple_cards_to_printing(
+                    undo_stack,
+                    lambda c: [
+                        item
+                        for item in
+                        c.scene().items()
+                        if isinstance(item, PhysicalPrinting) and item.cubeable.cardboard == c.cubeable.cardboard
+                    ]
+                ),
                 'All of this Cardboard',
             )
             _add_action_to_menu(
                 printing_reselection_menu,
-                self._get_change_all_printings_to_printing(undo_stack),
+                self._get_change_multiple_cards_to_printing(
+                    undo_stack,
+                    lambda c: [
+                        item
+                        for item in
+                        c.scene().items()
+                        if isinstance(item, PhysicalPrinting) and item.cubeable == c.cubeable
+                    ]
+                ),
                 'All of this Printing',
             )
             _add_action_to_menu(

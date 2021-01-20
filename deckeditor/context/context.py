@@ -85,6 +85,7 @@ class _Context(QObject):
         compiled: bool = True,
         debug: bool = False,
         db_type: DbType = DbType.DEFAULT,
+        echo_sql: bool = False,
     ) -> None:
         cls.debug = debug
 
@@ -94,12 +95,12 @@ class _Context(QObject):
 
         if db_type == DbType.DEFAULT:
             if cls.settings.value('sql_db', False, bool):
-                SqlContext.init(cls.settings)
+                SqlContext.init(cls.settings, echo = echo_sql)
                 cls.db = SqlLoader(SqlContext.engine, SqlContext.scoped_session).load()
             else:
                 cls.db = PickleLoader().load()
         elif db_type == DbType.SQL:
-            SqlContext.init(cls.settings)
+            SqlContext.init(cls.settings, echo = echo_sql)
             cls.db = SqlLoader(SqlContext.engine, SqlContext.scoped_session).load()
         else:
             cls.db = PickleLoader().load()

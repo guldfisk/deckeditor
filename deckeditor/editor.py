@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import argparse
 import io
 import logging
 import os
 import pickle
-import random
 import sys
 import time
 import traceback
-import argparse
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -17,38 +16,36 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBo
 from yeetlong.multiset import Multiset
 
 from magiccube.collections.delta import CubeDeltaOperation
-from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import AllNode
 
 from deckeditor import paths, values
 from deckeditor.application.embargo import EmbargoApp
+from deckeditor.authentication.login import LOGIN_CONTROLLER
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.cardadd.cardadder import PrintingSelector
 from deckeditor.components.cardview.cubeableview import CubeableView
+from deckeditor.components.db.info import DBInfoDialog
+from deckeditor.components.db.update import DBUpdateDialog
 from deckeditor.components.editables.editablestabs import FileOpenException, EditablesTabs, FileSaveException
+from deckeditor.components.help.about import AboutDialog
 from deckeditor.components.lobbies.view import LobbiesView, LobbyModelClientConnection
+from deckeditor.components.sample.hand import SampleHandDialog
+from deckeditor.components.sealed.view import LimitedSessionsView
+from deckeditor.components.settings import settings
+from deckeditor.components.settings.dialog import SettingsDialog
 from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
-from deckeditor.components.views.editables.deck import DeckView
+from deckeditor.components.views.cubeedit.graphical.sortdialog import EditMacroesDialog
+from deckeditor.components.views.editables.editable import TabType
+from deckeditor.components.views.editables.multicubesview import MultiCubesView
 from deckeditor.context.context import Context, DbType
 from deckeditor.models.deck import DeckModel, Deck, TabModel, Pool
 from deckeditor.notifications.frame import NotificationFrame
-from deckeditor.values import SUPPORTED_EXTENSIONS
-from deckeditor.authentication.login import LOGIN_CONTROLLER
-from deckeditor.components.db.info import DBInfoDialog
-from deckeditor.components.db.update import DBUpdateDialog
-from deckeditor.components.draft.view import DraftView
-from deckeditor.components.help.about import AboutDialog
-from deckeditor.components.sealed.view import LimitedSessionsView
-from deckeditor.components.settings.dialog import SettingsDialog
-from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.serialization.tabmodelserializer import init_deck_serializers
 from deckeditor.server.client import EmbargoClient
 from deckeditor.server.server import EmbargoServer
 from deckeditor.sorting.custom import CustomSortMap
-from deckeditor.utils.version import version_formatted
 from deckeditor.store import models, EDB
-from deckeditor.components.settings import settings
-from deckeditor.components.views.cubeedit.graphical.sortdialog import EditMacroesDialog
+from deckeditor.utils.version import version_formatted
+from deckeditor.values import SUPPORTED_EXTENSIONS
 
 
 class MainView(QWidget):
@@ -232,6 +229,12 @@ class MainWindow(QMainWindow):
                 ),
             ),
             (
+                menu_bar.addMenu('Simulate'),
+                (
+                    ('Sample Hand', 'Ctrl+H', self._sample_hand),
+                )
+            ),
+            (
                 menu_bar.addMenu('Preferences'),
                 (
                     ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog.get().exec_()),
@@ -262,14 +265,6 @@ class MainWindow(QMainWindow):
                     ),
                 )
             )
-            all_menus.append(
-                (
-                    menu_bar.addMenu('Simulate'),
-                    (
-                        ('Sample Hand', 'Ctrl+H', self._sample_hand),
-                    )
-                ),
-            )
 
         for menu, lines in all_menus:
             for line in lines:
@@ -298,40 +293,20 @@ class MainWindow(QMainWindow):
         self._save_state_timer.start(1000 * 60 * 3)
 
     def _test(self) -> None:
-        ps = list(Context.db.printings.values())
-        self._on_add_printings(
-            CubeDeltaOperation(
-                {
-                    Trap(
-                        AllNode(
-                            (
-                                AllNode(
-                                    {
-                                        printing: 2,
-                                    }
-                                )
-                                for printing in
-                                random.sample(ps, 50)
-                            )
-                        )
-                    ): 1
-                }
-            )
-        )
+        raise Exception('DUDE')
 
     def _sample_hand(self) -> None:
         tab = self._main_view.editables_tabs.currentWidget()
-
-        # SelectCubeableDialog(
-        #     # [c.cubeable for c in tab.deck_model.maindeck.items()]
-        #     list(Context.db.printings.values())
-        # ).exec_()
+        if isinstance(tab.editable, MultiCubesView) and 'maindeck' in tab.editable.cube_views_map:
+            SampleHandDialog(
+                tab.editable.cube_views_map['maindeck'].cube_scene
+            ).exec_()
 
     def _draft_history_wrapper(self, method: str) -> t.Callable[[], None]:
         def wrapper():
             tab = self._main_view.editables_tabs.currentWidget()
-            if isinstance(tab, DraftView):
-                getattr(tab.draft_model, method)()
+            if tab.tab_type == TabType.DRAFT:
+                getattr(tab.editable.draft_model, method)()
 
         return wrapper
 
@@ -345,25 +320,25 @@ class MainWindow(QMainWindow):
 
     def _on_add_printings(self, delta_operation: CubeDeltaOperation):
         tab = self._main_view.editables_tabs.currentWidget()
-        if isinstance(tab, DeckView):
+        if tab.tab_type == TabType.DECK:
             tab.undo_stack.push(
-                tab.deck_model.maindeck.get_cube_modification(delta_operation)
+                tab.editable.deck_model.maindeck.get_cube_modification(delta_operation)
             )
-        elif isinstance(tab, PoolView):
+        elif tab.tab_type == TabType.POOL:
             tab.undo_stack.push(
-                tab.pool_model.maindeck.get_cube_modification(delta_operation)
+                tab.editable.pool_model.maindeck.get_cube_modification(delta_operation)
             )
-        elif isinstance(tab, DraftView):
+        elif tab.tab_type == TabType.DRAFT:
             tab.undo_stack.push(
-                tab.pool_model.maindeck.get_cube_modification(delta_operation)
+                tab.editable.pool_model.maindeck.get_cube_modification(delta_operation)
             )
 
     def _toggle_dock_view(self, dock: Dock) -> None:
         if dock.wants_focus:
             if dock.hasFocus():
-                dock.setVisible(False)
+                dock.hide()
             else:
-                dock.setVisible(True)
+                dock.show()
                 dock.setFocus()
         else:
             dock.setVisible(not dock.isVisible())
@@ -399,9 +374,6 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, resize_event: QtGui.QResizeEvent):
         if hasattr(self, '_notification_frame'):
             self._notification_frame.stack_notifications()
-
-    def generate_cube_pools(self):
-        pass
 
     def open(self, target: t.Type[TabModel] = Deck):
         dialog = QtWidgets.QFileDialog(self)
@@ -498,16 +470,17 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
         except IOError:
             pass
 
-        logging.error(traceback_info)
-        logging.error(errmsg)
+        sys.stderr.write(traceback_info + '\n')
+        sys.stderr.write(errmsg + '\n')
 
         # Promises are buggy
         if issubclass(exception_type, AssertionError):
             return
 
         errorbox = QMessageBox()
+        errorbox.setWindowTitle('OH NO :O')
         errorbox.setText(
-            'OH NO :O\n{}\n{}'.format(
+            '{}\n{}'.format(
                 traceback_info,
                 errmsg,
             )
@@ -517,6 +490,11 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
             main_window.close()
 
     return exception_hook
+
+
+class FilterAll(logging.Filter):
+    def filter(self, record):
+        return False
 
 
 def run():
@@ -544,6 +522,11 @@ def run():
         help = 'logging level',
         default = 'info',
         choices = values.LOGGING_LEVEL_MAP.keys(),
+    )
+    arg_parser.add_argument(
+        '--echo-sql',
+        action = 'store_true',
+        help = 'Echo sql queries',
     )
     arg_parser.add_argument(
         '-n', '--no-server',
@@ -578,10 +561,17 @@ def run():
 
     args = arg_parser.parse_args()
 
+    for k, v in logging.Logger.manager.loggerDict.items():
+        if isinstance(v, logging.Logger):
+            v.handlers[:] = []
+
     logging.basicConfig(
         format = '%(levelname)s %(message)s',
         level = values.LOGGING_LEVEL_MAP[args.log_level],
+        stream = sys.stdout,
     )
+
+    logging.getLogger('PIL.PngImagePlugin').addFilter(FilterAll())
 
     if args.version:
         print(version_formatted())
@@ -605,13 +595,13 @@ def run():
     db_type = DbType(args.db_type)
 
     try:
-        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type)
+        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type, echo_sql = args.echo_sql)
     except Exception:
         if not DBUpdateDialog().exec_() == QDialog.Accepted:
             return
-        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type)
+        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type, echo_sql = args.echo_sql)
 
-    EDB.init()
+    EDB.init(echo = args.echo_sql)
 
     models.create(EDB.engine)
 

@@ -6,18 +6,18 @@ from enum import Enum
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QIcon, QKeySequence
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QUndoStack
 
 from deckeditor import paths
 from deckeditor.components.settings import settings
 from deckeditor.components.views.cubeedit.cubelistview import CubeListView
-from deckeditor.context.context import Context
-from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
+from deckeditor.models.cubes.alignment.aligner import Aligner
 from deckeditor.models.cubes.alignment.aligners import ALIGNER_TYPE_MAP
 from deckeditor.models.cubes.cubelist import CubeList
 from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.utils.actions import WithActions
 from deckeditor.utils.spoiler import Spoiler
 from deckeditor.utils.transform import serialize_transform, deserialize_transform
 
@@ -110,7 +110,7 @@ class SelectionIndicator(QtWidgets.QLabel):
         )
 
 
-class CubeView(QtWidgets.QWidget):
+class CubeView(QtWidgets.QWidget, WithActions):
     layout_changed = QtCore.pyqtSignal(CubeViewLayout)
     cubeable_double_clicked = QtCore.pyqtSignal(object)
 
@@ -152,9 +152,9 @@ class CubeView(QtWidgets.QWidget):
         self._layout_selector.setFixedSize(QSize(20, 20))
 
         box = QtWidgets.QVBoxLayout(self)
-        box.setContentsMargins(0, 5, 0, 0)
+        box.setContentsMargins(0, 2, 0, 0)
 
-        self._tool_bar = QtWidgets.QHBoxLayout(self)
+        self._tool_bar = QtWidgets.QHBoxLayout()
         self._tool_bar.setContentsMargins(0, 3, 0, 0)
 
         self._tool_bar.addWidget(self._aligner_selector)
@@ -177,30 +177,11 @@ class CubeView(QtWidgets.QWidget):
         self._cube_list_view.cubeable_double_clicked.connect(self.cubeable_double_clicked)
         self._cube_image_view.card_double_clicked.connect(lambda c, m: self.cubeable_double_clicked.emit(c.cubeable))
 
-        self._create_action('Toggle Header', lambda: self._spoiler.set_expanded(not self._spoiler.expanded), 'H')
+        self._create_shortcut(lambda: self._spoiler.set_expanded(not self._spoiler.expanded), 'G')
 
-        self._create_action('View Images', lambda: self.layout_changed.emit(CubeViewLayout.IMAGE), 'I')
-        self._create_action('View Table', lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'T')
-        self._create_action('View Mixed', lambda: self.layout_changed.emit(CubeViewLayout.MIXED), 'M')
-
-        # self._create_action(
-        #     'Grid',
-        #     lambda: self._undo_stack.push(
-        #         self._cube_scene.get_set_aligner(
-        #             GridAligner
-        #         )
-        #     ),
-        #     'Œ',  # Some real garbage, prob doesn't work on windows (or other keymaps idk) supposed to be AltGr+O
-        # )
-        # self._create_action(
-        #     'Static Stacking Grid',
-        #     lambda: self._undo_stack.push(
-        #         self._cube_scene.get_set_aligner(
-        #             DynamicStackingGrid
-        #         )
-        #     ),
-        #     'Ł',  # AltGr+L
-        # )
+        self._create_shortcut(lambda: self.layout_changed.emit(CubeViewLayout.IMAGE), 'I')
+        self._create_shortcut(lambda: self.layout_changed.emit(CubeViewLayout.TABLE), 'T')
+        self._create_shortcut(lambda: self.layout_changed.emit(CubeViewLayout.MIXED), 'M')
 
     @property
     def cube_scene(self) -> CubeScene:
@@ -226,23 +207,6 @@ class CubeView(QtWidgets.QWidget):
         cube_view.cube_image_view.setTransform(deserialize_transform(state['image_view_transform']))
         return cube_view
 
-    def _create_action(
-        self,
-        name: str,
-        result: t.Callable,
-        shortcut: t.Union[None, str, QKeySequence] = None
-    ) -> QtWidgets.QAction:
-        action = QtWidgets.QAction(name, self)
-        action.triggered.connect(result)
-
-        if shortcut:
-            action.setShortcut(shortcut)
-            action.setShortcutContext(QtCore.Qt.WidgetWithChildrenShortcut)
-
-        self.addAction(action)
-
-        return action
-
     @property
     def view_layout(self) -> CubeViewLayout:
         return self._view_layout
@@ -252,10 +216,12 @@ class CubeView(QtWidgets.QWidget):
         if layout == CubeViewLayout.TABLE:
             self._cube_image_view.hide()
             self._cube_list_view.show()
+            self._cube_list_view.setFocus()
 
         elif layout == CubeViewLayout.IMAGE:
             self._cube_image_view.show()
             self._cube_list_view.hide()
+            self._cube_image_view.setFocus()
 
         elif layout == CubeViewLayout.MIXED:
             self._cube_image_view.show()

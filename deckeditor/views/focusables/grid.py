@@ -60,12 +60,13 @@ class CubeableImageDelegate(QStyledItemDelegate):
 
 
 class FocusableGridView(QTableView, WithActions):
-    cubeable_clicked = pyqtSignal(object)
-    cubeable_changed = pyqtSignal(object)
+    focusable_selected = pyqtSignal(object)
+    current_focusable_changed = pyqtSignal(object)
+
     _image_width: int
     _image_height: int
 
-    def __init__(self, size_slug: SizeSlug = SizeSlug.MEDIUM):
+    def __init__(self, size_slug: SizeSlug = SizeSlug.SMALL):
         super().__init__()
 
         self._size_slug = size_slug
@@ -85,8 +86,6 @@ class FocusableGridView(QTableView, WithActions):
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
-        self.clicked.connect(self._on_clicked)
-
         self.setMouseTracking(True)
 
         self.customContextMenuRequested.connect(self._context_menu_event)
@@ -94,11 +93,14 @@ class FocusableGridView(QTableView, WithActions):
 
         self._check_width()
 
+        self.setSelectionBehavior(QAbstractItemView.SelectItems)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
+
     def currentChanged(self, current: QtCore.QModelIndex, previous: QtCore.QModelIndex) -> None:
         self.scrollTo(current)
         cubeable = self.model().get_item(current)
         if cubeable is not None:
-            self.cubeable_changed.emit(cubeable)
+            self.current_focusable_changed.emit(cubeable)
             Context.focus_card_changed.emit(
                 FocusEvent(
                     cubeable
@@ -155,7 +157,7 @@ class FocusableGridView(QTableView, WithActions):
                 self.currentIndex()
             )
             if cubeable is not None:
-                self.cubeable_clicked.emit(cubeable)
+                self.focusable_selected.emit(cubeable)
 
         else:
             super().keyPressEvent(key_event)
@@ -164,7 +166,10 @@ class FocusableGridView(QTableView, WithActions):
         super().resizeEvent(e)
         self._check_width()
 
-    def _on_clicked(self, index: QModelIndex) -> None:
-        cubeable = self.model().get_item(index)
-        if cubeable is not None:
-            self.cubeable_clicked.emit(cubeable)
+    def mouseDoubleClickEvent(self, e: QtGui.QMouseEvent) -> None:
+        focusable = self.model().get_item(self.indexAt(e.pos()))
+
+        if focusable is None:
+            return
+
+        self.focusable_selected.emit(focusable)

@@ -504,6 +504,8 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         self._scene.aligner.context_menu(menu, self.mapToScene(position), self._undo_stack)
 
+        menu.addSeparator()
+
         select_menu = menu.addMenu('Select')
 
         select_menu.addActions(

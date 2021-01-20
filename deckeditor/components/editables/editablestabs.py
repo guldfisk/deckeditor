@@ -1,4 +1,5 @@
 import sys
+import threading
 import typing as t
 import pickle
 import os
@@ -7,7 +8,7 @@ from pickle import UnpicklingError
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QUndoStack
 
 from mtgorp.models.serilization.serializeable import SerializationException
 
@@ -17,14 +18,14 @@ from magiccube.collections.cube import Cube
 from deckeditor.utils.actions import WithActions
 from deckeditor.application.embargo import restart
 from deckeditor.utils.wrappers import notify_on_exception
-from deckeditor.components.views.editables.multicubestab import MultiCubesTab
+from deckeditor.components.views.editables.multicubesview import MultiCubesView
 from deckeditor.sorting.sorting import CMCExtractor, SortMacro, SortSpecification
 from deckeditor.components.draft.view import DraftView, DraftModel
-from deckeditor.components.editables.editor import Editor, EditablesMeta
+from deckeditor.components.editables.editor import Editor, TabMeta
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.values import SUPPORTED_EXTENSIONS
 from deckeditor.components.views.editables.deck import DeckView
-from deckeditor.components.views.editables.editable import Editable
+from deckeditor.components.views.editables.editable import Editable, TabType, Tab
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.context.context import Context
 from deckeditor.models.deck import DeckModel, PoolModel, TabModel, Deck, Pool
@@ -49,9 +50,6 @@ class FileSaveException(FileIOException):
 class EditablesTabBar(QtWidgets.QTabBar):
     tab_close_requested = pyqtSignal(int)
 
-    def __init__(self):
-        super().__init__()
-
     def mousePressEvent(self, mouse_event: QtGui.QMouseEvent) -> None:
         if mouse_event.button() & QtCore.Qt.MiddleButton:
             tab_bar_index = self.tabAt(mouse_event.pos())
@@ -61,9 +59,115 @@ class EditablesTabBar(QtWidgets.QTabBar):
             super().mousePressEvent(mouse_event)
 
 
+def load_editable(serialized: t.Mapping[str, t.Any], undo_stack: t.Optional[QUndoStack] = None) -> Editable:
+    return (
+        PoolView
+        if serialized['tab_type'] == TabType.POOL else
+        DeckView
+    ).load(serialized, undo_stack or Context.get_undo_stack())
+
+
+class EditorTab(Tab):
+    editable_loaded = pyqtSignal(Editable)
+
+    def __init__(
+        self,
+        editable: t.Union[Editable, t.Mapping[str, t.Any]],
+        undo_stack: t.Optional[QUndoStack] = None,
+    ) -> None:
+        super().__init__(Context.get_undo_stack() if undo_stack is None else undo_stack)
+
+        self._loading_lock = threading.Lock()
+        self._loading_event = threading.Event()
+        self._loading = False
+
+        if isinstance(editable, Editable):
+            self._editable = editable
+            self._serialized = None
+        else:
+            self._editable = None
+            self._serialized = editable
+
+        self._layout = QtWidgets.QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+
+        self._loading_label = None
+
+        if self._editable is None:
+            self._loading_label = QtWidgets.QLabel('Loading...')
+            self._layout.addWidget(
+                self._loading_label,
+                QtCore.Qt.AlignCenter,
+            )
+            self.editable_loaded.connect(self._on_loaded)
+        else:
+            self._layout.addWidget(self._editable)
+            self._editable.tab = self
+            self._editable.show()
+
+    def _on_loaded(self, editable: Editable):
+        self._serialized = None
+        self._layout.removeWidget(self._loading_label)
+        self._loading_label.deleteLater()
+        self._loading_label = None
+        self._layout.addWidget(self._editable)
+
+    def load(self) -> None:
+        if self._editable:
+            return
+
+        with self._loading_lock:
+            if self._loading:
+                return
+            self._loading = True
+
+        self._load()
+
+    @property
+    def undo_stack(self) -> QUndoStack:
+        if self._editable:
+            return self._editable.undo_stack
+        return self._undo_stack
+
+    def _load(self) -> None:
+        try:
+            self._editable = load_editable(self._serialized, self._undo_stack)
+        except Exception:
+            if Context.debug:
+                import traceback
+                traceback.print_exc()
+            Context.notification_message.emit('Failed loading tab')
+            self._editable = DeckView(DeckModel(), self._undo_stack)
+
+        self._editable.tab = self
+
+        self._loading = False
+        self._loading_event.set()
+        self.editable_loaded.emit(self._editable)
+
+    @property
+    def editable(self) -> Editable:
+        if self._editable is None:
+            self.load()
+            self._loading_event.wait()
+
+        return self._editable
+
+    def persist(self) -> t.Any:
+        if self._editable is not None:
+            return self._editable.persist()
+        return self._serialized
+
+    @property
+    def tab_type(self) -> str:
+        if self._editable is not None:
+            return self._editable.tab_type
+        return self._serialized['tab_type']
+
+
 class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     tabBar: t.Callable[[], EditablesTabBar]
-    currentWidget: t.Callable[[], t.Optional[Editable]]
+    currentWidget: t.Callable[[], t.Optional[Tab]]
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
@@ -71,7 +175,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         self.setTabBar(EditablesTabBar())
         self._new_decks = 0
 
-        self._metas: t.MutableMapping[Editable, EditablesMeta] = {}
+        self._metas: t.MutableMapping[Tab, TabMeta] = {}
 
         self.setMovable(True)
         self.setContentsMargins(1, 2, 1, 1)
@@ -96,12 +200,15 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         self.setCurrentIndex(self.count() - 1)
 
     def current_editable(self) -> t.Optional[Editable]:
-        return self.currentWidget()
+        tab = self.currentWidget()
+        if tab:
+            return tab.editable
 
     def _on_current_changed(self, idx: int) -> None:
-        Context.undo_group.setActiveStack(
-            self.widget(idx).undo_stack
-        )
+        tab: Tab = self.widget(idx)
+        if tab:
+            tab.load()
+            Context.undo_group.setActiveStack(tab.undo_stack)
 
     def new_draft(self, draft_id: str) -> None:
         for editable, meta in self._metas.items():
@@ -114,15 +221,16 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         self.setCurrentWidget(
             self.add_editable(
                 (
-                    DraftView.load(saved_draft)
+                    DraftView.load(saved_draft, Context.get_undo_stack())
                     if saved_draft is not None else
                     DraftView(
                         DraftModel(
                             draft_id
-                        )
+                        ),
+                        Context.get_undo_stack(),
                     )
                 ),
-                EditablesMeta(
+                TabMeta(
                     'some draft',
                     key = draft_id,
                 ),
@@ -141,9 +249,10 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                     PoolModel(
                         list(map(PhysicalCard.from_cubeable, pool)),
                         infinites = infinites,
-                    )
+                    ),
+                    undo_stack = Context.get_undo_stack(),
                 ),
-                EditablesMeta(
+                TabMeta(
                     key,
                     key = key,
                 ),
@@ -158,11 +267,11 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         with open(self._get_session_path(), 'wb') as session_file:
             tabs = []
             drafts = {}
-            for editor, meta in self._metas.items():
-                if isinstance(editor, DraftView):
-                    drafts[meta.key] = editor.persist()
+            for tab, meta in self._metas.items():
+                if tab.tab_type == TabType.DRAFT:
+                    drafts[meta.key] = tab.persist()
                 else:
-                    tabs.append((editor.persist(), meta))
+                    tabs.append((tab.persist(), meta))
             pickle.dump(
                 {
                     'tabs': tabs,
@@ -174,6 +283,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
 
     def load_session(self) -> None:
         try:
+            self.currentChanged.disconnect(self._on_current_changed)
             try:
                 previous_session = pickle.load(open(self._get_session_path(), 'rb'))
             except FileNotFoundError:
@@ -188,6 +298,9 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             Context.saved_drafts = previous_session.get('drafts', {})
 
         except Exception:
+            if Context.debug:
+                import traceback
+                traceback.print_exc()
             confirm_dialog = QMessageBox()
             confirm_dialog.setText('Corrupt session')
             confirm_dialog.setInformativeText(
@@ -206,25 +319,29 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
 
             return
 
-        self.setCurrentIndex(previous_session['current_tab_index'])
+        idx = previous_session['current_tab_index']
+        self.setCurrentIndex(idx)
+        self._on_current_changed(idx)
+        self.currentChanged.connect(self._on_current_changed)
 
-    def add_editable(self, editable: Editable, meta: EditablesMeta) -> Editable:
-        self.addTab(editable, meta.truncated_name)
-        self._metas[editable] = meta
-        return editable
+    def add_editable(self, editable: t.Union[Editable, t.Mapping[str, t.Any]], meta: TabMeta) -> Tab:
+        tab = EditorTab(
+            editable,
+            editable.undo_stack if isinstance(editable, Editable) else Context.get_undo_stack(),
+        )
+        self.addTab(tab, meta.truncated_name)
+        self._metas[tab] = meta
+        return tab
 
-    def new_deck(self, model: DeckModel) -> DeckView:
-        deck_widget = DeckView(model)
-        self.add_editable(deck_widget, EditablesMeta('untitled deck'))
-        return deck_widget
-
-    def load_file(self, state: t.Any, meta: EditablesMeta) -> Editable:
+    def new_deck(self, model: DeckModel) -> Tab:
         return self.add_editable(
-            (
-                PoolView
-                if state['tab_type'] == 'pool' else
-                DeckView
-            ).load(state),
+            DeckView(model, Context.get_undo_stack()),
+            TabMeta('untitled deck'),
+        )
+
+    def load_file(self, state: t.Any, meta: TabMeta) -> Tab:
+        return self.add_editable(
+            state if settings.LAZY_TABS.get_value() else load_editable(state),
             meta,
         )
 
@@ -241,7 +358,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         file_name = os.path.split(path)[1]
         name, extension = os.path.splitext(file_name)
         extension = extension[1:]
-        meta = EditablesMeta(file_name, path)
+        meta = TabMeta(file_name, path)
 
         if extension.lower() == 'embd':
             with open(path, 'rb') as f:
@@ -272,25 +389,27 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                     raise FileOpenException()
 
             if target == Deck:
-                tab = DeckView(
+                editable = DeckView(
                     DeckModel(
                         list(map(PhysicalCard.from_cubeable, tab_model.maindeck)),
                         list(map(PhysicalCard.from_cubeable, tab_model.sideboard)),
-                    )
+                    ),
+                    Context.get_undo_stack(),
                 )
 
             elif target == Pool:
-                tab = PoolView(
+                editable = PoolView(
                     PoolModel(
                         list(map(PhysicalCard.from_cubeable, tab_model)),
-                    )
+                    ),
+                    Context.get_undo_stack(),
                 )
 
             else:
                 raise FileOpenException('invalid load target "{}"'.format(target))
 
-            if isinstance(tab, MultiCubesTab) and settings.AUTO_SORT_NON_EMB_FILES_ON_OPEN.get_value():
-                for cube_view in tab.cube_views:
+            if isinstance(editable, MultiCubesView) and settings.AUTO_SORT_NON_EMB_FILES_ON_OPEN.get_value():
+                for cube_view in editable.cube_views:
                     cube_view.cube_scene.aligner.sort(
                         sort_macro = EDB.Session.query(models.SortMacro).get(
                             settings.AUTO_SORT_MACRO_ID.get_value()
@@ -304,7 +423,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                         cards = cube_view.cube_scene.items(),
                     ).redo()
 
-            self.add_editable(tab, meta)
+            tab = self.add_editable(editable, meta)
 
         self.setCurrentWidget(tab)
 
@@ -313,13 +432,13 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             Context.main_window.show()
             Context.main_window.activateWindow()
 
-    def save_tab_at_path(self, editable: Editable, path: str, clear_undo: bool = True) -> None:
+    def save_tab_at_path(self, tab: Tab, path: str, clear_undo: bool = True) -> None:
         extension = os.path.splitext(path)[-1][1:]
 
-        if isinstance(editable, PoolView):
+        if tab.tab_type == TabType.POOL:
             if extension == 'embp':
                 with open(path, 'wb') as f:
-                    pickle.dump(editable.persist(), f)
+                    pickle.dump(tab.persist(), f)
                 return
 
             try:
@@ -334,19 +453,19 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                 except KeyError:
                     raise FileSaveException('invalid file type "{}"'.format(extension))
 
-                serialized = serializer.serialize(editable.pool_model.as_deck())
+                serialized = serializer.serialize(tab.editable.pool_model.as_deck())
                 with open(path, 'w' if isinstance(serialized, str) else 'wb') as f:
                     f.write(serialized)
 
                 return
 
             with open(path, 'w') as f:
-                f.write(serializer.serialize(editable.pool_model.as_pool()))
+                f.write(serializer.serialize(tab.editable.pool_model.as_pool()))
 
         else:
             if extension == 'embd':
                 with open(path, 'wb') as f:
-                    pickle.dump(editable.persist(), f)
+                    pickle.dump(tab.persist(), f)
                 return
 
             try:
@@ -356,32 +475,32 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             except KeyError:
                 raise FileSaveException('invalid file type "{}"'.format(extension))
 
-            serialized = serializer.serialize(editable.deck_model.as_deck())
+            serialized = serializer.serialize(tab.editable.deck_model.as_deck())
             with open(path, 'w' if isinstance(serialized, str) else 'wb') as f:
                 f.write(serialized)
 
         if clear_undo:
-            editable.undo_stack.clear()
+            tab.undo_stack.clear()
 
-            self._metas[editable].path = path
+            self._metas[tab].path = path
             self.setTabText(
-                self.indexOf(editable),
-                self._metas[editable].truncated_name,
+                self.indexOf(tab),
+                self._metas[tab].truncated_name,
             )
 
-    def save_tab(self, editable: t.Optional[Editable] = None):
-        current_editable = editable if editable is not None else self.currentWidget()
+    def save_tab(self, tab: t.Optional[Tab] = None):
+        current_tab = tab if tab is not None else self.currentWidget()
 
-        if not current_editable:
+        if not current_tab:
             return
 
-        meta = self._metas[current_editable]
+        meta = self._metas[current_tab]
 
         if not meta.path:
-            self.save_tab_as(editable)
+            self.save_tab_as(tab)
             return
 
-        self.save_tab_at_path(current_editable, meta.path)
+        self.save_tab_at_path(current_tab, meta.path)
 
     def _save_dialog(self, default_suffix: str = 'json') -> t.Tuple[QtWidgets.QFileDialog, int]:
         dialog = QtWidgets.QFileDialog(self)
@@ -391,10 +510,10 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         dialog.setDefaultSuffix(default_suffix)
         return dialog, dialog.exec_()
 
-    def save_tab_as(self, editable: t.Optional[Editable] = None, clear_undo: bool = True) -> None:
-        current_editable = editable if editable is not None else self.currentWidget()
+    def save_tab_as(self, tab: t.Optional[Tab] = None, clear_undo: bool = True) -> None:
+        current_tab = tab if tab is not None else self.currentWidget()
 
-        if not current_editable:
+        if not current_tab:
             return
 
         dialog, result = self._save_dialog()
@@ -407,18 +526,18 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         if not file_names:
             return
 
-        self.save_tab_at_path(current_editable, file_names[0], clear_undo = clear_undo)
+        self.save_tab_at_path(current_tab, file_names[0], clear_undo = clear_undo)
 
     def export_deck(self) -> None:
-        current_editable = self.currentWidget()
+        current_tab = self.currentWidget()
 
-        if not current_editable:
+        if not current_tab:
             return
 
-        if isinstance(current_editable, DeckView):
-            self.save_tab_as(current_editable, clear_undo = False)
+        if current_tab.tab_type == TabType.DECK:
+            self.save_tab_as(current_tab, clear_undo = False)
 
-        elif isinstance(current_editable, PoolView):
+        elif current_tab.tab_type == TabType.POOL:
             dialog, result = self._save_dialog()
 
             if not result:
@@ -439,20 +558,20 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                 raise FileSaveException('invalid file type "{}"'.format(extension))
 
             with open(file_names[0], 'w') as f:
-                f.write(serializer.serialize(current_editable.pool_model.as_deck()))
+                f.write(serializer.serialize(current_tab.editable.pool_model.as_deck()))
 
-    def close_editable(self, editable: Editable) -> None:
-        del self._metas[editable]
+    def close_tab(self, tab: Tab) -> None:
+        del self._metas[tab]
 
-        editable.close()
+        tab.editable.close()
 
         if not self.widget(1):
             self.new_deck(DeckModel())
 
-        self.removeTab(self.indexOf(editable))
+        self.removeTab(self.indexOf(tab))
 
     def _tab_close_requested(self, index: int) -> None:
-        closed_tab = self.widget(index)
+        closed_tab: Tab = self.widget(index)
 
         if (
             settings.CONFIRM_CLOSING_MODIFIED_FILE.get_value()
@@ -473,4 +592,4 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             elif return_code == QMessageBox.Cancel:
                 return
 
-        self.close_editable(editable = closed_tab)
+        self.close_tab(closed_tab)

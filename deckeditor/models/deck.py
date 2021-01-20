@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 import typing as t
 from abc import abstractmethod
 
@@ -147,14 +148,18 @@ class DeckModel(QObject):
             self._sideboard.cube,
         )
 
-    def persist(self) -> t.Any:
+    def serialize(self) -> t.Mapping[str, t.Any]:
         return {
             'maindeck': self._maindeck,
             'sideboard': self._sideboard,
         }
 
+    def persist(self) -> t.Any:
+        return pickle.dumps(self.serialize())
+
     @classmethod
     def load(cls, state: t.Any) -> DeckModel:
+        state = pickle.loads(state)
         return cls(
             state['maindeck'],
             state['sideboard'],
@@ -233,15 +238,16 @@ class PoolModel(DeckModel):
             self._maindeck.cube + self._sideboard.cube + self._pool.cube
         )
 
-    def persist(self) -> t.Any:
+    def serialize(self) -> t.Mapping[str, t.Any]:
         return {
             'pool': self._pool,
             'infinites': RawStrategy.serialize(self.infinites),
-            **super().persist(),
+            **super().serialize(),
         }
 
     @classmethod
     def load(cls, state: t.Any) -> PoolModel:
+        state = pickle.loads(state)
         return cls(
             maindeck = state['maindeck'],
             sideboard = state['sideboard'],

@@ -26,22 +26,22 @@ from mtgdraft.client import DraftClient
 from mtgdraft.models import DraftRound, SinglePickPick, BurnPick, PickPoint, DraftConfiguration, DraftBooster, SinglePick, Burn
 
 from deckeditor import values
+from deckeditor.components.cardview.focuscard import FocusEvent
+from deckeditor.components.draft.draftbots import collect_bots, bot_pick
+from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
+from deckeditor.components.editables.editor import TabMeta
+from deckeditor.components.settings import settings
+from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
+from deckeditor.components.views.cubeedit.cubelistview import CubeableTableItem
 from deckeditor.components.views.cubeedit.cubeview import CubeView
-from deckeditor.components.views.editables.editable import Editable
+from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
+from deckeditor.components.views.editables.editable import Editable, TabType
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.grid import GridAligner
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.deck import PoolModel
-from deckeditor.components.views.cubeedit.cubelistview import CubeableTableItem
-from deckeditor.components.editables.editor import EditablesMeta
-from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
-from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
-from deckeditor.components.draft.draftbots import collect_bots, bot_pick
-from deckeditor.components.cardview.focuscard import FocusEvent
-from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
-from deckeditor.components.settings import settings
 
 
 class _DraftClient(DraftClient):
@@ -418,7 +418,7 @@ class BoosterWidget(QtWidgets.QWidget):
 
         self._latest_meta_info = PickMetaInfo(draft_model)
         self._head_meta_info = PickMetaInfo(draft_model)
-        self._head_meta_info.setVisible(False)
+        self._head_meta_info.hide()
 
         self._picking_info = QtWidgets.QLabel('')
         self._picking_info.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
@@ -484,9 +484,9 @@ class BoosterWidget(QtWidgets.QWidget):
 
         if pick_point and pick_point != latest:
             self._head_meta_info.set_pick_point(pick_point)
-            self._head_meta_info.setVisible(True)
+            self._head_meta_info.show()
         else:
-            self._head_meta_info.setVisible(False)
+            self._head_meta_info.hide()
 
         self._picking_info.setText('' if latest.pick else 'picking')
 
@@ -596,6 +596,14 @@ class PicksTable(QtWidgets.QTableWidget):
     def __init__(self, draft_model: DraftModel):
         super().__init__(0, 5)
 
+        self.setMouseTracking(True)
+        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
+        self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+
+        self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+
         self._draft_model = draft_model
 
         self.setHorizontalHeaderLabels(
@@ -607,12 +615,6 @@ class PicksTable(QtWidgets.QTableWidget):
                 'Booster',
             )
         )
-
-        self.setMouseTracking(True)
-        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
-
-        self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
-        self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
         self._current_pack = 0
 
@@ -689,7 +691,6 @@ class PicksTable(QtWidgets.QTableWidget):
                 )
             ),
         )
-        self.resizeColumnsToContents()
 
 
 class BotsView(QtWidgets.QWidget):
@@ -803,10 +804,11 @@ class DraftView(Editable):
     def __init__(
         self,
         draft_model: DraftModel,
+        undo_stack: QUndoStack,
         *,
         pool_view: t.Optional[PoolView] = None,
     ) -> None:
-        super().__init__()
+        super().__init__(undo_stack)
         self._draft_model = draft_model
 
         self._booster_widget = BoosterWidget(draft_model)
@@ -815,7 +817,7 @@ class DraftView(Editable):
 
         self._bottom_tabs = QtWidgets.QTabWidget()
 
-        self._pool_view = PoolView(self._pool_model) if pool_view is None else pool_view
+        self._pool_view = PoolView(self._pool_model, undo_stack = self._undo_stack) if pool_view is None else pool_view
         self._picks_table = PicksTable(self._draft_model)
         self._bots_view = BotsView(self._draft_model)
 
@@ -905,35 +907,37 @@ class DraftView(Editable):
             Context.sealed_started.emit(pool_id, False)
             Context.editor.add_editable(
                 self._pool_view,
-                EditablesMeta(
+                TabMeta(
                     session_name,
                     key = session_name,
                 ),
             )
-        Context.editor.close_editable(self)
+        Context.editor.close_tab(self.tab)
 
     def close(self) -> None:
         self._draft_model.close()
 
-    @property
-    def undo_stack(self) -> QUndoStack:
-        return self._pool_view.undo_stack
-
     def is_empty(self) -> bool:
         return False
+
+    @property
+    def tab_type(self) -> TabType.DRAFT:
+        return TabType.DRAFT
 
     def persist(self) -> t.Any:
         return {
             'pool_view': self._pool_view.persist(),
             'splitter': self._splitter.saveState(),
             'draft_model': self._draft_model.persist(),
+            'tab_type': self.tab_type,
         }
 
     @classmethod
-    def load(cls, state: t.Any) -> DraftView:
+    def load(cls, state: t.Any, undo_stack: QUndoStack) -> DraftView:
         draft_view = cls(
             draft_model = DraftModel.load(state['draft_model']),
-            pool_view = PoolView.load(state['pool_view']),
+            pool_view = PoolView.load(state['pool_view'], undo_stack),
+            undo_stack = undo_stack,
         )
         draft_view._splitter.restoreState(state['splitter'])
         return draft_view

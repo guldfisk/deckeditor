@@ -14,7 +14,7 @@ class SqlContext(object):
     scoped_session: t.Callable[[], Session]
 
     @classmethod
-    def init(cls, settings: QtCore.QSettings):
+    def init(cls, settings: QtCore.QSettings, echo: bool = False) -> None:
         uri = '{dialect}+{driver}://{username}:{password}@{host}/{database}?charset=utf8'.format(
             dialect = settings.value('sql_dialect', 'mysql', str),
             driver = settings.value('sql_driver', 'mysqldb', str),
@@ -28,6 +28,7 @@ class SqlContext(object):
             uri,
             pool_size = 64,
             max_overflow = 32,
+            echo = echo,
         )
 
         session_factory = sessionmaker(bind = cls.engine)
