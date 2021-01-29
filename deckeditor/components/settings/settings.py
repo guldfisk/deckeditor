@@ -4,6 +4,8 @@ import typing as t
 from PyQt5.QtCore import QSettings
 
 from deckeditor.context.context import Context
+from deckeditor.models.cubes.alignment.aligners import ALIGNER_TYPE_MAP
+from deckeditor.models.cubes.scenetypes import SceneType
 
 
 T = t.TypeVar('T')
@@ -68,7 +70,28 @@ class JsonSetting(Setting[t.Mapping[str, t.Any]]):
         return json.dumps(v)
 
     def _deserialize(self, v: t.Any) -> T:
+        if not v:
+            return {}
         return json.loads(v)
+
+    def get_value(self, settings: t.Optional[QSettings] = None) -> T:
+        current_value = super().get_value(settings)
+        for scene_type in SceneType:
+
+            if scene_type.value not in current_value:
+                current_value[scene_type.value] = {}
+
+            if 'sort_macro' not in current_value[scene_type.value]:
+                current_value[scene_type.value]['sort_macro'] = 0
+
+            if 'aligner_type' not in current_value[scene_type.value]:
+                current_value[scene_type.value]['aligner_type'] = 'Dynamic Stacking Grid'
+
+            if 'aligner_options' not in current_value[scene_type.value]:
+                current_value[scene_type.value]['aligner_options'] = ALIGNER_TYPE_MAP[
+                    current_value[scene_type.value]['aligner_type']].schema.default
+
+        return current_value
 
 
 DEFAULT_CARD_VIEW_TYPE = StringSetting('default_card_view_type', 'Default card view', 'image')

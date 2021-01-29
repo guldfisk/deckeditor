@@ -323,7 +323,7 @@ class SchemaSettingEditor(SettingEditor):
         self._aligner_option_pane_stack = QtWidgets.QStackedWidget()
         self._aligner_options_map = {}
 
-        self._current_value = self._load_value()
+        self._current_value = self.value
 
         for aligner_name, aligner_type in ALIGNER_TYPE_MAP.items():
             pane = AlignerOptionsPane(aligner_type)
@@ -337,25 +337,6 @@ class SchemaSettingEditor(SettingEditor):
         layout.addRow('Sort Macro', self._sort_selector)
         layout.addRow('Aligner', self._aligner_type_selector)
         layout.addRow('Aligner Options', self._aligner_option_pane_stack)
-
-    def _load_value(self) -> t.Mapping[str, t.Any]:
-        current_value = self.value
-        for scene_type in SceneType:
-
-            if scene_type.value not in current_value:
-                current_value[scene_type.value] = {}
-
-            if 'sort_macro' not in current_value[scene_type.value]:
-                current_value[scene_type.value]['sort_macro'] = 0
-
-            if 'aligner_type' not in current_value[scene_type.value]:
-                current_value[scene_type.value]['aligner_type'] = 'Dynamic Stacking Grid'
-
-            if 'aligner_options' not in current_value[scene_type.value]:
-                current_value[scene_type.value]['aligner_options'] = ALIGNER_TYPE_MAP[
-                    current_value[scene_type.value]['aligner_type']].schema.default
-
-        return current_value
 
     def _on_scene_type_changed(self, scene_type: str) -> None:
         scene_values = self._current_value[scene_type]
@@ -415,7 +396,7 @@ class SchemaSettingEditor(SettingEditor):
             self._sort_selector.addItem('Select macro')
         self._sort_selector.blockSignals(False)
 
-        self._current_value = self._load_value()
+        self._current_value = self.value
         self._scene_type_selector.blockSignals(True)
         self._scene_type_selector.setCurrentText(SceneType.MAINDECK.value)
         self._scene_type_selector.blockSignals(False)
