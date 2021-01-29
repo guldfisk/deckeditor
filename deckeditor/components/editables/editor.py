@@ -64,3 +64,7 @@ class Editor(object):
     @abstractmethod
     def close_tab(self, tab: Tab) -> None:
         pass
+
+    @abstractmethod
+    def open_limited_deck(self, deck_id: t.Union[str, int]) -> None:
+        pass

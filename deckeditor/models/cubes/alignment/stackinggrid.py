@@ -7,9 +7,12 @@ from collections import defaultdict
 
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import QPoint, QLineF
-from PyQt5.QtWidgets import QUndoCommand, QUndoStack
+from PyQt5.QtWidgets import QUndoCommand, QUndoStack, QDialogButtonBox
 
-from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, _AlingerResize
+from hardcandy import fields
+from hardcandy.schema import Schema
+
+from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.sorting import sorting
@@ -18,6 +21,43 @@ from deckeditor.store.models import SortSpecification
 from deckeditor.utils.math import minmax
 from deckeditor.utils.undo import CommandPackage
 from deckeditor.values import IMAGE_WIDTH, STANDARD_IMAGE_MARGIN
+
+
+class GridResizeDialog(QtWidgets.QDialog):
+
+    def __init__(self, aligner: StackingGrid):
+        super().__init__()
+
+        self._aligner = aligner
+
+        self._columns_selector = QtWidgets.QSpinBox()
+        self._columns_selector.setValue(aligner.stacker_map.row_length)
+
+        self._rows_selector = QtWidgets.QSpinBox()
+        self._rows_selector.setValue(aligner.stacker_map.column_height)
+
+        self._buttons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
+
+        self._buttons.accepted.connect(self.accept)
+        self._buttons.rejected.connect(self.reject)
+
+        for selector in (
+            self._columns_selector,
+            self._rows_selector,
+        ):
+            selector.setRange(1, 64)
+
+        layout = QtWidgets.QFormLayout(self)
+
+        layout.addRow('columns', self._columns_selector)
+        layout.addRow('rows', self._rows_selector)
+        layout.addWidget(self._buttons)
+
+    def get_values(self) -> t.Tuple[int, int]:
+        return (
+            self._columns_selector.value(),
+            self._rows_selector.value(),
+        )
 
 
 class CardStacker(ABC):
@@ -254,7 +294,7 @@ class StackingPickUp(AlignmentDrop):
                 adjusted_indexes.append((index - passed, card))
                 passed += 1
 
-            stacker.insert_cards(*zip(*adjusted_indexes))
+            stacker.insert_cards(*zip(*reversed(adjusted_indexes)))
 
 
 class SortStacker(QUndoCommand):
@@ -547,21 +587,53 @@ class RowInsert(RowColumnInsert):
                 self._grid.stacker_map.get_stacker(x, self._idx + y).add_cards(cards)
 
 
-class StackingResize(_AlingerResize):
+class GridResize(QUndoCommand):
 
-    def __init__(self, aligner: StackingGrid):
+    def __init__(self, aligner: StackingGrid, rows: int, columns: int):
+        super().__init__()
         self._aligner = aligner
+        self._rows = rows
+        self._columns = columns
 
+        self._pick_up: t.Optional[StackingPickUp] = None
         self._old_map: t.Optional[StackerMap] = None
+        self._new_map: t.Optional[StackerMap] = None
+        self._drop: t.Optional[StackingMultiDrop] = None
 
     def redo(self):
         if self._old_map is None:
             self._old_map = self._aligner.stacker_map
 
-        self._aligner._stacker_map = self._aligner.create_stacker_map()
+        if self._new_map is None:
+            self._new_map = self._aligner.create_stacker_map(self._rows, self._columns)
+
+        if self._drop is None:
+            self._drop = StackingMultiDrop(
+                grid = self._aligner,
+                drops = [
+                    (
+                        list(stacker.cards),
+                        self._new_map.get_stacker_clipped(stacker.x_index, stacker.y_index),
+                        0,
+                    )
+                    for stacker in
+                    self._old_map.stackers
+                ]
+            )
+
+        if self._pick_up is None:
+            self._pick_up = StackingPickUp(grid = self._aligner, cards = list(self._aligner.scene.items()))
+
+        self._pick_up.redo()
+        self._aligner._stacker_map = self._new_map
+        self._drop.redo()
+        self._aligner.scene.update()
 
     def undo(self):
+        self._drop.undo()
         self._aligner._stacker_map = self._old_map
+        self._pick_up.undo()
+        self._aligner.scene.update()
 
 
 class _CardInfo(object):
@@ -700,6 +772,9 @@ class StackerMap(object):
     def get_stacker(self, x: int, y: int) -> CardStacker:
         return self._grid[x][y]
 
+    def get_stacker_clipped(self, x: int, y: int) -> CardStacker:
+        return self._grid[min(x, self.row_length - 1)][min(y, self.column_height - 1)]
+
     @property
     def stackers(self) -> t.Iterator[CardStacker]:
         for column in self._grid:
@@ -712,7 +787,8 @@ class StackerMap(object):
     def __str__(self):
         return '[\n' + '\n'.join(
             '\t[' + ', '.join(
-                str(cell.position)
+                # '({}, {})'.format(*(round(v, 3) for v in cell.position))
+                str(len(cell.cards))
                 for cell in
                 row
             ) + ']'
@@ -723,11 +799,21 @@ class StackerMap(object):
 
 class StackingGrid(Aligner):
     _show_grid = False
+    schema = Schema(
+        fields = {
+            'rows': fields.Integer(default = 3, min = 1, max = 64),
+            'columns': fields.Integer(default = 15, min = 1, max = 64),
+            # 'margin': fields.Float(default = STANDARD_IMAGE_MARGIN, min = 0., max = 1.),
+            'show_grid': fields.Bool(default = False),
+        },
+    )
 
     def __init__(
         self,
         scene: SelectionScene,
         *,
+        rows: int = 5,
+        columns: int = 5,
         margin: float = STANDARD_IMAGE_MARGIN,
         show_grid: bool = False,
     ):
@@ -735,11 +821,19 @@ class StackingGrid(Aligner):
 
         self._stacked_cards: t.Dict[PhysicalCard, _CardInfo] = {}
         self._margin_pixel_size = margin * IMAGE_WIDTH
-        self._stacker_map = self.create_stacker_map()
+        self._stacker_map = self.create_stacker_map(rows, columns)
         self._show_grid = show_grid
 
+    @property
+    def options(self) -> t.Mapping[str, t.Any]:
+        return {
+            'rows': self._stacker_map.column_height,
+            'columns': self._stacker_map.row_length,
+            'show_grid': self._show_grid,
+        }
+
     @abstractmethod
-    def create_stacker_map(self) -> StackerMap:
+    def create_stacker_map(self, rows: int, columns: int) -> StackerMap:
         pass
 
     @abstractmethod
@@ -920,22 +1014,24 @@ class StackingGrid(Aligner):
             all_sort_action.triggered.connect(self._get_all_sort_stacker(sort_property, undo_stack))
             all_stacker_sort_menu.addAction(all_sort_action)
 
-        insert_stacker_menu = menu.addMenu('Insert')
-
-        add_column_action = QtWidgets.QAction('Column', insert_stacker_menu)
-        add_column_action.triggered.connect(lambda: undo_stack.push(ColumnInsert(self, stacker.x_index)))
-        insert_stacker_menu.addAction(add_column_action)
-
-        add_row_action = QtWidgets.QAction('Row', insert_stacker_menu)
-        add_row_action.triggered.connect(lambda: undo_stack.push(RowInsert(self, stacker.y_index)))
-        insert_stacker_menu.addAction(add_row_action)
+        resize_action = QtWidgets.QAction('Resize grid', menu)
+        resize_action.triggered.connect(lambda: self.resize(undo_stack))
+        menu.addAction(resize_action)
 
         toggle_grid_action = QtWidgets.QAction('Hide Grid' if self._show_grid else 'Show Grid', menu)
         toggle_grid_action.triggered.connect(lambda: self._set_show_grid(not self._show_grid))
         menu.addAction(toggle_grid_action)
 
-    def _resize(self) -> _AlingerResize:
-        return StackingResize(self)
+    def resize(self, undo_stack: QUndoStack) -> None:
+        dialog = GridResizeDialog(self)
+        dialog.exec_()
+        if dialog.accepted:
+            undo_stack.push(
+                GridResize(
+                    self,
+                    *reversed(dialog.get_values()),
+                )
+            )
 
     def draw_background(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
         if not self._show_grid:

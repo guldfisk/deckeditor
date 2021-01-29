@@ -4,14 +4,13 @@ from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget
 
+from deckeditor.components.settings import settings
 from deckeditor.components.settings.settingeditor import (
-    SettingEditor, OptionsSettingEditor, BooleanSettingEditor, StringSettingEditor, AlchemySettingEditor, IntegerSettingEditor
+    SettingEditor, OptionsSettingEditor, BooleanSettingEditor, StringSettingEditor, AlchemySettingEditor, IntegerSettingEditor,
+    SchemaSettingEditor
 )
 from deckeditor.context.context import Context
-from deckeditor.models.cubes.alignment.aligners import ALIGNER_TYPE_MAP
-from deckeditor.store.models import SortMacro
 from deckeditor.utils.dialogs import SingleInstanceDialog
-from deckeditor.components.settings import settings
 
 
 class SettingsPane(QWidget):
@@ -93,10 +92,9 @@ class SettingsDialog(SingleInstanceDialog):
                         settings.DOUBLECLICK_MATCH_ON_CARDBOARDS,
                         'When ctrl doubleclicking a card, select all cardboards matching instead of printings.',
                     ),
-                    OptionsSettingEditor(
-                        settings.DEFAULT_ALIGNER_TYPE,
-                        'Aligner type used for new card views.',
-                        tuple(ALIGNER_TYPE_MAP.keys()),
+                    SchemaSettingEditor(
+                        settings.SCENE_DEFAULTS,
+                        'Change default values for card views per type.',
                     ),
                 ),
                 (),
@@ -107,12 +105,6 @@ class SettingsDialog(SingleInstanceDialog):
                     BooleanSettingEditor(
                         settings.AUTO_SORT_NON_EMB_FILES_ON_OPEN,
                         'Auto sort non emb files on open.',
-                    ),
-                    AlchemySettingEditor(
-                        settings.AUTO_SORT_MACRO_ID,
-                        'Macro to use for auto sorting files on open.',
-                        SortMacro,
-                        SortMacro.name,
                     ),
                     BooleanSettingEditor(
                         settings.CONFIRM_CLOSING_MODIFIED_FILE,
@@ -260,6 +252,9 @@ class SettingsDialog(SingleInstanceDialog):
                 (),
             ),
         )
+
+        self.setMinimumHeight(800)
+        self.setMinimumWidth(1200)
 
         self._setting_changes: t.MutableMapping[SettingEditor, t.Any] = {}
 

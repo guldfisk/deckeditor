@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5 import QtCore
-
 from deckeditor.models.cubes.alignment.stackinggrid import CardStacker, StackingGrid, StackerMap
 from deckeditor.models.cubes.selection import SelectionScene
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
@@ -62,29 +60,39 @@ class StaticStackingGrid(StackingGrid):
     _card_stacker_width: float
     _card_stacker_height: float
 
-    def __init__(self, scene: SelectionScene, *, margin: float = STANDARD_IMAGE_MARGIN, stacker_height: float = 2.):
+    def __init__(
+        self,
+        scene: SelectionScene,
+        *,
+        margin: float = STANDARD_IMAGE_MARGIN,
+        stacker_height: float = 2.,
+        rows: int = 5,
+        columns: int = 5,
+        show_grid: bool = False,
+    ):
         self._stacker_height = stacker_height
 
         super().__init__(
             scene,
             margin = margin,
+            rows = rows,
+            columns = columns,
+            show_grid = show_grid,
         )
 
     def request_space(self, card_stacker: CardStacker, x: int, y: int) -> None:
         pass
 
-    def create_stacker_map(self) -> StackerMap:
+    def create_stacker_map(self, rows: int, columns: int) -> StackerMap:
         self._card_stacker_width = int(IMAGE_WIDTH + self._margin_pixel_size)
         self._card_stacker_height = int(IMAGE_HEIGHT * self._stacker_height)
 
-        r: QtCore.QRectF = self._scene.sceneRect()
-
         return StackerMap(
-            self,
-            int(r.height() // self._card_stacker_height),
-            int(r.width() // self._card_stacker_width),
-            self._card_stacker_width,
-            self._card_stacker_height,
+            aligner = self,
+            row_amount = rows,
+            column_amount = columns,
+            default_column_width = self._card_stacker_width,
+            default_row_height = self._card_stacker_height,
         )
 
     def create_stacker(self, x: int, y: int) -> CardStacker:

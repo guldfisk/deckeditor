@@ -9,7 +9,7 @@ from promise import promise
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog
+from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog, QHeaderView
 
 from cubeclient.models import LimitedSession, LimitedDeck, LimitedPool
 
@@ -25,6 +25,10 @@ class SessionsList(QTableWidget):
             ('name', 'format', 'players', 'created')
         )
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.verticalHeader().hide()
+        self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
         self._sessions_view = parent
 
@@ -218,6 +222,7 @@ class LimitedSessionsView(QWidget):
 
         self._sessions_list = SessionsList(self)
         self._limited_session_view = LimitedSessionView(self)
+        self.setFocusProxy(self._sessions_list)
 
         self._limited_session_view.hide()
 

@@ -14,6 +14,7 @@ from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.context.context import Context
 from deckeditor.models.cubes.alignment.grid import GridAligner
 from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.models.cubes.scenetypes import SceneType
 from deckeditor.utils.actions import WithActions
 
 
@@ -29,7 +30,7 @@ class SampleHandView(QtWidgets.QWidget, WithActions):
         self._hand_scene = CubeScene(
             aligner_type = GridAligner,
             mode = CubeEditMode.CLOSED,
-            name = 'Sample Hand',
+            scene_type = SceneType.SAMPLE_HAND,
         )
 
         self._hand_view = CubeView(self._hand_scene, self._undo_stack)

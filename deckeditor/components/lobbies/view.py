@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import typing as t
-
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget
 
-from lobbyclient.model import LobbyOptions
+from lobbyclient.model import LobbyOptions, Lobby
 
 from deckeditor.components.lobbies.client import LobbyModelClientConnection
 from deckeditor.components.lobbies.interfaces import LobbiesViewInterface
-from deckeditor.components.lobbies.lobbylist import LobbiesListView
 from deckeditor.components.lobbies.tabs import LobbyTabs
+from deckeditor.models.listtable import ListTableModel
+from deckeditor.models.lobbies.schemas import LobbiesSchema
 from deckeditor.store.models import GameTypeOptions, LobbyOptions as LobbyOptionsStore
 from deckeditor.utils.actions import WithActions
+from deckeditor.views.generic.readonlylisttable import ReadOnlyListTableView
 
 
 class CreateLobbyDialog(QtWidgets.QDialog):
@@ -100,22 +99,30 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 class LobbiesView(LobbiesViewInterface, WithActions):
     lobbies_changed = pyqtSignal()
 
-    def __init__(self, lobby_model: LobbyModelClientConnection, parent: t.Optional[QWidget] = None) -> None:
-        super().__init__(parent)
+    def __init__(self, lobby_model: LobbyModelClientConnection) -> None:
+        super().__init__()
+
         self._lobby_model = lobby_model
 
-        lobbies_list_view = LobbiesListView(self)
+        lobbies_list = ListTableModel(LobbiesSchema())
+        self._lobby_model.changed.connect(lambda: lobbies_list.set_lines(self._lobby_model.get_lobbies().values()))
+
+        lobbies_list_view: ReadOnlyListTableView[Lobby] = ReadOnlyListTableView()
+        lobbies_list_view.item_double_clicked.connect(lambda lobby: lobby_model.join_lobby(lobby.name))
+
+        lobbies_list_view.setModel(lobbies_list)
 
         self._lobby_tabs = LobbyTabs(self)
 
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(1, 1, 1, 1)
-
         self._create_lobby_button = QtWidgets.QPushButton('Create lobby')
         self._create_lobby_button.clicked.connect(self._create_lobby)
+
         if not self._lobby_model.is_connected:
             self._create_lobby_button.setEnabled(False)
         self._lobby_model.connected.connect(self._on_connection_status_change)
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(1, 1, 1, 1)
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 

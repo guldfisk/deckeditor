@@ -56,6 +56,9 @@ class DynamicStackingGrid(StackingGrid):
         scene: SelectionScene,
         *,
         margin: float = STANDARD_IMAGE_MARGIN,
+        rows: int = 5,
+        columns: int = 5,
+        show_grid: bool = False,
     ):
         self._margin = margin
         self._stacker_width = IMAGE_WIDTH * (1 + self._margin)
@@ -63,35 +66,33 @@ class DynamicStackingGrid(StackingGrid):
         super().__init__(
             scene,
             margin = margin,
+            rows = rows,
+            columns = columns,
+            show_grid = show_grid,
         )
 
-    def create_stacker_map(self) -> StackerMap:
-        r: QtCore.QRectF = self._scene.sceneRect()
-
+    def create_stacker_map(self, rows: int, columns: int) -> StackerMap:
         return StackerMap(
             self,
-            row_amount = 2,
-            column_amount = int(r.width() // self._stacker_width),
+            row_amount = rows,
+            column_amount = columns,
             default_column_width = self._stacker_width,
             default_row_height = self._min_row_height,
         )
 
     def request_space(self, card_stacker: CardStacker, x: int, y: int) -> None:
-        if not card_stacker.y_index == 0:
-            return
+        for i in range(card_stacker.y_index, self._stacker_map.column_height):
+            max_requested = max(
+                [
+                    stacker.requested_size[1]
+                    for stacker in
+                    self._stacker_map.row_at(i)
+                ] + [self._min_row_height]
+            )
+            if max_requested != self._stacker_map.row_height_at(i):
+                self._stacker_map.set_row_height_at(i, max_requested)
 
-        max_requested = max(stacker.requested_size[1] for stacker in self._stacker_map.row_at(0))
-
-        if max_requested != self._stacker_map.row_height_at(0):
-            remaining = self._scene.height() - max_requested
-            if remaining < self._min_row_height:
-                remaining = self._min_row_height
-                max_requested = self._scene.height() - self._min_row_height
-
-            self._stacker_map.set_row_height_at(0, max_requested)
-            self._stacker_map.set_row_height_at(1, remaining)
-
-            for stacker in self._stacker_map.stackers:
+            for stacker in self.stacker_map.row_at(i):
                 if stacker != card_stacker:
                     stacker.update(external = True)
 

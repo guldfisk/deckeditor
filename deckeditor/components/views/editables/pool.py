@@ -70,9 +70,13 @@ class PoolView(MultiCubesView):
 
         self._horizontal_splitter.addWidget(self._maindeck_cube_view)
         self._horizontal_splitter.addWidget(self._sideboard_cube_view)
+        self._horizontal_splitter.setStretchFactor(0, 3)
+        self._horizontal_splitter.setStretchFactor(1, 1)
 
         self._vertical_splitter.addWidget(self._pool_cube_view)
         self._vertical_splitter.addWidget(self._horizontal_splitter)
+        self._vertical_splitter.setStretchFactor(0, 1)
+        self._vertical_splitter.setStretchFactor(1, 1)
 
         layout.addWidget(self._vertical_splitter)
 

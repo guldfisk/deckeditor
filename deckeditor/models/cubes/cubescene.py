@@ -5,8 +5,10 @@ import typing as t
 from collections import defaultdict
 from dataclasses import dataclass
 
+from frozendict import frozendict
+
 from PyQt5 import QtGui, QtCore
-from PyQt5.QtCore import QPoint, pyqtSignal, QLine, QLineF
+from PyQt5.QtCore import QPoint, pyqtSignal
 from PyQt5.QtWidgets import QUndoCommand
 
 from yeetlong.counters import Counter
@@ -18,12 +20,15 @@ from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
 from magiccube.collections.infinites import Infinites
 
-from deckeditor.models.cubes.scenecard import SceneCard
-from deckeditor.sorting.sorting import SortProperty
-from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor import values
+from deckeditor.components.settings import settings
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, AlignmentMultiDrop
+from deckeditor.models.cubes.alignment.aligners import get_default_aligner_type
+from deckeditor.models.cubes.scenecard import SceneCard
+from deckeditor.models.cubes.scenetypes import SceneType
+from deckeditor.models.cubes.selection import SelectionScene
+from deckeditor.sorting.sorting import SortProperty, SortMacro, SortSpecification, CMCExtractor
+from deckeditor.store import EDB, models
 
 
 class IntraCubeSceneMove(QUndoCommand):
@@ -156,6 +161,9 @@ class PhysicalCardChange(object):
         )
 
 
+DEFAULT_ALIGNER_MARKER = object()
+
+
 class CubeScene(SelectionScene):
     aligner_changed = pyqtSignal(Aligner)
     content_changed = pyqtSignal(PhysicalCardChange)
@@ -165,24 +173,37 @@ class CubeScene(SelectionScene):
 
     def __init__(
         self,
-        aligner_type: t.Optional[t.Type[Aligner]] = None,
+        aligner_type: t.Union[t.Type[Aligner], None, DEFAULT_ALIGNER_MARKER] = DEFAULT_ALIGNER_MARKER,
+        aligner_options: t.Mapping[str, t.Any] = frozendict(),
         cards: t.Optional[t.Sequence[SceneCard]] = None,
-        width: float = values.IMAGE_WIDTH * 12,
-        height: float = values.IMAGE_HEIGHT * 8,
         mode: CubeEditMode = CubeEditMode.OPEN,
-        name: str = 'cube scene',
+        scene_type: SceneType = SceneType.MAINDECK,
         infinites: Infinites = Infinites(),
     ):
         super().__init__()
 
         self._mode = mode
-        self._name = name
+        self._scene_type = scene_type
 
         self.infinites = infinites
 
-        self.setSceneRect(0, 0, width, height)
+        if aligner_type == DEFAULT_ALIGNER_MARKER:
+            aligner_type = get_default_aligner_type(self._scene_type)
 
-        self._aligner = None if aligner_type is None else aligner_type(self)
+        if aligner_type is None:
+            self._aligner = None
+        else:
+            options = dict(
+                aligner_type.schema.deserialize_raw(
+                    settings.SCENE_DEFAULTS.get_value()[self._scene_type.value]['aligner_options']
+                )
+            )
+            options.update(aligner_options)
+            self._aligner = aligner_type(
+                self,
+                **options,
+            )
+
         self._item_map: t.MutableMapping[Cubeable, t.List[SceneCard]] = defaultdict(list)
         self._related_scenes: t.AbstractSet[CubeScene] = {self}
 
@@ -197,8 +218,8 @@ class CubeScene(SelectionScene):
         self.aligner_changed.connect(self._on_aligner_changed)
 
     @property
-    def name(self) -> str:
-        return self._name
+    def scene_type(self) -> SceneType:
+        return self._scene_type
 
     @property
     def cube(self) -> Cube:
@@ -228,8 +249,8 @@ class CubeScene(SelectionScene):
     def _on_aligner_changed(self, aligner: Aligner) -> None:
         self._aligner = aligner
 
-    def get_set_aligner(self, aligner_type: t.Type[Aligner]):
-        new_aligner = aligner_type(self)
+    def get_set_aligner(self, aligner_type: t.Type[Aligner]) -> ChangeAligner:
+        new_aligner = aligner_type(self, **aligner_type.schema.deserialize_raw(self._aligner.options))
         return ChangeAligner(
             self,
             self._aligner.pick_up(
@@ -251,15 +272,12 @@ class CubeScene(SelectionScene):
         cls,
         aligner: Aligner,
         mode: CubeEditMode,
-        width: float,
-        height: float,
-        name: str,
+        name: SceneType,
     ) -> CubeScene:
         cube_scene = CubeScene(
-            width = width,
-            height = height,
+            aligner_type = None,
             mode = mode,
-            name = name,
+            scene_type = name,
         )
         aligner._scene = cube_scene
         cube_scene._aligner = aligner
@@ -273,9 +291,7 @@ class CubeScene(SelectionScene):
             (
                 self._aligner,
                 self._mode,
-                self.width(),
-                self.height(),
-                self._name,
+                self._scene_type,
             ),
             {'_related_scenes': self._related_scenes},
         )
@@ -376,6 +392,20 @@ class CubeScene(SelectionScene):
     def drawBackground(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
         if self._aligner:
             self._aligner.draw_background(painter, rect)
+
+    def get_default_sort(self) -> QUndoCommand:
+        return self.aligner.sort(
+            sort_macro = EDB.Session.query(models.SortMacro).get(
+                settings.SCENE_DEFAULTS.get_value()[self._scene_type.value]['sort_macro']
+            ) or SortMacro(
+                specifications = [
+                    SortSpecification(
+                        sort_property = CMCExtractor,
+                    )
+                ]
+            ),
+            cards = self.items(),
+        )
 
     def __repr__(self):
         return '{}()'.format(

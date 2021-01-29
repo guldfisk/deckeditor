@@ -1,9 +1,9 @@
+import json
 import typing as t
 
 from PyQt5.QtCore import QSettings
 
 from deckeditor.context.context import Context
-# from deckeditor.models.cubes.alignment.aligners import DEFAULT_ALIGNER
 
 
 T = t.TypeVar('T')
@@ -34,11 +34,19 @@ class Setting(t.Generic[T]):
     def requires_restart(self) -> bool:
         return self._requires_restart
 
+    def _serialize(self, v: T) -> t.Any:
+        return v
+
+    def _deserialize(self, v: t.Any) -> T:
+        return v
+
     def get_value(self, settings: t.Optional[QSettings] = None) -> T:
-        return (Context.settings if settings is None else settings).value(self._key, self._default, self._type)
+        return self._deserialize(
+            (Context.settings if settings is None else settings).value(self._key, self._default, self._type)
+        )
 
     def set_value(self, value: T, settings: t.Optional[QSettings] = None):
-        (Context.settings if settings is None else settings).setValue(self._key, value)
+        (Context.settings if settings is None else settings).setValue(self._key, self._serialize(value))
 
 
 class BooleanSetting(Setting[bool]):
@@ -53,6 +61,16 @@ class StringSetting(Setting[str]):
     _type = str
 
 
+class JsonSetting(Setting[t.Mapping[str, t.Any]]):
+    _type = str
+
+    def _serialize(self, v: T) -> t.Any:
+        return json.dumps(v)
+
+    def _deserialize(self, v: t.Any) -> T:
+        return json.loads(v)
+
+
 DEFAULT_CARD_VIEW_TYPE = StringSetting('default_card_view_type', 'Default card view', 'image')
 FRAMELESS = BooleanSetting('frameless', 'Frameless', True, requires_restart = True)
 LAZY_TABS = BooleanSetting('lazy_tabs', 'Lazy Tabs', True, requires_restart = True)
@@ -63,9 +81,8 @@ SELECT_ON_COVERED_PARTS = BooleanSetting('select_on_covered_parts', 'Select all 
 ON_VIEW_CARD_COUNT = BooleanSetting('on_view_card_count', 'Show card count overlay', True)
 FIT_ALL_CARDS = BooleanSetting('fit_all_cards', 'Fit all cards', False)
 DOUBLECLICK_MATCH_ON_CARDBOARDS = BooleanSetting('doubleclick_match_on_cardboards', 'Doubleclick matches on cardboards', True)
-DEFAULT_ALIGNER_TYPE = StringSetting('default_aligner_type', 'Default aligner type', 'Dynamic Stacking Grid')
+SCENE_DEFAULTS = JsonSetting('scene_default', 'Scene Defaults', "{}")
 AUTO_SORT_NON_EMB_FILES_ON_OPEN = BooleanSetting('auto_sort_non_emb_files_on_open', 'Auto sort files on open', True)
-AUTO_SORT_MACRO_ID = IntegerSetting('auto_sort_macro_id', 'Auto sort macro', 0)
 
 CONFIRM_CLOSING_MODIFIED_FILE = BooleanSetting('confirm_closing_modified_file', 'Confirm closing modified / unsaved files', True)
 AUTO_LOGIN = BooleanSetting('auto_login', 'Auto login', False)

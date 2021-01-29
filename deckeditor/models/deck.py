@@ -6,19 +6,18 @@ from abc import abstractmethod
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 from mtgorp.models.collections.deck import Deck as OrpDeck
+from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
 from mtgorp.models.serilization.strategies.raw import RawStrategy
 
 from magiccube.collections.cube import Cube
 from magiccube.collections.infinites import Infinites
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
-from deckeditor.models.cubes.physicalcard import PhysicalCard
-from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
-from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.context.context import Context
-from deckeditor.models.cubes.alignment.aligners import get_default_aligner_type
+from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.scenetypes import SceneType
 
 
 class TabModel(Serializeable):
@@ -103,26 +102,24 @@ class DeckModel(QObject):
         self,
         maindeck: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
         sideboard: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
+        *,
+        mode: CubeEditMode = CubeEditMode.OPEN,
     ):
         super().__init__()
         self._maindeck = (
             CubeScene(
-                aligner_type = get_default_aligner_type(),
                 cards = maindeck if isinstance(maindeck, t.Sequence) else None,
-                width = IMAGE_WIDTH * 15.5,
-                height = IMAGE_HEIGHT * 6.3,
-                name = 'maindeck',
+                scene_type = SceneType.MAINDECK,
+                mode = mode,
             )
             if maindeck is None or isinstance(maindeck, t.Sequence) else
             maindeck
         )
         self._sideboard = (
             CubeScene(
-                aligner_type = get_default_aligner_type(),
                 cards = sideboard if isinstance(sideboard, t.Sequence) else None,
-                width = IMAGE_WIDTH * 3.3,
-                height = IMAGE_HEIGHT * 6.3,
-                name = 'sideboard',
+                scene_type = SceneType.SIDEBOARD,
+                mode = mode,
             )
             if sideboard is None or isinstance(sideboard, t.Sequence) else
             sideboard
@@ -177,34 +174,25 @@ class PoolModel(DeckModel):
     ):
         super().__init__(
             CubeScene(
-                aligner_type = get_default_aligner_type(),
                 cards = maindeck if isinstance(maindeck, t.Sequence) else None,
-                width = IMAGE_WIDTH * 16.5,
-                height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
-                name = 'maindeck',
+                scene_type = SceneType.MAINDECK,
             )
             if maindeck is None or isinstance(maindeck, t.Sequence) else
             maindeck,
             CubeScene(
-                aligner_type = get_default_aligner_type(),
                 cards = sideboard if isinstance(sideboard, t.Sequence) else None,
-                width = IMAGE_WIDTH * 3.3,
-                height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
-                name = 'sideboard',
+                scene_type = SceneType.SIDEBOARD,
             )
             if sideboard is None or isinstance(sideboard, t.Sequence) else
             sideboard,
         )
         self._pool = (
             CubeScene(
-                aligner_type = get_default_aligner_type(),
                 cards = pool if isinstance(pool, t.Sequence) else None,
-                width = IMAGE_WIDTH * 20.7,
-                height = IMAGE_HEIGHT * 6.3,
                 mode = CubeEditMode.CLOSED,
-                name = 'pool',
+                scene_type = SceneType.POOL,
             )
             if pool is None or isinstance(pool, t.Sequence) else
             pool

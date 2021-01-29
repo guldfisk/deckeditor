@@ -15,6 +15,8 @@ from mtgorp.models.serilization.serializeable import SerializationException
 from magiccube.collections.infinites import Infinites
 from magiccube.collections.cube import Cube
 
+from cubeclient.models import LimitedDeck
+
 from deckeditor.utils.actions import WithActions
 from deckeditor.application.embargo import restart
 from deckeditor.utils.wrappers import notify_on_exception
@@ -95,10 +97,8 @@ class EditorTab(Tab):
 
         if self._editable is None:
             self._loading_label = QtWidgets.QLabel('Loading...')
-            self._layout.addWidget(
-                self._loading_label,
-                QtCore.Qt.AlignCenter,
-            )
+            self._loading_label.setAlignment(QtCore.Qt.AlignCenter)
+            self._layout.addWidget(self._loading_label)
             self.editable_loaded.connect(self._on_loaded)
         else:
             self._layout.addWidget(self._editable)
@@ -130,20 +130,25 @@ class EditorTab(Tab):
         return self._undo_stack
 
     def _load(self) -> None:
-        try:
-            self._editable = load_editable(self._serialized, self._undo_stack)
-        except Exception:
-            if Context.debug:
-                import traceback
-                traceback.print_exc()
-            Context.notification_message.emit('Failed loading tab')
-            self._editable = DeckView(DeckModel(), self._undo_stack)
+        with self._loading_lock:
+            try:
+                self._editable = load_editable(self._serialized, self._undo_stack)
+            except Exception:
+                if Context.debug:
+                    import traceback
+                    traceback.print_exc()
+                Context.notification_message.emit('Failed loading tab')
+                self._editable = DeckView(DeckModel(), self._undo_stack)
 
-        self._editable.tab = self
+            self._editable.tab = self
 
-        self._loading = False
-        self._loading_event.set()
-        self.editable_loaded.emit(self._editable)
+            self._loading = False
+            self._loading_event.set()
+            self.editable_loaded.emit(self._editable)
+
+    @property
+    def loaded(self) -> bool:
+        return self._editable is not None
 
     @property
     def editable(self) -> Editable:
@@ -169,6 +174,8 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     tabBar: t.Callable[[], EditablesTabBar]
     currentWidget: t.Callable[[], t.Optional[Tab]]
 
+    new_remote_deck = pyqtSignal(object)
+
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
 
@@ -192,6 +199,8 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             self._create_action(f'Go to tab {n}', self._get_go_to_tab(n - 1), f'Alt+{n}')
 
         self._create_action(f'Go to last tab', self.go_to_last_tab, f'Alt+9')
+
+        self.new_remote_deck.connect(self.new_limited_deck)
 
     def _get_go_to_tab(self, idx: int) -> t.Callable[[], None]:
         return lambda: self.setCurrentIndex(idx)
@@ -238,26 +247,70 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         )
 
     def new_pool(self, pool: Cube, infinites: Infinites, key: str) -> None:
+        for tab, meta in self._metas.items():
+            if meta.key == key:
+                self.setCurrentWidget(tab)
+                return
+
+        tab = self.add_editable(
+            PoolView(
+                PoolModel(
+                    list(map(PhysicalCard.from_cubeable, pool)),
+                    infinites = infinites,
+                ),
+                undo_stack = Context.get_undo_stack(),
+            ),
+            TabMeta(
+                key,
+                key = key,
+            ),
+        )
+        self.setCurrentWidget(tab)
+
+        self._sort_opened_view(tab.editable)
+
+    def _check_for_key(self, key: str) -> bool:
         for editable, meta in self._metas.items():
             if meta.key == key:
                 self.setCurrentWidget(editable)
-                return
+                return True
+        return False
 
-        self.setCurrentWidget(
-            self.add_editable(
-                PoolView(
-                    PoolModel(
-                        list(map(PhysicalCard.from_cubeable, pool)),
-                        infinites = infinites,
-                    ),
-                    undo_stack = Context.get_undo_stack(),
+    def new_limited_deck(self, deck: LimitedDeck) -> None:
+        key = f'pool-deck-{deck.id}'
+        if self._check_for_key(key):
+            return
+
+        tab = self.add_editable(
+            DeckView(
+                DeckModel(
+                    list(map(PhysicalCard.from_cubeable, deck.deck.maindeck)),
+                    list(map(PhysicalCard.from_cubeable, deck.deck.sideboard)),
                 ),
-                TabMeta(
-                    key,
-                    key = key,
-                ),
-            )
+                undo_stack = Context.get_undo_stack(),
+            ),
+            TabMeta(
+                deck.name,
+                key = key,
+            ),
         )
+
+        self.setCurrentWidget(tab)
+
+        self._sort_opened_view(tab.editable)
+
+    def open_limited_deck(self, deck_id: t.Union[str, int]) -> None:
+        if self._check_for_key(f'pool-deck-{deck_id}'):
+            return
+
+        if Context.cube_api_client:
+            Context.cube_api_client.limited_deck(deck_id).then(
+                self.new_remote_deck.emit
+            ).catch(
+                lambda e: Context.notification_message.emit('Failed retrieving deck')
+            )
+        else:
+            Context.notification_message.emit('Cannot fetch deck')
 
     @classmethod
     def _get_session_path(cls) -> str:
@@ -321,7 +374,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
 
         idx = previous_session['current_tab_index']
         self.setCurrentIndex(idx)
-        self._on_current_changed(idx)
+        self._on_current_changed(self.currentIndex())
         self.currentChanged.connect(self._on_current_changed)
 
     def add_editable(self, editable: t.Union[Editable, t.Mapping[str, t.Any]], meta: TabMeta) -> Tab:
@@ -345,6 +398,14 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             meta,
         )
 
+    def _sort_opened_view(self, editable: Editable) -> None:
+        if isinstance(editable, MultiCubesView) and settings.AUTO_SORT_NON_EMB_FILES_ON_OPEN.get_value():
+            for cube_view in editable.cube_views:
+                cube_view.cube_scene.get_default_sort().redo()
+
+        for cube_view in editable.cube_views:
+            cube_view.cube_image_view.fit_cards()
+
     @notify_on_exception(
         (FileNotFoundError, FileOpenException),
         lambda e: 'File not found' if isinstance(e, FileNotFoundError) else ', '.join(map(str, e.args)),
@@ -359,6 +420,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         name, extension = os.path.splitext(file_name)
         extension = extension[1:]
         meta = TabMeta(file_name, path)
+        editable = None
 
         if extension.lower() == 'embd':
             with open(path, 'rb') as f:
@@ -408,24 +470,12 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             else:
                 raise FileOpenException('invalid load target "{}"'.format(target))
 
-            if isinstance(editable, MultiCubesView) and settings.AUTO_SORT_NON_EMB_FILES_ON_OPEN.get_value():
-                for cube_view in editable.cube_views:
-                    cube_view.cube_scene.aligner.sort(
-                        sort_macro = EDB.Session.query(models.SortMacro).get(
-                            settings.AUTO_SORT_MACRO_ID.get_value()
-                        ) or SortMacro(
-                            specifications = [
-                                SortSpecification(
-                                    sort_property = CMCExtractor,
-                                )
-                            ]
-                        ),
-                        cards = cube_view.cube_scene.items(),
-                    ).redo()
-
             tab = self.add_editable(editable, meta)
 
         self.setCurrentWidget(tab)
+
+        if editable is not None:
+            self._sort_opened_view(editable)
 
         if not Context.main_window.isActiveWindow() and Context.settings.value('focus_on_open_file', True, bool):
             Context.main_window.raise_()
@@ -563,7 +613,8 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     def close_tab(self, tab: Tab) -> None:
         del self._metas[tab]
 
-        tab.editable.close()
+        if tab.loaded:
+            tab.editable.close()
 
         if not self.widget(1):
             self.new_deck(DeckModel())
@@ -576,8 +627,12 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         if (
             settings.CONFIRM_CLOSING_MODIFIED_FILE.get_value()
             and (
-            not self._metas[closed_tab].path and not closed_tab.is_empty()
-            or not closed_tab.undo_stack.isClean()
+            not self._metas[closed_tab].path
+            and (
+                not closed_tab.loaded
+                or not closed_tab.is_empty()
+                or not closed_tab.undo_stack.isClean()
+            )
         )
         ):
             confirm_dialog = QMessageBox()

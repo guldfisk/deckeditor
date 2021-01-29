@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import typing as t
-import uuid
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
@@ -19,14 +18,11 @@ class DeckView(MultiCubesView):
         self,
         deck_model: DeckModel,
         undo_stack: QUndoStack,
-        file_path: t.Optional[str] = None,
         *,
         maindeck_cube_view: t.Optional[CubeView] = None,
         sideboard_cube_view: t.Optional[CubeView] = None,
     ) -> None:
         super().__init__(undo_stack)
-        self._file_path = file_path
-        self._uuid = str(uuid.uuid4())
 
         self._deck_model = deck_model
 
@@ -63,6 +59,9 @@ class DeckView(MultiCubesView):
 
         self._horizontal_splitter.addWidget(self._maindeck_cube_view)
         self._horizontal_splitter.addWidget(self._sideboard_cube_view)
+
+        self._horizontal_splitter.setStretchFactor(0, 3)
+        self._horizontal_splitter.setStretchFactor(1, 1)
 
         layout.addWidget(self._horizontal_splitter)
 

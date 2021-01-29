@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import math
+import functools
+import operator
 import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QPoint, Qt, QRectF, QRect
 from PyQt5.QtGui import QPainter, QPolygonF, QTransform
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction, QDialogButtonBox
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAction
 
 from yeetlong.multiset import Multiset
 
@@ -19,20 +20,18 @@ from mtgorp.tools.search.pattern import Criteria
 from magiccube.collections.cube import Cube
 from magiccube.collections.delta import CubeDeltaOperation
 
-from deckeditor.utils.undo import CommandPackage
-from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
-from deckeditor.models.cubes.cubescene import CubeScene
-from deckeditor.context.context import Context
-from deckeditor.sorting import sorting
 from deckeditor.components.cardview.focuscard import FocusEvent
-from deckeditor.utils.actions import WithActions
-from deckeditor.sorting.sorting import SortProperty, SortMacro, SortSpecification, SortDimension
-from deckeditor.utils.transform import transform_factory
-from deckeditor.store import models
 from deckeditor.components.settings import settings
+from deckeditor.context.context import Context
+from deckeditor.models.cubes.cubescene import CubeScene
+from deckeditor.models.cubes.physicalcard import PhysicalCard, PhysicalAllCard
+from deckeditor.sorting import sorting
+from deckeditor.sorting.sorting import SortProperty, SortMacro, SortSpecification, SortDimension
 from deckeditor.store import EDB
-from deckeditor.utils.dialogs import SingleInstanceDialog
-from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
+from deckeditor.store import models
+from deckeditor.utils.actions import WithActions
+from deckeditor.utils.transform import transform_factory
+from deckeditor.utils.undo import CommandPackage
 
 
 class QueryEdit(QtWidgets.QLineEdit):
@@ -75,54 +74,6 @@ class SearchSelectionDialog(QtWidgets.QDialog):
             self._error_label.setText(str(e))
             self._error_label.show()
             return
-
-
-class SceneResizeDialog(SingleInstanceDialog):
-
-    def __init__(self, scene: QtWidgets.QGraphicsScene):
-        super().__init__()
-
-        self._scene = scene
-
-        self._columns_selector = QtWidgets.QSpinBox()
-        self._rows_selector = QtWidgets.QSpinBox()
-        self._buttons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
-
-        self._buttons.accepted.connect(self.accept)
-        self._buttons.rejected.connect(self.reject)
-
-        for selector, dimension, scene_dimension in (
-            (
-                self._columns_selector,
-                IMAGE_WIDTH,
-                scene.width(),
-            ),
-            (
-                self._rows_selector,
-                IMAGE_HEIGHT,
-                scene.height(),
-            )
-        ):
-            selector.setRange(1, 64)
-            selector.setValue(
-                int(
-                    math.ceil(
-                        scene_dimension / ((1 + STANDARD_IMAGE_MARGIN) * dimension)
-                    )
-                )
-            )
-
-        layout = QtWidgets.QFormLayout(self)
-
-        layout.addRow('columns', self._columns_selector)
-        layout.addRow('rows', self._rows_selector)
-        layout.addWidget(self._buttons)
-
-    def get_values(self) -> t.Tuple[int, int]:
-        return (
-            self._columns_selector.value() * IMAGE_WIDTH * (1 + STANDARD_IMAGE_MARGIN),
-            self._rows_selector.value() * IMAGE_HEIGHT * (1 + STANDARD_IMAGE_MARGIN),
-        )
 
 
 class CubeImageView(QtWidgets.QGraphicsView, WithActions):
@@ -172,7 +123,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._create_sort_action_pair(sorting.ExpansionExtractor)
         self._create_sort_action_pair(sorting.CollectorNumberExtractor)
 
-        self._fit_action = self._create_action('Fit View', self._fit_cards, 'F')
+        self.fit_action = self._create_action('Fit View', self.fit_cards, 'F')
         self._select_all_action = self._create_action('Select All', lambda: self._scene.select_all(), 'Ctrl+A')
         self._deselect_all_action = self._create_action(
             'Deselect All',
@@ -188,7 +139,6 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
         self._duplicate_action = self._create_action('Duplicate', self.duplicate_selected, 'Ctrl+J')
         self._copy_action = self._create_action('Copy', self._copy, 'Ctrl+C')
         self._paste_action = self._create_action('Paste', self._paste, 'Ctrl+V')
-        self._resize_action = self._create_action('Resize', self._resize_scene)
 
         self._sort_macro_actions = [
             self._create_sort_macro_action(i)
@@ -224,19 +174,6 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
             )
         )
 
-    def _resize_scene(self):
-        dialog = SceneResizeDialog(self.scene())
-        accepted = dialog.exec_()
-
-        if not accepted:
-            return
-
-        self._undo_stack.push(
-            self._scene.aligner.resize(
-                *dialog.get_values()
-            )
-        )
-
     @property
     def selected_info_text(self):
         return '{}/{}'.format(
@@ -247,7 +184,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     def _update_status(self) -> None:
         Context.status_message.emit(
             '{} {}'.format(
-                self._scene.name,
+                self._scene.scene_type.value,
                 self.selected_info_text,
             ),
             0,
@@ -425,19 +362,22 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 )
             )
 
-    def _fit_cards(self) -> None:
+    def fit_cards(self) -> None:
         selected = (
             None
             if settings.FIT_ALL_CARDS.get_value() else
             self._scene.selectedItems()
         )
         if selected:
-            rect = QRectF(selected[0].pos(), selected[0].boundingRect().size())
-            if len(selected) > 1:
-                for item in selected[1:]:
-                    rect |= QRectF(item.pos(), item.boundingRect().size())
             self.fitInView(
-                rect,
+                functools.reduce(
+                    operator.or_,
+                    (
+                        QRectF(item.pos(), item.boundingRect().size())
+                        for item in
+                        selected
+                    )
+                ),
                 QtCore.Qt.KeepAspectRatio,
             )
         else:
@@ -474,7 +414,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
     def _context_menu_event(self, position: QtCore.QPoint):
         menu = QtWidgets.QMenu(self)
 
-        menu.addAction(self._fit_action)
+        menu.addAction(self.fit_action)
 
         sort_menu = menu.addMenu('Sorts')
 
@@ -524,7 +464,6 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
                 self._paste_action,
                 self._delete_action,
                 self._duplicate_action,
-                self._resize_action,
             )
         )
 

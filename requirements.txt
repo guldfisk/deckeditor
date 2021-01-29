@@ -1,5 +1,5 @@
 sqlalchemy
-plyer
+notify-py
 appdirs
 yeetlong@ https://github.com/guldfisk/yeetlong/tarball/master#egg=yeetlong-1.0
 hardcandy@ https://github.com/guldfisk/hardcandy/tarball/master#egg=hardcandy-1.0
@@ -26,3 +26,4 @@ SQLAlchemy-JSONField
 mysqlclient
 lru-dict
 sortedcontainers
+antlr4-python3-runtime==4.7.2

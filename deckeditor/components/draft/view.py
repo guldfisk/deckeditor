@@ -6,7 +6,8 @@ from collections import defaultdict
 from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
 
-import plyer
+from notifypy import Notify
+from notifypy.exceptions import UnsupportedPlatform
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
@@ -25,6 +26,7 @@ from cubeclient.models import ApiClient, CubeBoosterSpecification
 from mtgdraft.client import DraftClient
 from mtgdraft.models import DraftRound, SinglePickPick, BurnPick, PickPoint, DraftConfiguration, DraftBooster, SinglePick, Burn
 
+from deckeditor import paths
 from deckeditor import values
 from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.components.draft.draftbots import collect_bots, bot_pick
@@ -38,9 +40,9 @@ from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeIma
 from deckeditor.components.views.editables.editable import Editable, TabType
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.context.context import Context
-from deckeditor.models.cubes.alignment.grid import GridAligner
 from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.cubes.scenetypes import SceneType
 from deckeditor.models.deck import PoolModel
 
 
@@ -141,11 +143,13 @@ class DraftModel(QObject):
 
         if not Context.main_window.isActiveWindow() and settings.NOTIFY_ON_BOOSTER_ARRIVED.get_value():
             try:
-                plyer.notification.notify(
-                    title = 'New pack',
-                    message = f'pack {pick_point.round.pack} pick {pick_point.pick_number}',
-                )
-            except NotImplementedError:
+                notification = Notify()
+                notification.title = 'New pack'
+                notification.message = f'pack {pick_point.round.pack} pick {pick_point.pick_number}'
+                notification.application_name = values.APPLICATION_NAME
+                notification.icon = paths.ICON_PATH
+                notification.send()
+            except UnsupportedPlatform:
                 Context.notification_message.emit('OS notifications not available')
                 Context.settings.setValue('notify_on_booster_arrived', False)
 
@@ -345,7 +349,7 @@ class BoosterImageView(CubeImageView):
 
         menu.addSeparator()
 
-        menu.addAction(self._fit_action)
+        menu.addAction(self.fit_action)
 
         menu.addSeparator()
 
@@ -360,7 +364,7 @@ class BoosterImageView(CubeImageView):
 
         menu.addSeparator()
 
-        menu.addAction(self._resize_action)
+        self._scene.aligner.context_menu(menu, self.mapToScene(position), self._undo_stack)
 
         menu.exec_(self.mapToGlobal(position))
 
@@ -424,10 +428,8 @@ class BoosterWidget(QtWidgets.QWidget):
         self._picking_info.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
 
         self._booster_scene = CubeScene(
-            GridAligner,
             mode = CubeEditMode.CLOSED,
-            width = values.IMAGE_WIDTH * 14,
-            name = 'booster',
+            scene_type = SceneType.BOOSTER,
         )
         self._booster_view = CubeView(
             scene = self._booster_scene,
@@ -504,10 +506,13 @@ class BoosterWidget(QtWidgets.QWidget):
         picked: Multiset[Cubeable],
         burned: Multiset[Cubeable],
     ):
-        cubeables_to_cards_map: t.MutableMapping[Cubeable, PhysicalCard] = defaultdict(list)
+        cubeables_to_cards_map: t.MutableMapping[Cubeable, t.List[PhysicalCard]] = defaultdict(list)
 
         for card in cards:
             cubeables_to_cards_map[card.cubeable].append(card)
+
+        for cards in cubeables_to_cards_map.values():
+            cards.sort(key = lambda c: c.values.get('ghost', False), reverse = True)
 
         for cubeables, color in (
             (picked, PICK_COLOR),
@@ -558,6 +563,7 @@ class BoosterWidget(QtWidgets.QWidget):
             remove = self._booster_scene.items(),
             closed_operation = True,
         ).redo()
+        self._booster_scene.get_default_sort().redo()
 
         for ghost_card in ghost_cards:
             ghost_card.add_highlight(GHOST_COLOR)
@@ -909,7 +915,7 @@ class DraftView(Editable):
                 self._pool_view,
                 TabMeta(
                     session_name,
-                    key = session_name,
+                    key = f'pool-{pool_id}',
                 ),
             )
         Context.editor.close_tab(self.tab)

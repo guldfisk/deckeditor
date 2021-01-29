@@ -7,12 +7,15 @@ from abc import abstractmethod
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoCommand, QUndoStack
+from PyQt5.QtWidgets import QUndoCommand, QUndoStack, QInputDialog
 
-from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop, _AlingerResize
+from hardcandy import fields
+from hardcandy.schema import Schema
+
+from deckeditor.models.cubes.alignment.aligner import Aligner, AlignmentDrop
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.sorting.sorting import SortMacro, SortSpecification, SortIdentity, SortDimension
+from deckeditor.sorting.sorting import SortMacro, SortSpecification, SortIdentity
 from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT
 
 
@@ -164,36 +167,49 @@ class GridSort(QUndoCommand):
         self._grid.realign()
 
 
-class GridResize(_AlingerResize):
+class SetColumnCount(QUndoCommand):
 
-    def __init__(self, aligner: GridAligner):
+    def __init__(self, aligner: GridAligner, columns: int):
+        super().__init__()
         self._aligner = aligner
+        self._columns = columns
 
-        self._old_columns: t.Optional[int] = None
+        self._old_column_count: t.Optional[int] = None
 
     def redo(self):
-        if self._old_columns is None:
-            self._old_columns = self._aligner._columns
+        if self._old_column_count is None:
+            self._old_column_count = self._aligner._columns
 
-        self._aligner._columns = self._aligner.get_columns()
+        self._aligner._columns = self._columns
+        self._aligner.realign()
 
     def undo(self):
-        self._aligner._columns = self._old_columns
+        self._aligner._columns = self._old_column_count
+        self._aligner.realign()
 
 
 class GridAligner(Aligner):
     name = 'Grid'
+    schema = Schema(
+        fields = {
+            'columns': fields.Integer(default = 5, min = 1, max = 64),
+            # 'margin': fields.Float(default = .05, min = 0., max = 1.),
+        },
+    )
 
-    def __init__(self, scene: SelectionScene, margin: float = .05):
+    def __init__(self, scene: SelectionScene, columns: int = 5, margin: float = .05):
         super().__init__(scene)
 
         self._margin = int(IMAGE_WIDTH * margin)
-        self._columns = self.get_columns()
+        self._columns = columns
 
         self._cards: t.List[PhysicalCard] = []
 
-    def get_columns(self) -> int:
-        return self._scene.width() // (IMAGE_WIDTH + self._margin)
+    @property
+    def options(self) -> t.Mapping[str, t.Any]:
+        return {
+            'columns': self._columns,
+        }
 
     @property
     def cards(self) -> t.List[PhysicalCard]:
@@ -205,7 +221,7 @@ class GridAligner(Aligner):
 
     @property
     def supports_sub_sort(self) -> bool:
-        return True
+        return False
 
     def pick_up(self, items: t.Iterable[PhysicalCard]) -> GridPickUp:
         return GridPickUp(
@@ -216,17 +232,11 @@ class GridAligner(Aligner):
     def get_position_at_index(self, idx: int) -> QPoint:
         return QPoint(
             max(
-                min(
-                    (idx % self._columns) * (IMAGE_WIDTH + self._margin),
-                    self._scene.width() - IMAGE_WIDTH,
-                ),
+                (idx % self._columns) * (IMAGE_WIDTH + self._margin),
                 0,
             ),
             max(
-                min(
-                    (idx // self._columns) * (IMAGE_HEIGHT + self._margin),
-                    self._scene.height() - IMAGE_HEIGHT,
-                ),
+                (idx // self._columns) * (IMAGE_HEIGHT + self._margin),
                 0,
             ),
         )
@@ -282,7 +292,23 @@ class GridAligner(Aligner):
         )
 
     def context_menu(self, menu: QtWidgets.QMenu, position: QPoint, undo_stack: QUndoStack) -> None:
-        pass
+        resize_action = QtWidgets.QAction('Set Column Count', menu)
+        resize_action.triggered.connect(lambda: self.update_column_count(menu, undo_stack))
+        menu.addAction(resize_action)
 
-    def _resize(self) -> _AlingerResize:
-        return GridResize(self)
+    def update_column_count(self, parent: QtWidgets.QWidget, undo_stack: QUndoStack) -> None:
+        amount, ok = QInputDialog.getInt(
+            parent,
+            'Choose new column count',
+            '',
+            self._columns,
+            1,
+            64,
+        )
+        if ok:
+            undo_stack.push(
+                SetColumnCount(
+                    self,
+                    amount,
+                )
+            )

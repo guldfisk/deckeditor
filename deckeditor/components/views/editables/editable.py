@@ -27,6 +27,11 @@ class Tab(QWidget):
 
     @property
     @abstractmethod
+    def loaded(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
     def editable(self) -> Editable:
         pass
 

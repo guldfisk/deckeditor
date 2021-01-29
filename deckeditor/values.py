@@ -8,7 +8,7 @@ from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
 APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.0.9'
+VERSION = '0.1.0'
 
 IS_WINDOWS = sys.platform.startswith('win')
 
@@ -18,6 +18,7 @@ EXECUTE_PATH = (
     '/usr/share/embargoedit/editor/editor'
 )
 
+STANDARD_DATETIME_FORMAT = '%d-%m-%Y %H:%M'
 
 class DeckZoneType(Enum):
     MAINDECK = 'Maindeck'

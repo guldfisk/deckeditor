@@ -37,6 +37,8 @@ from deckeditor.components.views.cubeedit.graphical.sortdialog import EditMacroe
 from deckeditor.components.views.editables.editable import TabType
 from deckeditor.components.views.editables.multicubesview import MultiCubesView
 from deckeditor.context.context import Context, DbType
+from deckeditor.models.cubes.alignment.init import init_aligners
+from deckeditor.models.cubes.scenetypes import SceneType
 from deckeditor.models.deck import DeckModel, Deck, TabModel, Pool
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.serialization.tabmodelserializer import init_deck_serializers
@@ -44,8 +46,10 @@ from deckeditor.server.client import EmbargoClient
 from deckeditor.server.server import EmbargoServer
 from deckeditor.sorting.custom import CustomSortMap
 from deckeditor.store import models, EDB
+from deckeditor.utils.actions import WithActions
 from deckeditor.utils.version import version_formatted
 from deckeditor.values import SUPPORTED_EXTENSIONS
+from deckeditor.views.tournaments.matches import ScheduledMatchesView
 
 
 class MainView(QWidget):
@@ -65,7 +69,7 @@ class MainView(QWidget):
         self.setLayout(layout)
 
 
-class Dock(QtWidgets.QDockWidget):
+class Dock(QtWidgets.QDockWidget, WithActions):
 
     def __init__(
         self,
@@ -81,8 +85,11 @@ class Dock(QtWidgets.QDockWidget):
         self.setFocusProxy(content)
         self.setObjectName(object_name)
         self.setAllowedAreas(allowed_areas)
+        self.setContentsMargins(3, 0, 3, 0)
 
         self._wants_focus = wants_focus
+
+        self._create_action('Hide', self.hide, 'ESC')
 
     @property
     def wants_focus(self) -> bool:
@@ -101,7 +108,7 @@ class MainWindow(QMainWindow):
 
         self._notification_frame = NotificationFrame(self)
 
-        self.setWindowTitle('Embargo Edit')
+        self.setWindowTitle(values.APPLICATION_NAME)
 
         self.layout().setContentsMargins(0, 0, 0, 0)
 
@@ -151,12 +158,17 @@ class MainWindow(QMainWindow):
 
         self._limited_sessions_dock = Dock('Limited', 'Limited', self, self._limited_sessions_view)
 
+        self._matches_view = ScheduledMatchesView()
+
+        self._matches_view_dock = Dock('Matches', 'Matches', self, self._matches_view)
+
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._card_adder_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._cube_view_minimap_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._limited_sessions_dock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._matches_view_dock)
 
         self._card_view_dock.hide()
         self._card_adder_dock.hide()
@@ -164,6 +176,7 @@ class MainWindow(QMainWindow):
         self._lobby_view_dock.hide()
         self._cube_view_minimap_dock.hide()
         self._limited_sessions_dock.hide()
+        self._matches_view_dock.hide()
 
         self._main_view = MainView(self)
 
@@ -197,10 +210,6 @@ class MainWindow(QMainWindow):
                     ('Sort Macroes', 'Ctrl+M', self._edit_sort_macroes),
                 ),
             ),
-            # menu_bar.addMenu('Generate'): (
-            #     # ('Sealed pool', 'Ctrl+G', self._generate_pool),
-            #     # ('Cube Pools', 'Ctrl+C', self.generate_cube_pools),
-            # ),
             (
                 menu_bar.addMenu('View'),
                 (
@@ -208,8 +217,9 @@ class MainWindow(QMainWindow):
                     ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
                     ('Limited', 'Meta+3', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
                     ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
-                    ('Undo', 'Meta+5', lambda: self._toggle_dock_view(self._undo_view_dock)),
-                    ('Minimap', 'Meta+6', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
+                    ('Matches', 'Meta+5', lambda: self._toggle_dock_view(self._matches_view_dock)),
+                    ('Undo', 'Meta+6', lambda: self._toggle_dock_view(self._undo_view_dock)),
+                    ('Minimap', 'Meta+7', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
                 ),
             ),
             (
@@ -288,18 +298,20 @@ class MainWindow(QMainWindow):
 
         self._load_state()
 
-        self._save_state_timer = QtCore.QTimer()
-        self._save_state_timer.timeout.connect(self.save_state)
-        self._save_state_timer.start(1000 * 60 * 3)
-
     def _test(self) -> None:
-        raise Exception('DUDE')
+        from notifypy import Notify
+        notification = Notify()
+        notification.title = 'New pack'
+        notification.message = f'SOME SHIT'
+        notification.application_name = 'Embargo Edit'
+        notification.icon = paths.ICON_PATH
+        notification.send()
 
     def _sample_hand(self) -> None:
         tab = self._main_view.editables_tabs.currentWidget()
-        if isinstance(tab.editable, MultiCubesView) and 'maindeck' in tab.editable.cube_views_map:
+        if isinstance(tab.editable, MultiCubesView) and SceneType.MAINDECK in tab.editable.cube_views_map:
             SampleHandDialog(
-                tab.editable.cube_views_map['maindeck'].cube_scene
+                tab.editable.cube_views_map[SceneType.MAINDECK].cube_scene
             ).exec_()
 
     def _draft_history_wrapper(self, method: str) -> t.Callable[[], None]:
@@ -339,6 +351,7 @@ class MainWindow(QMainWindow):
                 dock.hide()
             else:
                 dock.show()
+                dock.activateWindow()
                 dock.setFocus()
         else:
             dock.setVisible(not dock.isVisible())
@@ -587,6 +600,7 @@ def run():
                     client.open_file(os.path.abspath(file))
             return
 
+    init_aligners()
     app = EmbargoApp.init(sys.argv)
     app.setQuitOnLastWindowClosed(True)
 
@@ -618,6 +632,11 @@ def run():
         Context.embargo_server.start()
 
     main_window.showMaximized()
+
+    if not args.multi_instance:
+        save_state_timer = QtCore.QTimer()
+        save_state_timer.timeout.connect(main_window.save_state)
+        save_state_timer.start(1000 * 60 * 3)
 
     if settings.AUTO_LOGIN.get_value():
         LOGIN_CONTROLLER.re_login()
