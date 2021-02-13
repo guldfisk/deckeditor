@@ -36,7 +36,7 @@ class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
         except IndexError:
             return None
 
-        return self._schema.fields.get_value_by_index(index.column()).extract(row)
+        return self._schema.fields.get_value_by_index(index.column()).extract(row, self._schema)
 
     # def setData(self, index: QModelIndex, value: t.Any, role: int = ...) -> bool:
     #     if role != Qt.EditRole:

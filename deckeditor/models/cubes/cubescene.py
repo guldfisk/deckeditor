@@ -182,6 +182,15 @@ class CubeScene(SelectionScene):
     ):
         super().__init__()
 
+        self.setSceneRect(
+            QtCore.QRectF(
+                0,
+                0,
+                1e10,
+                1e10,
+            )
+        )
+
         self._mode = mode
         self._scene_type = scene_type
 
