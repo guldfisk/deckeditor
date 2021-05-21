@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import typing as t
 from collections import defaultdict
@@ -19,11 +20,11 @@ from yeetlong.multiset import Multiset
 from mtgorp.models.interfaces import Printing
 from mtgorp.db.database import CardDatabase
 
-from magiccube.collections.cubeable import Cubeable
+from magiccube.collections.cubeable import Cubeable, cardboardize
 
-from cubeclient.models import ApiClient, CubeBoosterSpecification
+from cubeclient.models import ApiClient, CubeBoosterSpecification, RatingMap, User
 
-from mtgdraft.client import DraftClient
+from mtgdraft.client import DraftClient, BoosterTracker
 from mtgdraft.models import DraftRound, SinglePickPick, BurnPick, PickPoint, DraftConfiguration, DraftBooster, SinglePick, Burn
 
 from deckeditor import paths
@@ -48,12 +49,32 @@ from deckeditor.models.deck import PoolModel
 
 class _DraftClient(DraftClient):
 
-    def __init__(self, api_client: ApiClient, draft_id: str, db: CardDatabase, draft_model: DraftModel):
+    def __init__(
+        self,
+        api_client: ApiClient,
+        draft_id: str,
+        db: CardDatabase,
+        draft_model: DraftModel,
+    ):
         super().__init__(api_client, draft_id, db)
         self._draft_model = draft_model
+        self._rating_map: t.Optional[RatingMap] = None
+
+    @property
+    def rating_map(self) -> t.Optional[RatingMap]:
+        return self._rating_map
+
+    def _on_message_error(self, error: Exception) -> None:
+        Context.notification_message.emit(
+            'Error when handling message from draft server (most likely due to db mismatch), see log for details'
+        )
+        logging.error(error)
 
     def _received_booster(self, pick_point: PickPoint) -> None:
         self._draft_model._on_received_booster(pick_point)
+
+    def _on_boosters_changed(self, booster_tracker: BoosterTracker) -> None:
+        self._draft_model.boosters_changed.emit(booster_tracker)
 
     def _picked(self, pick_point: PickPoint) -> None:
         self._draft_model._on_pick(pick_point)
@@ -62,6 +83,17 @@ class _DraftClient(DraftClient):
         self._draft_model.draft_completed.emit(pool_id, session_name)
 
     def _on_start(self, draft_configuration: DraftConfiguration) -> None:
+        booster_specifications = self.draft_configuration.pool_specification.booster_specifications
+        if all(isinstance(specification, CubeBoosterSpecification) for specification in booster_specifications):
+            releases = [specification.release for specification in booster_specifications]
+            if len(set(releases)) == 1 and Context.cube_api_client is not None:
+                try:
+                    self._rating_map = Context.cube_api_client.ratings_for_release(releases[0].id).get()
+                    self._rating_map.inflate()
+                except Exception as e:
+                    logging.warning(f'Could not load rating map for release {releases[0]}: {e}')
+                    Context.notification_message.emit('Failed loading rating map')
+
         self._draft_model.draft_started.emit(draft_configuration)
 
     def _on_round(self, draft_round: DraftRound) -> None:
@@ -71,6 +103,7 @@ class _DraftClient(DraftClient):
 class DraftModel(QObject):
     connected = pyqtSignal(bool)
     received_booster = pyqtSignal(PickPoint)
+    boosters_changed = pyqtSignal(BoosterTracker)
     new_head = pyqtSignal(object, bool)
     picked = pyqtSignal(PickPoint, tuple, bool)
     draft_started = pyqtSignal(DraftConfiguration)
@@ -184,7 +217,7 @@ class DraftModel(QObject):
             self._draft_client.close()
 
     @property
-    def draft_client(self) -> t.Optional[DraftClient]:
+    def draft_client(self) -> t.Optional[_DraftClient]:
         return self._draft_client
 
     @property
@@ -386,16 +419,28 @@ class PickMetaInfo(QtWidgets.QWidget):
         layout.addWidget(self._pack_counter_label)
         layout.addStretch()
 
+    def _get_draft_label(self, drafter: User, pick_point: PickPoint, is_current: bool) -> str:
+        if not is_current:
+            return drafter.username
+        booster_amount = self._draft_model.draft_client.booster_tracker[drafter]
+        if not booster_amount:
+            return drafter.username
+        boosters = '⬤' * booster_amount
+        if pick_point.round.clockwise:
+            return boosters + ' ' + drafter.username
+        return drafter.username + ' ' + boosters
+
     def set_pick_point(self, pick_point: PickPoint) -> None:
+        is_current = pick_point == self._draft_model.draft_client.history.current
         self._players_list.setText(
-            'Draft order: ' + (
+            (
                 ' -> '
                 if pick_point.round.clockwise else
                 ' <- '
             ).join(
-                drafter.username
+                self._get_draft_label(drafter, pick_point, is_current)
                 for drafter in
-                self._draft_model.draft_client.draft_configuration.drafters.all
+                self._draft_model.draft_client.draft_configuration.drafters.loop_from(Context.cube_api_client.user)
             )
         )
         self._pack_counter_label.setText(
@@ -458,6 +503,7 @@ class BoosterWidget(QtWidgets.QWidget):
         self._draft_model.new_head.connect(self._set_pick_point)
         self._draft_model.picked.connect(self._on_picked)
         self._draft_model.received_booster.connect(self._on_receive_booster)
+        self._draft_model.boosters_changed.connect(self._on_boosters_changed)
         self._booster_view.cube_image_view.card_double_clicked.connect(self._on_card_double_clicked)
 
     @property
@@ -466,6 +512,11 @@ class BoosterWidget(QtWidgets.QWidget):
 
     def _on_receive_booster(self, pick_point: PickPoint) -> None:
         self._update_pick_meta()
+
+    def _on_boosters_changed(self, booster_tracker: BoosterTracker) -> None:
+        head = self._draft_model.pick_point_head
+        if head is None or head == self._draft_model.draft_client.history.current:
+            self._update_pick_meta()
 
     def _on_card_double_clicked(self, card: PhysicalCard, modifiers: Qt.KeyboardModifiers):
         if not settings.PICK_ON_DOUBLE_CLICK.get_value():
@@ -481,6 +532,8 @@ class BoosterWidget(QtWidgets.QWidget):
     def _update_pick_meta(self) -> None:
         pick_point = self._draft_model.pick_point_head
         latest = self._draft_model.draft_client.history.current
+        if latest is None:
+            return
 
         self._latest_meta_info.set_pick_point(latest)
 
@@ -547,7 +600,7 @@ class BoosterWidget(QtWidgets.QWidget):
         )
 
         ghost_cards: t.List[PhysicalCard] = [
-            PhysicalCard.from_cubeable(cubeable, release_id = release_id)
+            PhysicalCard.from_cubeable(cubeable, release_id = release_id, values = {'ghost': True})
             for cubeable in
             previous_picks[0].booster.cubeables - pick_point.booster.cubeables
         ] if previous_picks else []
@@ -557,6 +610,15 @@ class BoosterWidget(QtWidgets.QWidget):
                     for cubeable in
                     pick_point.booster.cubeables
                 ] + ghost_cards
+
+        if self._draft_model.draft_client.rating_map is not None and settings.SHOW_PICKABLE_RATINGS.get_value():
+            for card in cards:
+                try:
+                    rating = self._draft_model.draft_client.rating_map[cardboardize(card.cubeable)].rating
+                    card.set_info_text(str(rating))
+                    card.values['rating'] = rating
+                except KeyError:
+                    pass
 
         self._booster_scene.get_cube_modification(
             add = cards,

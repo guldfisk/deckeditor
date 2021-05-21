@@ -1,4 +1,4 @@
-sqlalchemy
+sqlalchemy==1.3.17
 notify-py
 appdirs
 yeetlong@ https://github.com/guldfisk/yeetlong/tarball/master#egg=yeetlong-1.0
@@ -13,10 +13,10 @@ lobbyclient@ https://github.com/guldfisk/lobbyclient/tarball/master#egg=lobbycli
 cubeclient@ https://github.com/guldfisk/cubeclient/tarball/master#egg=cubeclient-1.0
 pillow
 promise
-PyQt5==5.11.3
-frozendict
+PyQt5==5.12
+frozendict==1.2
 requests
-websocket-client
+websocket-client==0.57.0
 websocket
 bidict
 simplejson
@@ -27,3 +27,4 @@ mysqlclient
 lru-dict
 sortedcontainers
 antlr4-python3-runtime==4.7.2
+pyqtgraph

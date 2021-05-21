@@ -14,6 +14,7 @@ C = t.TypeVar('C', bound = t.Union[Printing, Lap])
 
 class SceneCard(GraphicPixmapObject, t.Generic[C]):
     _cubeable: C
+    values: t.Optional[t.MutableMapping[str, t.Any]]
 
     @property
     def cubeable(self) -> C:

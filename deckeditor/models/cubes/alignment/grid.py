@@ -151,7 +151,7 @@ class GridSort(QUndoCommand):
     def redo(self) -> None:
         sorted_cards = sorted(
             self._cards,
-            key = lambda card: SortIdentity.for_cubeable(card.cubeable, self._specifications),
+            key = lambda card: SortIdentity.for_card(card, self._specifications),
         )
         unsorted_cards = [card for card in self._original_order if not card in self._cards]
         if not self._in_place:

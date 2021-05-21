@@ -63,6 +63,9 @@ class _Context(QObject):
     status_message = pyqtSignal(str, int)
 
     focus_card_changed = pyqtSignal(FocusEvent)
+    focus_freeze_changed = pyqtSignal(bool)
+    focus_card_frozen: bool = False
+
     focus_scene_changed = pyqtSignal(QGraphicsScene)
 
     open_file = pyqtSignal(str)
@@ -141,6 +144,11 @@ class _Context(QObject):
         cls.undo_group = QUndoGroup()
 
         cls.sort_map = CustomSortMap.empty()
+
+    def toggle_frozen_focus(self) -> bool:
+        self.focus_card_frozen = not self.focus_card_frozen
+        self.focus_freeze_changed.emit(self.focus_card_frozen)
+        return self.focus_card_frozen
 
     @classmethod
     def get_undo_stack(cls) -> QUndoStack:

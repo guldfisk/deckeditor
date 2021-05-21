@@ -1,18 +1,23 @@
+import typing as t
+
 from hardcandy import fields
 from hardcandy.schema import Schema
 
+from cubeclient.models import ScheduledMatch, ScheduledSeat
+
 from deckeditor import values
+from deckeditor.context.context import Context
 
 
 class MatchSchema(Schema):
     tournament = fields.Lambda(lambda m: m.tournament.name)
     round = fields.Lambda(lambda m: m.round + 1)
-    match_participants = fields.Lambda(
+    opponents = fields.Lambda(
         lambda m: ', '.join(
             sorted(
                 seat.participant.tag_line
                 for seat in
-                m.seats
+                MatchSchema.get_opponents(m)
             )
         )
     )
@@ -28,3 +33,10 @@ class MatchSchema(Schema):
     created_at = fields.Lambda(
         lambda m: m.tournament.created_at.strftime(values.STANDARD_DATETIME_FORMAT)
     )
+
+    @classmethod
+    def get_opponents(cls, match: ScheduledMatch) -> t.Iterator[ScheduledSeat]:
+        current_user = Context.cube_api_client.user
+        for seat in match.seats:
+            if seat.participant.player is None or seat.participant.player.id != current_user.id:
+                yield seat

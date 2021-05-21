@@ -23,6 +23,7 @@ from deckeditor.authentication.login import LOGIN_CONTROLLER
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.cardadd.cardadder import PrintingSelector
 from deckeditor.components.cardview.cubeableview import CubeableView
+from deckeditor.components.cardview.ratingview import RatingView
 from deckeditor.components.db.info import DBInfoDialog
 from deckeditor.components.db.update import DBUpdateDialog
 from deckeditor.components.editables.editablestabs import FileOpenException, EditablesTabs, FileSaveException
@@ -96,7 +97,7 @@ class Dock(QtWidgets.QDockWidget, WithActions):
         return self._wants_focus
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, WithActions):
     pool_generated = QtCore.pyqtSignal(Multiset)
 
     def __init__(self, parent = None):
@@ -115,6 +116,9 @@ class MainWindow(QMainWindow):
         self._printing_view = CubeableView(self)
         Context.focus_card_changed.connect(self._printing_view.new_cubeable)
 
+        self._rating_view = RatingView()
+        Context.focus_card_changed.connect(self._rating_view.on_focus_event)
+
         self._login_status_label = QtWidgets.QLabel('')
         LOGIN_CONTROLLER.login_success.connect(lambda u, h: self._login_status_label.setText(f'{u.username}@{h}'))
         LOGIN_CONTROLLER.login_failed.connect(lambda e: self._login_status_label.setText(''))
@@ -126,6 +130,20 @@ class MainWindow(QMainWindow):
         Context.status_message.connect(lambda m, _t: self.statusBar().showMessage(m, _t))
 
         self._card_view_dock = Dock('Card View', 'card_view_dock', self, self._printing_view, wants_focus = False)
+        Context.focus_freeze_changed.connect(
+            lambda frozen: self._card_view_dock.setWindowTitle(
+                'Card View'
+                + (' (frozen)' if frozen else '')
+            )
+        )
+
+        self._rating_view_dock = Dock('Rating View', 'rating_view_dock', self, self._rating_view, wants_focus = False)
+        Context.focus_freeze_changed.connect(
+            lambda frozen: self._rating_view_dock.setWindowTitle(
+                'Rating View'
+                + (' (frozen)' if frozen else '')
+            )
+        )
 
         self._card_adder = PrintingSelector(self)
         self._card_adder.add_printings.connect(self._on_add_printings)
@@ -164,6 +182,7 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._card_adder_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._rating_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._cube_view_minimap_dock)
@@ -171,6 +190,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._matches_view_dock)
 
         self._card_view_dock.hide()
+        self._rating_view_dock.hide()
         self._card_adder_dock.hide()
         self._undo_view_dock.hide()
         self._lobby_view_dock.hide()
@@ -218,8 +238,9 @@ class MainWindow(QMainWindow):
                     ('Limited', 'Meta+3', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
                     ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
                     ('Matches', 'Meta+5', lambda: self._toggle_dock_view(self._matches_view_dock)),
-                    ('Undo', 'Meta+6', lambda: self._toggle_dock_view(self._undo_view_dock)),
-                    ('Minimap', 'Meta+7', lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
+                    ('Rating', 'Meta+6', lambda: self._toggle_dock_view(self._rating_view_dock)),
+                    ('Undo', None, lambda: self._toggle_dock_view(self._undo_view_dock)),
+                    ('Minimap', None, lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
                 ),
             ),
             (
@@ -287,6 +308,8 @@ class MainWindow(QMainWindow):
                         _action.setShortcut(shortcut)
                     _action.triggered.connect(action)
                     menu.addAction(_action)
+
+        self._create_action('toggle freeze focus', Context.toggle_frozen_focus, 'Alt+F')
 
         self._reset_dock_width = 500
         self._reset_dock_height = 1200
@@ -419,7 +442,7 @@ class MainWindow(QMainWindow):
         try:
             self._main_view.editables_tabs.save_tab_as()
         except FileSaveException:
-            Context.notification_message.emit('Invalid extension')
+            Context.notification_message.emit('Invalid file extension')
 
     def _export_deck(self):
         try:

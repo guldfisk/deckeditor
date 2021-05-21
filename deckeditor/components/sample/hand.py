@@ -71,6 +71,7 @@ class SampleHandView(QtWidgets.QWidget, WithActions):
                 closed_operation = True,
             ).redo()
         self._undo_stack.clear()
+        self._hand_view.update()
 
     def refresh(self) -> None:
         remove = self._hand_scene.items()

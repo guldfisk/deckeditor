@@ -169,6 +169,10 @@ class SettingsDialog(SingleInstanceDialog):
                                 settings.GHOST_CARDS,
                                 'Show cards from booster that did not wheel as greyed out.',
                             ),
+                            BooleanSettingEditor(
+                                settings.SHOW_PICKABLE_RATINGS,
+                                'Show most recent ELO rating of pickable in booster view when available.',
+                            ),
                         ),
                         (),
                     ),

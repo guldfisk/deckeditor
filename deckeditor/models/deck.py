@@ -164,13 +164,20 @@ class DeckModel(QObject):
 
 
 class PoolModel(DeckModel):
+    _default_infinite_names = (
+        'Plains',
+        'Island',
+        'Swamp',
+        'Forest',
+        'Mountain',
+    )
 
     def __init__(
         self,
         pool: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
         maindeck: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
         sideboard: t.Union[CubeScene, t.Sequence[PhysicalCard], None] = None,
-        infinites: Infinites = Infinites(),
+        infinites: t.Optional[Infinites] = None,
     ):
         super().__init__(
             CubeScene(
@@ -197,7 +204,11 @@ class PoolModel(DeckModel):
             if pool is None or isinstance(pool, t.Sequence) else
             pool
         )
-        self._infinites = infinites
+        self._infinites = Infinites(
+            Context.db.cardboards[cardboard_name]
+            for cardboard_name in
+            self._default_infinite_names
+        ) if infinites is None else infinites
 
         self._scenes = {self._maindeck, self._sideboard, self._pool}
 

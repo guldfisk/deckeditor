@@ -14,6 +14,7 @@ package_imports = (
 
 datas = [
     ('deckeditor/resources/', 'deckeditor/resources'),
+    # ('./build_venv/lib/python3.8/site-packages/frozendict/VERSION', 'frozendict/'),
 ]
 for package, paths, out_path in package_imports:
     package_root = os.path.dirname(importlib.import_module(package).__file__)
@@ -27,7 +28,7 @@ a = Analysis(
     ['deckeditor/editor.py'],
     pathex = ['/home/phdk/PycharmProjects/deckeditor'],
     binaries = [],
-    hiddenimports = ['ijson.backends.python', 'sqlalchemy.ext.baked'],
+    hiddenimports = ['ijson.backends.python', 'sqlalchemy.ext.baked', 'sqlalchemy.interfaces'],
     hookspath = [],
     runtime_hooks = [],
     excludes = [],

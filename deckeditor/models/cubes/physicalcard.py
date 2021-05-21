@@ -97,8 +97,9 @@ class PhysicalCard(SceneCard[C]):
         cubeable: C,
         node_parent: t.Optional[PhysicalCard] = None,
         release_id: t.Optional[int] = None,
+        values: t.Optional[t.MutableMapping[str, t.Any]] = None,
     ) -> PhysicalCard[C]:
-        return cls._cubeable_to_physical_type(cubeable)(cubeable, node_parent = node_parent, release_id = release_id)
+        return cls._cubeable_to_physical_type(cubeable)(cubeable, node_parent = node_parent, release_id = release_id, values = values)
 
     def image_request(self) -> ImageRequest:
         return ImageRequest(self._cubeable, back = self._back, size_slug = SizeSlug.MEDIUM)
@@ -226,7 +227,7 @@ class PhysicalPrinting(PhysicalCard[Printing]):
             Context.main_window,
             'Choose custom cmc',
             '-1 is land',
-            CMCExtractor.extract(self.cubeable),
+            CMCExtractor.extract(self),
             -1,
             99,
         )

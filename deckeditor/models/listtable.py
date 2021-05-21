@@ -131,7 +131,19 @@ class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
         self._lines.insert(idx, line)
         self.endInsertRows()
 
-    def set_lines(self, lines: t.Sequence[T]) -> None:
+    def set_lines(self, lines: t.Iterable[T]) -> None:
         self.beginResetModel()
         self._lines[:] = lines
         self.endResetModel()
+
+    def __getitem__(self, i: int) -> T:
+        return self._lines[i]
+
+    def __setitem__(self, i: int, o: T) -> None:
+        raise NotImplemented()
+
+    def __delitem__(self, i: int) -> None:
+        raise NotImplemented()
+
+    def __len__(self) -> int:
+        return self._lines.__len__()

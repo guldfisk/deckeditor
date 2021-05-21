@@ -46,14 +46,16 @@ class CubeableImageView(ScaledImageLabel):
             self.setPixmap(pixmap)
 
     def set_cubeable(self, focus_event: FocusEvent) -> None:
+        if Context.focus_card_frozen:
+            return
         if (
             isinstance(focus_event.focusable, Trap)
             and focus_event.size is not None
             and focus_event.position is not None
             and bool(
-            focus_event.modifiers is not None
-            and focus_event.modifiers & QtCore.Qt.ShiftModifier
-        ) != settings.DEFAULT_FOCUS_TRAP_SUB_PRINTING.get_value()
+                focus_event.modifiers is not None
+                and focus_event.modifiers & QtCore.Qt.ShiftModifier
+            ) != settings.DEFAULT_FOCUS_TRAP_SUB_PRINTING.get_value()
         ):
             pictureable = focus_event.focusable.get_printing_at(*focus_event.position, *focus_event.size)
         elif isinstance(focus_event.focusable, Cardboard):
@@ -122,7 +124,7 @@ class CubeableTextView(QtWidgets.QStackedWidget):
         self._printing_view.new_focus_card.connect(self.new_focus_card)
 
     def _on_new_cubeable(self, focus: FocusEvent) -> None:
-        if self._latest_cubeable == focus.focusable:
+        if self._latest_cubeable == focus.focusable or Context.focus_card_frozen:
             return
 
         self._latest_cubeable = focus.focusable

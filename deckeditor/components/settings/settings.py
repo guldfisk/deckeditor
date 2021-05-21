@@ -115,6 +115,7 @@ ALWAYS_FLATTEN_ALL = BooleanSetting('always_flatten_all', 'Always flatten all', 
 DONT_AUTO_FLATTEN_BIG = BooleanSetting('dont_auto_flatten_big', 'Do not auto flatten big traps', False)
 NOTIFY_ON_BOOSTER_ARRIVED = BooleanSetting('notify_on_booster_arrived', 'Booster notification', True)
 HIDE_LOBBIES_ON_NEW_DRAFT = BooleanSetting('hide_lobbies_on_new_draft', 'Hide lobby view when draft starts', True)
+SHOW_PICKABLE_RATINGS = BooleanSetting('show_pickable_ratings', 'Show pickable ratings', True)
 INFER_PICK_BURN = BooleanSetting('infer_pick_burn', 'Infer pick burn', True)
 PICK_ON_DOUBLE_CLICK = BooleanSetting('pick_on_double_click', 'Double click pick', True)
 GHOST_CARDS = BooleanSetting('ghost_cards', 'Ghost cards', True)

@@ -91,6 +91,8 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self._rubber_band = QtWidgets.QRubberBand(
             QtWidgets.QRubberBand.Rectangle,
@@ -214,7 +216,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
     def _paste(self):
         mime = Context.clipboard.mimeData()
-        cards = mime.data('cards')
+        cards = mime.datas('cards')
 
         if not cards:
             return

@@ -5,8 +5,7 @@ import datetime
 import functools
 import itertools
 import typing as t
-
-from abc import ABCMeta, abstractmethod, ABC
+from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
@@ -16,9 +15,9 @@ from mtgorp.models.interfaces import Printing
 
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap, IntentionType
-from magiccube.collections.cubeable import Cubeable
 
 from deckeditor.context.context import Context
+from deckeditor.models.cubes.scenecard import SceneCard
 
 
 SortValue = t.Union[str, int, datetime.datetime]
@@ -89,7 +88,7 @@ class SortProperty(object, metaclass = _SortPropertyMeta):
 
     @classmethod
     @abstractmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> SortValue:
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> SortValue:
         pass
 
 
@@ -163,11 +162,11 @@ class SortIdentity(object):
         return self._values
 
     @classmethod
-    def for_cubeable(cls, cubeable: Cubeable, specifications: t.Sequence[SortSpecification]) -> SortIdentity:
+    def for_card(cls, card: SceneCard, specifications: t.Sequence[SortSpecification]) -> SortIdentity:
         return cls(
             tuple(
                 (
-                    specification.sort_property.extract(cubeable, respect_custom = specification.respect_custom),
+                    specification.sort_property.extract(card, respect_custom = specification.respect_custom),
                     specification.direction.direction_for(specification.sort_property),
                 )
                 for specification in
@@ -213,13 +212,13 @@ class ColorExtractor(SortProperty):
         return Context.sort_map.get_cardboard_value(cubeable.cardboard, 'colors', cubeable.cardboard.front_card.color)
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -2
-        if typeline.LAND in cubeable.cardboard.front_card.type_line:
+        if typeline.LAND in card.cubeable.cardboard.front_card.type_line:
             return -1
         return colors.color_set_sort_value_len_first(
-            cls.extract_color(cubeable, respect_custom = respect_custom)
+            cls.extract_color(card.cubeable, respect_custom = respect_custom)
         )
 
 
@@ -237,11 +236,11 @@ class ColorIdentityExtractor(SortProperty):
         )
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -1
         return colors.color_set_sort_value_len_first(
-            cls.extract_color_identity(cubeable)
+            cls.extract_color_identity(card.cubeable)
         )
 
 
@@ -249,16 +248,16 @@ class CMCExtractor(SortProperty):
     name = 'Cmc'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -2
         if respect_custom:
-            custom_cmc = Context.sort_map.get_cardboard_value(cubeable.cardboard, 'cmc')
+            custom_cmc = Context.sort_map.get_cardboard_value(card.cubeable.cardboard, 'cmc')
             if custom_cmc is not None:
                 return custom_cmc
-        if typeline.LAND in cubeable.cardboard.front_card.type_line:
+        if typeline.LAND in card.cubeable.cardboard.front_card.type_line:
             return -1
-        return cubeable.cardboard.front_card.cmc
+        return card.cubeable.cardboard.front_card.cmc
 
 
 class NameExtractor(SortProperty):
@@ -266,10 +265,10 @@ class NameExtractor(SortProperty):
     auto_continuity = DimensionContinuity.CONTINUOUS
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> str:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> str:
+        if not isinstance(card.cubeable, Printing):
             return ''
-        return cubeable.cardboard.front_card.name
+        return card.cubeable.cardboard.front_card.name
 
 
 class IsLandExtractor(SortProperty):
@@ -277,10 +276,10 @@ class IsLandExtractor(SortProperty):
     auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -1
-        return int(typeline.LAND in cubeable.cardboard.front_card.type_line)
+        return int(typeline.LAND in card.cubeable.cardboard.front_card.type_line)
 
 
 class IsPermanentSplit(SortProperty):
@@ -288,10 +287,10 @@ class IsPermanentSplit(SortProperty):
     auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -1
-        return int(cubeable.cardboard.front_card.type_line.is_permanent)
+        return int(card.cubeable.cardboard.front_card.type_line.is_permanent)
 
 
 class IsCreatureExtractor(SortProperty):
@@ -299,24 +298,24 @@ class IsCreatureExtractor(SortProperty):
     auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -1
-        return int(typeline.CREATURE in cubeable.cardboard.front_card.type_line)
+        return int(typeline.CREATURE in card.cubeable.cardboard.front_card.type_line)
 
 
 class CubeableTypeExtractor(SortProperty):
     name = 'Cubeable Type'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if isinstance(card.cubeable, Printing):
             return 0
-        if isinstance(cubeable, Trap):
-            if cubeable.intention_type != IntentionType.SYNERGY:
+        if isinstance(card.cubeable, Trap):
+            if card.cubeable.intention_type != IntentionType.SYNERGY:
                 return 1
             return 2
-        if isinstance(cubeable, Ticket):
+        if isinstance(card.cubeable, Ticket):
             return 3
         return 4
 
@@ -326,20 +325,20 @@ class IsMonoExtractor(SortProperty):
     auto_dimension = SortDimension.VERTICAL
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -1
-        return int(len(cubeable.cardboard.front_card.color) == 1)
+        return int(len(card.cubeable.cardboard.front_card.color) == 1)
 
 
 class RarityExtractor(SortProperty):
     name = 'Rarity'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
-        if not isinstance(cubeable, Printing):
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        if not isinstance(card.cubeable, Printing):
             return -2
-        return -1 if cubeable.rarity is None else cubeable.rarity.value
+        return -1 if card.cubeable.rarity is None else card.cubeable.rarity.value
 
 
 class ReleaseDateExtractor(SortProperty):
@@ -347,11 +346,11 @@ class ReleaseDateExtractor(SortProperty):
     auto_continuity = DimensionContinuity.CONTINUOUS
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> datetime.datetime:
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> datetime.datetime:
         return (
             datetime.datetime.fromtimestamp(0)
-            if not isinstance(cubeable, Printing) or cubeable.expansion is None else
-            cubeable.expansion.release_date
+            if not isinstance(card.cubeable, Printing) or card.cubeable.expansion is None else
+            card.cubeable.expansion.release_date
         )
 
 
@@ -359,11 +358,11 @@ class ExpansionExtractor(SortProperty):
     name = 'Expansion'
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> str:
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> str:
         return (
             ''
-            if not isinstance(cubeable, Printing) or cubeable.expansion is None else
-            cubeable.expansion.code
+            if not isinstance(card.cubeable, Printing) or card.cubeable.expansion is None else
+            card.cubeable.expansion.code
         )
 
 
@@ -372,9 +371,28 @@ class CollectorNumberExtractor(SortProperty):
     auto_continuity = DimensionContinuity.CONTINUOUS
 
     @classmethod
-    def extract(cls, cubeable: Cubeable, *, respect_custom: bool = True) -> int:
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
         return (
-            cubeable.collector_number
-            if isinstance(cubeable, Printing) else
+            card.cubeable.collector_number
+            if isinstance(card.cubeable, Printing) else
             -1
         )
+
+
+class RatingExtractor(SortProperty):
+    name = 'Rating'
+    auto_continuity = DimensionContinuity.CONTINUOUS
+    auto_reverse = True
+
+    @classmethod
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        return card.values.get('rating', 0)
+
+
+class IsGhost(SortProperty):
+    name = 'Is Ghost'
+    auto_dimension = SortDimension.VERTICAL
+
+    @classmethod
+    def extract(cls, card: SceneCard, *, respect_custom: bool = True) -> int:
+        return int(card.values.get('ghost', 0))

@@ -312,7 +312,7 @@ class SortStacker(QUndoCommand):
 
         self._stacker.cards[:] = sorted(
             self._stacker.cards,
-            key = lambda card: SortIdentity.for_cubeable(card.cubeable, self._specifications),
+            key = lambda card: SortIdentity.for_card(card, self._specifications),
         )
         self._stacker.update()
 
@@ -338,7 +338,7 @@ class SortAllStackers(QUndoCommand):
         for stacker in self._grid.stacker_map.stackers:
             stacker.cards[:] = sorted(
                 stacker.cards,
-                key = lambda card: SortIdentity.for_cubeable(card.cubeable, self._specifications),
+                key = lambda card: SortIdentity.for_card(card, self._specifications),
             )
             stacker.update()
 
@@ -380,7 +380,7 @@ class ContinuousSort(QUndoCommand):
     def _sorted_cards(self) -> t.List[PhysicalCard]:
         return sorted(
             self._card_infos.keys(),
-            key = lambda card: SortIdentity.for_cubeable(card.cubeable, self._specifications),
+            key = lambda card: SortIdentity.for_card(card, self._specifications),
         )
 
     @property
@@ -472,12 +472,12 @@ class GroupedSort(ContinuousSort):
         value_map = defaultdict(list)
 
         for card in self._card_infos.keys():
-            value_map[SortIdentity.for_cubeable(card.cubeable, self._specifications)].append(card)
+            value_map[SortIdentity.for_card(card, self._specifications)].append(card)
 
         for key, cards, in value_map.items():
             value_map[key] = sorted(
                 cards,
-                key = lambda c: sorting.NameExtractor.extract(c.cubeable),
+                key = sorting.NameExtractor.extract,
             )
 
         values = sorted(value_map.keys()).__iter__()
