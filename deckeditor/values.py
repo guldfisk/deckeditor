@@ -8,7 +8,7 @@ from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
 APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.1.2'
+VERSION = '0.1.3'
 
 IS_WINDOWS = sys.platform.startswith('win')
 
@@ -20,6 +20,7 @@ EXECUTE_PATH = (
 
 STANDARD_DATETIME_FORMAT = '%d-%m-%Y %H:%M'
 
+REPO_TAGS_PATH = 'https://api.github.com/repos/guldfisk/deckeditor/tags'
 
 class DeckZoneType(Enum):
     MAINDECK = 'Maindeck'

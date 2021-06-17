@@ -6,9 +6,11 @@ import requests
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from promise import Promise
+from requests import Response
 
 from cubeclient.endpoints import AsyncNativeApiClient
 from cubeclient.models import User, DbInfo
+from deckeditor import values
 
 from deckeditor.context.context import Context
 
@@ -44,6 +46,19 @@ class LoginController(QObject):
         elif message_success:
             Context.notification_message.emit('DB up to date with remote')
 
+    def _handle_repo_tags(self, response: Response) -> None:
+        if response.json()[0]['name'] != values.VERSION:
+            Context.notification_message.emit(f'New version of {values.APPLICATION_NAME} available')
+
+    def _handle_min_client_version(self, min_version: str) -> None:
+        if tuple(map(int, values.VERSION.split('.'))) < tuple(map(int, min_version.split('.'))):
+            Context.notification_message.emit(
+                'Embargo edit version not supported by server. Please update to at least {}. (current version: {})'.format(
+                    min_version,
+                    values.VERSION,
+                )
+            )
+
     def _handle_login_success(self, v: t.Any) -> t.Any:
         Context.token_changed.emit(Context.cube_api_client.token)
         self.login_success.emit(Context.cube_api_client.user, Context.cube_api_client.host)
@@ -51,7 +66,18 @@ class LoginController(QObject):
         return v
 
     def validate(self, message_success: bool = False):
-        Context.cube_api_client.db_info().then(lambda i: self._handle_db_info(i, message_success))
+        Context.cube_api_client.db_info().then(lambda i: self._handle_db_info(i, message_success)).catch(logging.warning)
+        Context.cube_api_client.min_client_version().then(self._handle_min_client_version).catch(logging.warning)
+        Promise.resolve(
+            Context.cube_api_client.executor.submit(
+                requests.get,
+                values.REPO_TAGS_PATH,
+            )
+        ).then(
+            self._handle_repo_tags,
+        ).catch(
+            logging.warning,
+        )
 
     def log_out(self):
         Context.cube_api_client.logout()
@@ -59,7 +85,7 @@ class LoginController(QObject):
         self.login_terminated.emit()
 
     def login(self, host: str, username: str, password: str) -> Promise[t.Any]:
-        if Context.cube_api_client.host != host:
+        if (Context.cube_api_client.scheme, Context.cube_api_client.host) != AsyncNativeApiClient.parse_host(host):
             Context.cube_api_client = AsyncNativeApiClient(host, Context.db)
 
         self.login_pending.emit(username, host)

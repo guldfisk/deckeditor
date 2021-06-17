@@ -12,12 +12,11 @@ from notifypy.exceptions import UnsupportedPlatform
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
-from PyQt5.QtGui import QColor, QMouseEvent
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QAbstractItemView, QMessageBox
+from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QMessageBox
 
 from yeetlong.multiset import Multiset
 
-from mtgorp.models.interfaces import Printing
 from mtgorp.db.database import CardDatabase
 
 from magiccube.collections.cubeable import Cubeable, cardboardize
@@ -31,11 +30,11 @@ from deckeditor import paths
 from deckeditor import values
 from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.components.draft.draftbots import collect_bots, bot_pick
+from deckeditor.components.draft.picktable import PickTableSchema
 from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
 from deckeditor.components.editables.editor import TabMeta
 from deckeditor.components.settings import settings
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
-from deckeditor.components.views.cubeedit.cubelistview import CubeableTableItem
 from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.cubeedit.graphical.cubeimageview import CubeImageView
 from deckeditor.components.views.editables.editable import Editable, TabType
@@ -45,6 +44,8 @@ from deckeditor.models.cubes.cubescene import CubeScene
 from deckeditor.models.cubes.physicalcard import PhysicalCard
 from deckeditor.models.cubes.scenetypes import SceneType
 from deckeditor.models.deck import PoolModel
+from deckeditor.models.listtable import ListTableModel
+from deckeditor.views.generic.readonlylisttable import ReadOnlyListTableView
 
 
 class _DraftClient(DraftClient):
@@ -168,6 +169,11 @@ class DraftModel(QObject):
         if self._pick_counter_head <= 1:
             return
         self._update_head(self._pick_counter_head - 1)
+
+    def go_to_n(self, n: int) -> None:
+        latest = self._draft_client.history.current
+        target_head = latest.global_pick_number + 1 if latest.pick else latest.global_pick_number
+        self._update_head(min(n, target_head))
 
     def _on_received_booster(self, pick_point: PickPoint) -> None:
         self.received_booster.emit(pick_point)
@@ -659,106 +665,107 @@ class BoosterWidget(QtWidgets.QWidget):
         self._update_pick_meta()
 
 
-class PicksTable(QtWidgets.QTableWidget):
-
-    def __init__(self, draft_model: DraftModel):
-        super().__init__(0, 5)
-
-        self.setMouseTracking(True)
-        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
-
-        self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
-        self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
-
-        self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-
-        self._draft_model = draft_model
-
-        self.setHorizontalHeaderLabels(
-            (
-                'Pack',
-                'Pick Number',
-                'Pick',
-                'Burn',
-                'Booster',
-            )
-        )
-
-        self._current_pack = 0
-
-        self.currentCellChanged.connect(self._handle_current_cell_changed)
-
-        self._draft_model.round_started.connect(self._on_round_started)
-        self._draft_model.picked.connect(self._on_picked)
-
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        super().mouseMoveEvent(event)
-        item = self.itemAt(event.pos())
-        if item is not None:
-            Context.focus_card_changed.emit(FocusEvent(self.item(item.row(), 2).cubeable))
-
-    def _handle_current_cell_changed(
-        self,
-        current_row: int,
-        current_column: int,
-        previous_row: int,
-        previous_column: int,
-    ):
-        Context.focus_card_changed.emit(FocusEvent(self.item(current_row, 2).cubeable))
-
-    def _on_round_started(self, draft_round: DraftRound) -> None:
-        self._current_pack = draft_round.pack
-
-    def _on_picked(
-        self,
-        pick_point: PickPoint,
-        target: t.Tuple[t.Optional[CubeScene], t.Optional[QtCore.QPoint]],
-        new: bool,
-    ) -> None:
-        self.insertRow(0)
-        self.setItem(
-            0,
-            0,
-            QtWidgets.QTableWidgetItem(str(self._current_pack)),
-        )
-        self.setItem(
-            0,
-            1,
-            QtWidgets.QTableWidgetItem(str(pick_point.pick_number)),
-        )
-        if isinstance(pick_point.pick, SinglePickPick):
-            self.setItem(
-                0,
-                2,
-                CubeableTableItem(pick_point.pick.cubeable),
-            )
-        elif isinstance(pick_point.pick, BurnPick):
-            self.setItem(
-                0,
-                2,
-                CubeableTableItem(pick_point.pick.pick),
-            )
-            if pick_point.pick.burn is not None:
-                self.setItem(
-                    0,
-                    3,
-                    CubeableTableItem(pick_point.pick.burn),
-                )
-        self.setItem(
-            0,
-            4,
-            QtWidgets.QTableWidgetItem(
-                ', '.join(
-                    (
-                        cubeable.cardboard.name
-                        if isinstance(cubeable, Printing) else
-                        cubeable.description
-                    )
-                    for cubeable in
-                    pick_point.booster.cubeables
-                )
-            ),
-        )
+#
+# class PicksTable(QtWidgets.QTableWidget):
+#
+#     def __init__(self, draft_model: DraftModel):
+#         super().__init__(0, 5)
+#
+#         self.setMouseTracking(True)
+#         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+#
+#         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+#         self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+#
+#         self.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+#
+#         self._draft_model = draft_model
+#
+#         self.setHorizontalHeaderLabels(
+#             (
+#                 'Pack',
+#                 'Pick Number',
+#                 'Pick',
+#                 'Burn',
+#                 'Booster',
+#             )
+#         )
+#
+#         self._current_pack = 0
+#
+#         self.currentCellChanged.connect(self._handle_current_cell_changed)
+#
+#         self._draft_model.round_started.connect(self._on_round_started)
+#         self._draft_model.picked.connect(self._on_picked)
+#
+#     def mouseMoveEvent(self, event: QMouseEvent) -> None:
+#         super().mouseMoveEvent(event)
+#         item = self.itemAt(event.pos())
+#         if item is not None:
+#             Context.focus_card_changed.emit(FocusEvent(self.item(item.row(), 2).cubeable))
+#
+#     def _handle_current_cell_changed(
+#         self,
+#         current_row: int,
+#         current_column: int,
+#         previous_row: int,
+#         previous_column: int,
+#     ):
+#         Context.focus_card_changed.emit(FocusEvent(self.item(current_row, 2).cubeable))
+#
+#     def _on_round_started(self, draft_round: DraftRound) -> None:
+#         self._current_pack = draft_round.pack
+#
+#     def _on_picked(
+#         self,
+#         pick_point: PickPoint,
+#         target: t.Tuple[t.Optional[CubeScene], t.Optional[QtCore.QPoint]],
+#         new: bool,
+#     ) -> None:
+#         self.insertRow(0)
+#         self.setItem(
+#             0,
+#             0,
+#             QtWidgets.QTableWidgetItem(str(self._current_pack)),
+#         )
+#         self.setItem(
+#             0,
+#             1,
+#             QtWidgets.QTableWidgetItem(str(pick_point.pick_number)),
+#         )
+#         if isinstance(pick_point.pick, SinglePickPick):
+#             self.setItem(
+#                 0,
+#                 2,
+#                 CubeableTableItem(pick_point.pick.cubeable),
+#             )
+#         elif isinstance(pick_point.pick, BurnPick):
+#             self.setItem(
+#                 0,
+#                 2,
+#                 CubeableTableItem(pick_point.pick.pick),
+#             )
+#             if pick_point.pick.burn is not None:
+#                 self.setItem(
+#                     0,
+#                     3,
+#                     CubeableTableItem(pick_point.pick.burn),
+#                 )
+#         self.setItem(
+#             0,
+#             4,
+#             QtWidgets.QTableWidgetItem(
+#                 ', '.join(
+#                     (
+#                         cubeable.cardboard.name
+#                         if isinstance(cubeable, Printing) else
+#                         cubeable.description
+#                     )
+#                     for cubeable in
+#                     pick_point.booster.cubeables
+#                 )
+#             ),
+#         )
 
 
 class BotsView(QtWidgets.QWidget):
@@ -886,7 +893,18 @@ class DraftView(Editable):
         self._bottom_tabs = QtWidgets.QTabWidget()
 
         self._pool_view = PoolView(self._pool_model, undo_stack = self._undo_stack) if pool_view is None else pool_view
-        self._picks_table = PicksTable(self._draft_model)
+
+        self._pick_history_model = ListTableModel(PickTableSchema())
+
+        self._draft_model.picked.connect(lambda p, _, __: self._pick_history_model.insert(0, p))
+        self._picks_table = ReadOnlyListTableView()
+        self._picks_table.setModel(self._pick_history_model)
+        self._picks_table.current_item_changed.connect(self._on_pick_point_focus)
+        self._picks_table.item_hover.connect(self._on_pick_point_focus)
+        self._picks_table.item_double_clicked.connect(lambda p: self._draft_model.go_to_n(p.global_pick_number))
+        self._pick_history_model.rowsInserted.connect(lambda _, __, ___: self._picks_table.resizeColumnsToContents())
+        self._picks_table.setMouseTracking(True)
+
         self._bots_view = BotsView(self._draft_model)
 
         self._bottom_tabs.addTab(self._pool_view, 'pool')
@@ -909,6 +927,18 @@ class DraftView(Editable):
         self._bots_view.picked.connect(self._on_bot_picked)
 
         self._draft_model.connect()
+
+    def _on_pick_point_focus(self, pick_point: PickPoint) -> None:
+        Context.focus_card_changed.emit(
+            FocusEvent(
+                focusable = pick_point.pick.main_picked,
+                release_id = (
+                    pick_point.round.booster_specification.release.id
+                    if isinstance(pick_point.round.booster_specification, CubeBoosterSpecification) else
+                    None
+                )
+            )
+        )
 
     @property
     def pool_model(self) -> PoolModel:

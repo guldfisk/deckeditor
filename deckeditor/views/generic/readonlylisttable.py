@@ -4,6 +4,7 @@ import typing as t
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import pyqtSignal, QModelIndex
+from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QHeaderView, QAbstractItemView
 
 from deckeditor.models.listtable import ListTableModel
@@ -19,6 +20,7 @@ class ReadOnlyListTableView(t.Generic[T], QtWidgets.QTableView):
     item_clicked = pyqtSignal(object)
     item_double_clicked = pyqtSignal(object)
     current_item_changed = pyqtSignal(object)
+    item_hover = pyqtSignal(object)
     item_selected = pyqtSignal(object)
 
     def __init__(self):
@@ -43,7 +45,15 @@ class ReadOnlyListTableView(t.Generic[T], QtWidgets.QTableView):
             return None
         return self.model().lines[idx.row()]
 
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        super().mouseMoveEvent(event)
+        item = self.map_index_to_item(self.indexAt(event.pos()))
+        if item is None:
+            return
+        self.item_hover.emit(item)
+
     def currentChanged(self, current: QtCore.QModelIndex, previous: QtCore.QModelIndex) -> None:
+        self.scrollTo(current)
         item = self.map_index_to_item(current)
         if item is None:
             return

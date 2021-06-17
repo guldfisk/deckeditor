@@ -9,6 +9,14 @@ from magiccube.collections.cubeable import Cubeable, CardboardCubeable
 Focusable = t.Union[Cubeable, Cardboard]
 
 
+def describe_focusable(focusable: Focusable) -> str:
+    if isinstance(focusable, Cardboard):
+        return focusable.name
+    if isinstance(focusable, Printing):
+        return focusable.cardboard.name
+    return focusable.description
+
+
 def focusable_as_cardboards(focusable: Focusable) -> CardboardCubeable:
     if isinstance(focusable, Cardboard):
         return focusable
