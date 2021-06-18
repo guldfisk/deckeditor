@@ -179,7 +179,7 @@ class LimitedSessionView(QWidget):
                 'Deck name'
                 + '. Session is not in deck building state. This is, in fact, C H E A T I N G.'
                 if (
-                    self._session.state != LimitedSession.SealedSessionState.DECK_BUILDING
+                    self._session.state != LimitedSession.LimitedSessionState.DECK_BUILDING
                     or player_pool.decks and self._session.open_decks
                 ) else
                 ''
