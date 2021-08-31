@@ -13,7 +13,6 @@ lobbyclient@ https://github.com/guldfisk/lobbyclient/tarball/master#egg=lobbycli
 cubeclient@ https://github.com/guldfisk/cubeclient/tarball/master#egg=cubeclient-1.0
 pillow
 promise
-PyQt5==5.12
 frozendict==1.2
 requests
 websocket-client==0.57.0

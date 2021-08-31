@@ -20,19 +20,28 @@ class DBInfoDialog(QDialog):
         layout.addRow(
             'Latest set',
             QtWidgets.QLabel(
-                sorted(
-                    filter(lambda e: e.expansion_type == ExpansionType.SET, Context.db.expansions.values()),
+                max(
+                    filter(
+                        lambda e: (
+                            e.expansion_type == ExpansionType.SET
+                            and e.printings
+                        ),
+                        Context.db.expansions.values(),
+                    ),
                     key = lambda e: e.release_date
-                )[-1].name,
+                ).name,
             )
         )
         layout.addRow(
             'Latest expansion',
             QtWidgets.QLabel(
-                sorted(
-                    Context.db.expansions.values(),
+                max(
+                    filter(
+                        lambda e: e.printings,
+                        Context.db.expansions.values(),
+                    ),
                     key = lambda e: e.release_date
-                )[-1].name,
+                ).name,
             )
         )
         layout.addRow('Checksum', QtWidgets.QLabel(Context.db.checksum.hex()))

@@ -216,7 +216,7 @@ class CubeImageView(QtWidgets.QGraphicsView, WithActions):
 
     def _paste(self):
         mime = Context.clipboard.mimeData()
-        cards = mime.datas('cards')
+        cards = mime.data('cards')
 
         if not cards:
             return

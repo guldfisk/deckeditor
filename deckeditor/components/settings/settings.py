@@ -122,7 +122,7 @@ GHOST_CARDS = BooleanSetting('ghost_cards', 'Ghost cards', True)
 
 IMAGE_CACHE_SIZE = IntegerSetting('image_cache_size', 'Image cache size', 64, requires_restart = True)
 REMOTE_IMAGES = BooleanSetting('remote_images', 'Remote images', False, requires_restart = True)
-REMOTE_IMAGE_URL = StringSetting('remote_image_url', 'Remote images url', 'http://prohunterdogkeeper.dk', requires_restart = True)
+REMOTE_IMAGE_URL = StringSetting('remote_image_url', 'Remote images url', 'https://prohunterdogkeeper.dk', requires_restart = True)
 ALLOW_LOCAL_IMAGE_FALLBACK = BooleanSetting('allow_local_image_fallback', 'Allow local fallback', True, requires_restart = True)
 ALLOW_DISK_WITH_LOCAL_IMAGES = BooleanSetting(
     'allow_disk_with_local_images',

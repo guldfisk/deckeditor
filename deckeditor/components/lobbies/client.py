@@ -78,7 +78,7 @@ class LobbyModelClientConnection(QObject):
 
         self._lobby_client = _LobbyClient(
             self,
-            url = 'wss://' + Context.cube_api_client.host + '/ws/lobbies/',
+            url = ('wss://' if Context.cube_api_client.scheme == 'https' else 'ws://') + Context.cube_api_client.host + '/ws/lobbies/',
             token = Context.cube_api_client.token,
         )
         self.connected.emit(True)

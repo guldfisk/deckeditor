@@ -102,6 +102,8 @@ class DBUpdateDialog(QDialog):
 
         self.completed.connect(self.accept)
 
+        self._download_button.setFocus()
+
     def set_enabled(self, enabled: bool) -> None:
         for button in self._buttons:
             button.setEnabled(enabled)

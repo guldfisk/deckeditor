@@ -94,6 +94,7 @@ class _DraftClient(DraftClient):
                 except Exception as e:
                     logging.warning(f'Could not load rating map for release {releases[0]}: {e}')
                     Context.notification_message.emit('Failed loading rating map')
+                    self._rating_map = None
 
         self._draft_model.draft_started.emit(draft_configuration)
 
@@ -619,12 +620,10 @@ class BoosterWidget(QtWidgets.QWidget):
 
         if self._draft_model.draft_client.rating_map is not None and settings.SHOW_PICKABLE_RATINGS.get_value():
             for card in cards:
-                try:
-                    rating = self._draft_model.draft_client.rating_map[cardboardize(card.cubeable)].rating
-                    card.set_info_text(str(rating))
-                    card.values['rating'] = rating
-                except KeyError:
-                    pass
+                rating = self._draft_model.draft_client.rating_map.get(cardboardize(card.cubeable))
+                if rating is not None:
+                    card.set_info_text(str(rating.rating))
+                    card.values['rating'] = rating.rating
 
         self._booster_scene.get_cube_modification(
             add = cards,
