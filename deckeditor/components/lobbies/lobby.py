@@ -169,9 +169,9 @@ class LobbyView(LobbyViewInterface):
             and (
                 not lobby.lobby_options.require_ready
                 or all(
-                user.ready
+                    user.ready
                     for user in
                     lobby.users.values()
-            )
+                )
             )
         )

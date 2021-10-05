@@ -57,7 +57,7 @@ class _DraftClient(DraftClient):
         db: CardDatabase,
         draft_model: DraftModel,
     ):
-        super().__init__(api_client, draft_id, db)
+        super().__init__(api_client, draft_id, db, verify_ssl = not Context.no_ssl_verify)
         self._draft_model = draft_model
         self._rating_map: t.Optional[RatingMap] = None
 

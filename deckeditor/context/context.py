@@ -45,6 +45,7 @@ class _Context(QObject):
     db: CardDatabase
 
     compiled: bool
+    no_ssl_verify: bool
 
     cardboard_names: t.List[str]
     search_pattern_parser: SearchParser
@@ -89,9 +90,10 @@ class _Context(QObject):
         debug: bool = False,
         db_type: DbType = DbType.DEFAULT,
         echo_sql: bool = False,
+        no_ssl_verify: bool = False,
     ) -> None:
         cls.debug = debug
-
+        cls.no_ssl_verify = no_ssl_verify
         cls.compiled = compiled
 
         cls.settings = QtCore.QSettings('lost-world', 'Embargo Edit')
@@ -112,10 +114,10 @@ class _Context(QObject):
 
         cls.clipboard = application.clipboard()
 
-        cls.cube_api_client = AsyncNativeApiClient(host = 'prohunterdogkeeper.dk', db = cls.db)
+        cls.cube_api_client = AsyncNativeApiClient(host = 'prohunterdogkeeper.dk', db = cls.db, verify_ssl = not cls.no_ssl_verify)
 
-        # https://github.com/syrusakbary/promise/issues/57
-        promise.async_instance.disable_trampoline()
+        # # https://github.com/syrusakbary/promise/issues/57
+        # promise.async_instance.disable_trampoline()
 
         use_disk_with_remote = cls.settings.value('allow_disk_with_local_images', False, bool)
 

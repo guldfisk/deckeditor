@@ -10,6 +10,8 @@ import time
 import traceback
 import typing as t
 
+import requests
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
 
@@ -556,7 +558,7 @@ def run():
         '-l', '--log-level',
         action = 'store',
         help = 'logging level',
-        default = 'info',
+        default = 'debug',
         choices = values.LOGGING_LEVEL_MAP.keys(),
     )
     arg_parser.add_argument(
@@ -568,6 +570,11 @@ def run():
         '-n', '--no-server',
         action = 'store_true',
         help = 'dont start server',
+    )
+    arg_parser.add_argument(
+        '--no-ssl-verify',
+        action = 'store_true',
+        help = 'disable ssl certificate verification for remote connections.',
     )
     arg_parser.add_argument(
         '--db-type',
@@ -631,12 +638,24 @@ def run():
 
     db_type = DbType(args.db_type)
 
+    if args.no_ssl_verify:
+        logging.warning('Running without ssl verification!')
+        requests.packages.urllib3.disable_warnings()
+
+    init_args = {
+        'compiled': compiled,
+        'debug': args.debug,
+        'db_type': db_type,
+        'echo_sql': args.echo_sql,
+        'no_ssl_verify': args.no_ssl_verify,
+    }
+
     try:
-        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type, echo_sql = args.echo_sql)
+        Context.init(app, **init_args)
     except Exception:
         if not DBUpdateDialog().exec_() == QDialog.Accepted:
             return
-        Context.init(app, compiled = compiled, debug = args.debug, db_type = db_type, echo_sql = args.echo_sql)
+        Context.init(app, **init_args)
 
     EDB.init(echo = args.echo_sql)
 

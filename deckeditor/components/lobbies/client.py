@@ -16,7 +16,7 @@ from deckeditor.store.models import GameTypeOptions
 class _LobbyClient(LobbyClient):
 
     def __init__(self, model: LobbyModelClientConnection, url: str, token: str):
-        super().__init__(url, token)
+        super().__init__(url, token, verify_ssl = not Context.no_ssl_verify)
         self._model = model
 
     def _lobbies_changed(
