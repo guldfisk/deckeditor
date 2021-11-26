@@ -141,3 +141,5 @@ SQL_DRIVER = StringSetting('sql_driver', 'Sql driver', 'mysqldb', requires_resta
 
 EXTERNAL_STORE_DB = BooleanSetting('external_store_db', 'Use external database for application storage', False, requires_restart = True)
 EXTERNAL_DATABASE_NAME = StringSetting('external_database_name', 'External database name', 'embargo', requires_restart = True)
+
+REPORT_ERRORS = BooleanSetting('report_errors', 'Report local errors to server', False)

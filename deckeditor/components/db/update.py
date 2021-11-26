@@ -64,7 +64,7 @@ class DownloadFromRemoteWorker(DbWorker):
 
     def run(self) -> None:
         os.makedirs(os.path.join(*os.path.split(DB_PATH)[:-1]), exist_ok = True)
-        download_db_from_remote(self._host, DB_PATH)
+        download_db_from_remote(self._host, DB_PATH, verify=not Context.no_ssl_verify)
         self._dialog.completed.emit()
 
 

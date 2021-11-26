@@ -48,6 +48,10 @@ class SettingsDialog(SingleInstanceDialog):
             (
                 'General',
                 (
+                    BooleanSettingEditor(
+                        settings.REPORT_ERRORS,
+                        'Help improve this disaster :^)',
+                    ),
                     OptionsSettingEditor(
                         settings.DEFAULT_CARD_VIEW_TYPE,
                         'Default layout of focus card view.',

@@ -324,13 +324,14 @@ class MainWindow(QMainWindow, WithActions):
         self._load_state()
 
     def _test(self) -> None:
-        from notifypy import Notify
-        notification = Notify()
-        notification.title = 'New pack'
-        notification.message = f'SOME SHIT'
-        notification.application_name = 'Embargo Edit'
-        notification.icon = paths.ICON_PATH
-        notification.send()
+        raise Exception('real cool test')
+        # from notifypy import Notify
+        # notification = Notify()
+        # notification.title = 'New pack'
+        # notification.message = f'SOME SHIT'
+        # notification.application_name = 'Embargo Edit'
+        # notification.icon = paths.ICON_PATH
+        # notification.send()
 
     def _sample_hand(self) -> None:
         tab = self._main_view.editables_tabs.currentWidget()
@@ -514,6 +515,9 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
         # Promises are buggy
         if issubclass(exception_type, AssertionError):
             return
+
+        if settings.REPORT_ERRORS.get_value() and not Context.debug and Context.cube_api_client:
+            Context.cube_api_client.report_error(errmsg, traceback_info)
 
         errorbox = QMessageBox()
         errorbox.setWindowTitle('OH NO :O')
