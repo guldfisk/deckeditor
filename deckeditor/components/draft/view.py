@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import datetime
 import logging
 import threading
+import time
 import typing as t
 from collections import defaultdict
 from concurrent.futures import Future
@@ -71,8 +73,8 @@ class _DraftClient(DraftClient):
         )
         logging.error(error)
 
-    def _received_booster(self, pick_point: PickPoint) -> None:
-        self._draft_model._on_received_booster(pick_point)
+    def _received_booster(self, pick_point: PickPoint, timeout: t.Optional[float], began_at: float) -> None:
+        self._draft_model._on_received_booster(pick_point, timeout, began_at)
 
     def _on_boosters_changed(self, booster_tracker: BoosterTracker) -> None:
         self._draft_model.boosters_changed.emit(booster_tracker)
@@ -104,7 +106,7 @@ class _DraftClient(DraftClient):
 
 class DraftModel(QObject):
     connected = pyqtSignal(bool)
-    received_booster = pyqtSignal(PickPoint)
+    received_booster = pyqtSignal(PickPoint, float, float)
     boosters_changed = pyqtSignal(BoosterTracker)
     new_head = pyqtSignal(object, bool)
     picked = pyqtSignal(PickPoint, tuple, bool)
@@ -176,8 +178,8 @@ class DraftModel(QObject):
         target_head = latest.global_pick_number + 1 if latest.pick else latest.global_pick_number
         self._update_head(min(n, target_head))
 
-    def _on_received_booster(self, pick_point: PickPoint) -> None:
-        self.received_booster.emit(pick_point)
+    def _on_received_booster(self, pick_point: PickPoint, timeout: t.Optional[float], began_at: float) -> None:
+        self.received_booster.emit(pick_point, timeout or 0., began_at)
         if self._pick_counter_head >= pick_point.global_pick_number:
             self._update_head(pick_point.global_pick_number, pick_point.global_pick_number > self._pick_number)
 
@@ -464,6 +466,28 @@ class PickMetaInfo(QtWidgets.QWidget):
         )
 
 
+class Countdown(QtWidgets.QLabel):
+
+    def __init__(self):
+        super().__init__()
+        self._timer = QtCore.QTimer()
+        self._timer.timeout.connect(self._on_timeout)
+        self._remaining_time = 0
+
+    def set_time(self, time: float) -> None:
+        self._timer.stop()
+        self._remaining_time = time
+        self._update_display()
+        self._timer.start(1000)
+
+    def _update_display(self) -> None:
+        self.setText(str(datetime.timedelta(seconds = int(self._remaining_time))))
+
+    def _on_timeout(self) -> None:
+        self._remaining_time = max(0, self._remaining_time - 1)
+        self._update_display()
+
+
 class BoosterWidget(QtWidgets.QWidget):
 
     def __init__(self, draft_model: DraftModel):
@@ -475,6 +499,9 @@ class BoosterWidget(QtWidgets.QWidget):
         self._latest_meta_info = PickMetaInfo(draft_model)
         self._head_meta_info = PickMetaInfo(draft_model)
         self._head_meta_info.hide()
+
+        self._countdown = Countdown()
+        self._countdown.hide()
 
         self._picking_info = QtWidgets.QLabel('')
         self._picking_info.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
@@ -503,6 +530,7 @@ class BoosterWidget(QtWidgets.QWidget):
         info_bar_layout.addWidget(self._head_meta_info)
         info_bar_layout.addStretch()
         info_bar_layout.addWidget(self._picking_info)
+        info_bar_layout.addWidget(self._countdown)
 
         layout.addLayout(info_bar_layout)
         layout.addWidget(self._booster_view)
@@ -517,8 +545,11 @@ class BoosterWidget(QtWidgets.QWidget):
     def booster_scene(self) -> CubeScene:
         return self._booster_scene
 
-    def _on_receive_booster(self, pick_point: PickPoint) -> None:
+    def _on_receive_booster(self, pick_point: PickPoint, timeout: float, began_at: float) -> None:
         self._update_pick_meta()
+        if timeout:
+            self._countdown.show()
+            self._countdown.set_time(began_at + timeout - time.time())
 
     def _on_boosters_changed(self, booster_tracker: BoosterTracker) -> None:
         head = self._draft_model.pick_point_head
@@ -613,10 +644,10 @@ class BoosterWidget(QtWidgets.QWidget):
         ] if previous_picks else []
 
         cards = [
-                    PhysicalCard.from_cubeable(cubeable, release_id = release_id)
-                    for cubeable in
-                    pick_point.booster.cubeables
-                ] + ghost_cards
+            PhysicalCard.from_cubeable(cubeable, release_id = release_id)
+            for cubeable in
+            pick_point.booster.cubeables
+        ] + ghost_cards
 
         if self._draft_model.draft_client.rating_map is not None and settings.SHOW_PICKABLE_RATINGS.get_value():
             for card in cards:
@@ -662,6 +693,7 @@ class BoosterWidget(QtWidgets.QWidget):
         new: bool,
     ) -> None:
         self._update_pick_meta()
+        self._countdown.hide()
 
 
 #
@@ -831,7 +863,7 @@ class BotsView(QtWidgets.QWidget):
         if booster == self._draft_model.draft_client.history.current.booster and self._active:
             self.picked.emit(pick, self._mode_picker.currentText() == 'Recommend')
 
-    def _submit_booster(self, pick_point: PickPoint) -> None:
+    def _submit_booster(self, pick_point: PickPoint, timeout: t.Optional[float] = None, began_at: float = 0) -> None:
         if not self._active:
             return
 

@@ -131,6 +131,8 @@ class MainWindow(QMainWindow, WithActions):
         self.statusBar().addPermanentWidget(self._login_status_label)
         Context.status_message.connect(lambda m, _t: self.statusBar().showMessage(m, _t))
 
+        self.statusBar().addPermanentWidget(QtWidgets.QLabel(version_formatted()))
+
         self._card_view_dock = Dock('Card View', 'card_view_dock', self, self._printing_view, wants_focus = False)
         Context.focus_freeze_changed.connect(
             lambda frozen: self._card_view_dock.setWindowTitle(
