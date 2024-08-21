@@ -2,13 +2,18 @@
 import typing as t
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QEvent, QPoint, QRect
-from PyQt5.QtWidgets import QStyledItemDelegate, QStyleOptionButton, QStyle, QApplication, QStyleOptionViewItem, QWidget
+from PyQt5.QtCore import QEvent, QPoint, QRect, Qt
+from PyQt5.QtWidgets import (
+    QApplication,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionButton,
+    QStyleOptionViewItem,
+    QWidget,
+)
 
 
 class CheckBoxDelegate(QStyledItemDelegate):
-
     def createEditor(
         self,
         parent: QWidget,
@@ -70,18 +75,13 @@ class CheckBoxDelegate(QStyledItemDelegate):
         check_box_style_option = QStyleOptionButton()
         check_box_rect = QApplication.style().subElementRect(QStyle.SE_CheckBoxIndicator, check_box_style_option, None)
         check_box_point = QPoint(
-            option.rect.x() +
-            option.rect.width() / 2 -
-            check_box_rect.width() / 2,
-            option.rect.y() +
-            option.rect.height() / 2 -
-            check_box_rect.height() / 2
+            option.rect.x() + option.rect.width() / 2 - check_box_rect.width() / 2,
+            option.rect.y() + option.rect.height() / 2 - check_box_rect.height() / 2,
         )
         return QRect(check_box_point, check_box_rect.size())
 
 
 class ComboBoxDelegate(QStyledItemDelegate):
-
     def __init__(self, items: t.Sequence[str], parent: t.Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent)
         self._items = items

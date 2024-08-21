@@ -2,18 +2,14 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QInputDialog, QCompleter
-
-from mtgorp.models.interfaces import Printing, Cardboard
+from magiccube.collections.delta import CubeDeltaOperation
+from mtgimg.interface import SizeSlug
+from mtgorp.models.interfaces import Cardboard, Printing
 from mtgorp.tools.parsing.exceptions import ParseException
 from mtgorp.tools.search.extraction import PrintingStrategy
-
-from mtgimg.interface import SizeSlug
-
-from magiccube.collections.delta import CubeDeltaOperation
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import QCompleter, QInputDialog
 
 from deckeditor.application.embargo import EmbargoApp
 from deckeditor.context.context import Context
@@ -45,7 +41,6 @@ class QueryEditor(QtWidgets.QLineEdit):
 
 
 class CardSelector(QtWidgets.QWidget):
-
     def __init__(
         self,
         parent: t.Optional[QtWidgets.QWidget] = None,
@@ -54,10 +49,10 @@ class CardSelector(QtWidgets.QWidget):
     ):
         super().__init__(parent)
 
-        self._search_button = QtWidgets.QPushButton('Search', self)
+        self._search_button = QtWidgets.QPushButton("Search", self)
 
         self._cardboards = CardboardList()
-        self._cardboard_selector = FocusableMultiView(image_size = cardboard_image_size)
+        self._cardboard_selector = FocusableMultiView(image_size=cardboard_image_size)
         self._cardboard_selector.set_model(self._cardboards)
 
         self._query_editor = QueryEditor()
@@ -73,7 +68,7 @@ class CardSelector(QtWidgets.QWidget):
 
         self._layout.addLayout(self._top_bar)
 
-        self._search_button.clicked.connect(self._search)
+        self._search_button.clicked.connect(lambda _: self._search(self._query_editor.text()))
 
     @property
     def query_edit(self) -> QueryEditor:
@@ -83,16 +78,10 @@ class CardSelector(QtWidgets.QWidget):
         try:
             pattern = Context.search_pattern_parser.parse(query)
         except ParseException as e:
-            Context.notification_message.emit(f'Invalid search query {e}')
+            Context.notification_message.emit(f"Invalid search query {e}")
             return
 
-        self._cardboards.set_items(
-            list(
-                pattern.matches(
-                    Context.db.cardboards.values()
-                )
-            )
-        )
+        self._cardboards.set_items(list(pattern.matches(Context.db.cardboards.values())))
         self._cardboard_selector.refocus()
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent):
@@ -125,11 +114,11 @@ class PrintingSelector(CardSelector):
         cardboard_image_size: SizeSlug = SizeSlug.THUMBNAIL,
         printing_image_size: SizeSlug = SizeSlug.SMALL,
     ):
-        super().__init__(parent, cardboard_image_size = cardboard_image_size)
+        super().__init__(parent, cardboard_image_size=cardboard_image_size)
 
         self._cardboard_selector.current_focusable_changed.connect(self._on_cardboard_changed)
 
-        self._printing_list_selector = FocusableMultiView(image_size = printing_image_size)
+        self._printing_list_selector = FocusableMultiView(image_size=printing_image_size)
         self._printings = ExpansionPrintingList()
         self._printing_list_selector.set_model(self._printings)
         self._printing_list_selector.focusable_selected.connect(self._on_printing_selected)
@@ -148,8 +137,8 @@ class PrintingSelector(CardSelector):
         if modifiers & QtCore.Qt.ControlModifier:
             amount, ok = QInputDialog.getInt(
                 self,
-                'Choose printing amount',
-                '',
+                "Choose printing amount",
+                "",
                 4,
                 1,
                 99,
@@ -159,13 +148,7 @@ class PrintingSelector(CardSelector):
         else:
             amount = 4 if modifiers & QtCore.Qt.ShiftModifier else 1
         if amount:
-            self.add_printings.emit(
-                CubeDeltaOperation(
-                    {
-                        printing: amount
-                    }
-                )
-            )
+            self.add_printings.emit(CubeDeltaOperation({printing: amount}))
 
     def _on_cardboard_changed(self, cardboard: Cardboard) -> None:
         printings = cardboard.printings_chronologically
@@ -173,16 +156,12 @@ class PrintingSelector(CardSelector):
             try:
                 printings = Context.search_pattern_parser.parse(
                     self._query_editor.text(),
-                    strategy = PrintingStrategy,
+                    strategy=PrintingStrategy,
                 ).matches(printings)
             except ParseException:
                 pass
 
-        self._printings.set_items(
-            list(
-                printings
-            )
-        )
+        self._printings.set_items(list(printings))
 
     def _on_cardboard_selected(self, cardboard: Cardboard) -> None:
         self._printing_list_selector.refocus()

@@ -2,12 +2,11 @@ import os
 import typing
 import typing as t
 
-from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtCore import pyqtSignal, QSize
+from mtgimg.interface import SizeSlug
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QSize, pyqtSignal
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QWidget
-
-from mtgimg.interface import SizeSlug
 
 from deckeditor import paths
 from deckeditor.components.cardview.cubeableview import F
@@ -37,7 +36,7 @@ class FocusableMultiView(t.Generic[F], QtWidgets.QStackedWidget, WithActions):
         self._list_selector.focusable_selected.connect(self.focusable_selected)
         self._list_selector.current_focusable_changed.connect(self.current_focusable_changed)
 
-        self._grid = FocusableGridView(size_slug = image_size)
+        self._grid = FocusableGridView(size_slug=image_size)
         self._grid.focusable_selected.connect(self.focusable_selected)
         self._grid.current_focusable_changed.connect(self.current_focusable_changed)
 
@@ -59,23 +58,21 @@ class FocusableMultiView(t.Generic[F], QtWidgets.QStackedWidget, WithActions):
 
         self.set_mode(image_mode)
 
-        self._create_action('View Images', lambda: self.set_mode(True), 'Alt+I')
-        self._create_action('View Table', lambda: self.set_mode(False), 'Alt+T')
+        self._create_action("View Images", lambda: self.set_mode(True), "Alt+I")
+        self._create_action("View Table", lambda: self.set_mode(False), "Alt+T")
 
     def set_mode(self, image_mode: bool) -> None:
         if image_mode == self._image_mode:
             return
 
         self._image_mode = image_mode
-        self.setCurrentWidget(
-            self._grid if image_mode else self._list_selector
-        )
+        self.setCurrentWidget(self._grid if image_mode else self._list_selector)
         self._button.raise_()
         self._button.setIcon(
             QIcon(
                 os.path.join(
                     paths.ICONS_PATH,
-                    'image-line.svg' if image_mode else 'file-text-line.svg',
+                    "image-line.svg" if image_mode else "file-text-line.svg",
                 )
             )
         )
@@ -98,4 +95,3 @@ class FocusableMultiView(t.Generic[F], QtWidgets.QStackedWidget, WithActions):
         widget = self.currentWidget()
         widget.setCurrentIndex(widget.model().index(0, 0))
         widget.setFocus()
-

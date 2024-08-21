@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import typing as t
-
 from collections import OrderedDict
 
+from mtgorp.models.persistent.attributes.colors import Color
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
-
-from mtgorp.models.persistent.attributes.colors import Color
 
 
 class SingleInstanceDialog(QDialog):
@@ -31,11 +29,7 @@ class ColorSelector(QDialog):
 
         layout = QtWidgets.QVBoxLayout(self)
 
-        self._check_boxes = OrderedDict(
-            (color, QtWidgets.QCheckBox())
-                for color in
-                Color
-        )
+        self._check_boxes = OrderedDict((color, QtWidgets.QCheckBox()) for color in Color)
 
         if colors is not None:
             for color in colors:
@@ -56,12 +50,7 @@ class ColorSelector(QDialog):
 
     @property
     def colors(self):
-        return frozenset(
-            color
-                for color, check_box in
-                self._check_boxes.items()
-                if check_box.isChecked()
-        )
+        return frozenset(color for color, check_box in self._check_boxes.items() if check_box.isChecked())
 
     def _set_has_been_accepted(self) -> None:
         self._has_been_accepted = True

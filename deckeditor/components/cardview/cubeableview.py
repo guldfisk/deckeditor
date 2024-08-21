@@ -4,25 +4,21 @@ import logging
 import typing as t
 from abc import abstractmethod
 
-from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import pyqtSignal
-
-from mtgorp.models.interfaces import Printing, Card, Cardboard
-
-from mtgimg.interface import ImageRequest
-
+from cubeclient.models import CubeRelease
 from magiccube.collections.cubeable import Cubeable
+from magiccube.collections.nodecollection import ConstrainedNode
 from magiccube.laps.tickets.ticket import Ticket
 from magiccube.laps.traps.trap import Trap
-from magiccube.laps.traps.tree.printingtree import PrintingNode, AnyNode, AllNode
-from magiccube.collections.nodecollection import ConstrainedNode
+from magiccube.laps.traps.tree.printingtree import AllNode, AnyNode, PrintingNode
+from mtgimg.interface import ImageRequest
+from mtgorp.models.interfaces import Card, Cardboard, Printing
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import pyqtSignal
 
-from cubeclient.models import CubeRelease
-
+from deckeditor.components.cardview.focuscard import Focusable, FocusEvent
+from deckeditor.components.settings import settings
 from deckeditor.context.context import Context
 from deckeditor.utils.images import ScaledImageLabel
-from deckeditor.components.cardview.focuscard import FocusEvent, Focusable
-from deckeditor.components.settings import settings
 
 
 class CubeableImageView(ScaledImageLabel):
@@ -52,10 +48,8 @@ class CubeableImageView(ScaledImageLabel):
             isinstance(focus_event.focusable, Trap)
             and focus_event.size is not None
             and focus_event.position is not None
-            and bool(
-                focus_event.modifiers is not None
-                and focus_event.modifiers & QtCore.Qt.ShiftModifier
-            ) != settings.DEFAULT_FOCUS_TRAP_SUB_PRINTING.get_value()
+            and bool(focus_event.modifiers is not None and focus_event.modifiers & QtCore.Qt.ShiftModifier)
+            != settings.DEFAULT_FOCUS_TRAP_SUB_PRINTING.get_value()
         ):
             pictureable = focus_event.focusable.get_printing_at(*focus_event.position, *focus_event.size)
         elif isinstance(focus_event.focusable, Cardboard):
@@ -63,27 +57,19 @@ class CubeableImageView(ScaledImageLabel):
         else:
             pictureable = focus_event.focusable
 
-        image_request = ImageRequest(pictureable, back = focus_event.back)
+        image_request = ImageRequest(pictureable, back=focus_event.back)
 
         if image_request == self._image_request:
             return
 
         self._image_request = image_request
 
-        promise = Context.pixmap_loader.get_pixmap(
-            image_request = image_request
-        )
+        promise = Context.pixmap_loader.get_pixmap(image_request=image_request)
 
         if promise.is_pending:
             self.setPixmap(Context.pixmap_loader.get_default_pixmap())
 
-        promise.then(
-            lambda pixmap: self._image_ready.emit(
-                image_request, pixmap
-            )
-        ).catch(
-            logging.warning
-        )
+        promise.then(lambda pixmap: self._image_ready.emit(image_request, pixmap)).catch(logging.warning)
 
 
 class CubeableTextView(QtWidgets.QStackedWidget):
@@ -111,10 +97,10 @@ class CubeableTextView(QtWidgets.QStackedWidget):
         self.addWidget(self._trap_view)
 
         self._cubeable_view_map = {
-            'Printing': self._printing_view,
-            'Cardboard': self._cardboard_view,
-            'Ticket': self._ticket_view,
-            'Trap': self._trap_view,
+            "Printing": self._printing_view,
+            "Cardboard": self._cardboard_view,
+            "Ticket": self._ticket_view,
+            "Trap": self._trap_view,
         }
 
         self.setCurrentWidget(self._blank)
@@ -136,11 +122,10 @@ class CubeableTextView(QtWidgets.QStackedWidget):
 
         else:
             self.setCurrentWidget(view)
-            view.set_cubeable(focus.focusable, release_id = focus.release_id)
+            view.set_cubeable(focus.focusable, release_id=focus.release_id)
 
 
 class CardTextView(QtWidgets.QWidget):
-
     def __init__(self, card: t.Optional[Card] = None):
         super().__init__()
         self._card: t.Optional[Card] = None
@@ -164,7 +149,7 @@ class CardTextView(QtWidgets.QWidget):
 
         layout.addLayout(top_splitter)
         layout.addWidget(self._oracle_text_box)
-        layout.addWidget(self._power_toughness_loyalty_label, alignment = QtCore.Qt.AlignRight)
+        layout.addWidget(self._power_toughness_loyalty_label, alignment=QtCore.Qt.AlignRight)
         layout.addStretch()
 
         if card is not None:
@@ -179,7 +164,7 @@ class CardTextView(QtWidgets.QWidget):
             return
         self._card = card
         self._typeline_label.setText(str(card.type_line))
-        self._mana_cost_label.setText(str(card.mana_cost) if card.mana_cost is not None else '')
+        self._mana_cost_label.setText(str(card.mana_cost) if card.mana_cost is not None else "")
         self._oracle_text_box.setText(card.oracle_text)
         if card.power_toughness is not None:
             self._power_toughness_loyalty_label.setText(str(card.power_toughness))
@@ -191,7 +176,7 @@ class CardTextView(QtWidgets.QWidget):
             self._power_toughness_loyalty_label.hide()
 
 
-F = t.TypeVar('F', bound = Focusable)
+F = t.TypeVar("F", bound=Focusable)
 
 
 class FocusableTextView(t.Generic[F], QtWidgets.QWidget):
@@ -232,9 +217,7 @@ class FocusableTextView(t.Generic[F], QtWidgets.QWidget):
         tab: CardTextView = self._card_views_tabs.widget(idx)
         if tab is None:
             return
-        self.new_focus_card.emit(
-            FocusEvent(self._focusable, back = tab.card in self.cardboard.back_cards)
-        )
+        self.new_focus_card.emit(FocusEvent(self._focusable, back=tab.card in self.cardboard.back_cards))
 
     def set_cubeable(self, focusable: F, release_id: t.Optional[int] = None) -> None:
         if focusable == self._focusable:
@@ -256,14 +239,12 @@ class FocusableTextView(t.Generic[F], QtWidgets.QWidget):
 
 
 class CardboardTextView(FocusableTextView[Cardboard]):
-
     @property
     def cardboard(self) -> Cardboard:
         return self._focusable
 
 
 class PrintingTextView(FocusableTextView[Printing]):
-
     def __init__(self):
         super().__init__()
         self._expansion_label = QtWidgets.QLabel()
@@ -280,7 +261,6 @@ class PrintingTextView(FocusableTextView[Printing]):
 
 
 class TicketTextView(QtWidgets.QWidget):
-
     def __init__(self):
         super().__init__()
         self._ticket: t.Optional[Ticket] = None
@@ -302,7 +282,7 @@ class TicketTextView(QtWidgets.QWidget):
         self._ticket = ticket
         self._name_label.setText(ticket.name)
         self._printings_tabs.clear()
-        for printing in sorted(ticket.options, key = lambda p: p.cardboard.name):
+        for printing in sorted(ticket.options, key=lambda p: p.cardboard.name):
             printing_text_view = PrintingTextView()
             printing_text_view.set_cubeable(printing)
             self._printings_tabs.addTab(
@@ -312,26 +292,24 @@ class TicketTextView(QtWidgets.QWidget):
 
 
 class NodeTreeItem(QtWidgets.QTreeWidgetItem):
-
     def __init__(self, node: PrintingNode, _type: str, constrained_node: t.Optional[ConstrainedNode] = None):
         super().__init__()
         self._node = node
         self.setData(1, 0, _type)
-        self.setData(0, 0, 'any' if isinstance(node, AnyNode) else 'all')
-        self.setData(2, 0, '' if constrained_node is None else str(constrained_node.value))
-        self.setData(3, 0, '' if constrained_node is None else ', '.join(constrained_node.groups))
+        self.setData(0, 0, "any" if isinstance(node, AnyNode) else "all")
+        self.setData(2, 0, "" if constrained_node is None else str(constrained_node.value))
+        self.setData(3, 0, "" if constrained_node is None else ", ".join(constrained_node.groups))
 
 
 class PrintingTreeItem(QtWidgets.QTreeWidgetItem):
-
     def __init__(self, printing: Printing, _type: str, constrained_node: t.Optional[ConstrainedNode] = None):
         super().__init__()
 
         self._printing = printing
         self.setData(0, 0, self._printing.cardboard.name)
         self.setData(1, 0, _type)
-        self.setData(2, 0, '' if constrained_node is None else str(constrained_node.value))
-        self.setData(3, 0, '' if constrained_node is None else ', '.join(constrained_node.groups))
+        self.setData(2, 0, "" if constrained_node is None else str(constrained_node.value))
+        self.setData(3, 0, "" if constrained_node is None else ", ".join(constrained_node.groups))
 
     @property
     def printing(self) -> Printing:
@@ -351,7 +329,7 @@ class TrapTextView(QtWidgets.QWidget):
 
         self._node_tree = QtWidgets.QTreeWidget()
         self._node_tree.setColumnCount(2)
-        self._node_tree.setHeaderLabels(('name', 'type', 'weight', 'groups'))
+        self._node_tree.setHeaderLabels(("name", "type", "weight", "groups"))
         self._node_tree.currentItemChanged.connect(self._on_current_item_changed)
 
         self._printing_view = PrintingTextView()
@@ -374,7 +352,7 @@ class TrapTextView(QtWidgets.QWidget):
         self.update_release.connect(self._on_update_release)
 
     def _on_update_release(self, release_id: int) -> None:
-        self.set_cubeable(self._trap, release_id, force_update = True)
+        self.set_cubeable(self._trap, release_id, force_update=True)
 
     def _on_current_item_changed(self, current, previous) -> None:
         if isinstance(current, PrintingTreeItem):
@@ -391,12 +369,9 @@ class TrapTextView(QtWidgets.QWidget):
         release: t.Optional[CubeRelease] = None,
     ) -> None:
         constrained_node = (
-            release.constrained_nodes.node_for_node(
-                AllNode((option,))
-                if isinstance(option, Printing) else
-                option
-            ) if release else
-            None
+            release.constrained_nodes.node_for_node(AllNode((option,)) if isinstance(option, Printing) else option)
+            if release
+            else None
         )
 
         if isinstance(option, Printing):
@@ -408,7 +383,7 @@ class TrapTextView(QtWidgets.QWidget):
                 _type,
                 constrained_node,
             )
-            _option_type = 'any' if isinstance(option, AnyNode) else 'all'
+            _option_type = "any" if isinstance(option, AnyNode) else "all"
             for child in option.children:
                 self._span_tree(child, _item, False, _option_type)
 
@@ -427,7 +402,7 @@ class TrapTextView(QtWidgets.QWidget):
         self._node_tree.clear()
         self._printing_view.hide()
 
-        _option_type = 'any' if isinstance(trap.node, AnyNode) else 'all'
+        _option_type = "any" if isinstance(trap.node, AnyNode) else "all"
 
         if self._release_id is not None:
             release = Context.cube_api_client.get_release_managed_noblock(self._release_id)
@@ -439,14 +414,13 @@ class TrapTextView(QtWidgets.QWidget):
             release = None
 
         for child in trap.node.children:
-            self._span_tree(child, self._node_tree, True, _option_type, release = release)
+            self._span_tree(child, self._node_tree, True, _option_type, release=release)
 
         self._node_tree.resizeColumnToContents(0)
         self._node_tree.expandAll()
 
 
 class TextImageCubeableView(QtWidgets.QWidget):
-
     def __init__(self, cubeable_view: CubeableView):
         super().__init__()
         self._cubeable_view = cubeable_view
@@ -475,18 +449,16 @@ class CubeableView(QtWidgets.QWidget):
         self._text_view = CubeableTextView(self)
         self._both_view = TextImageCubeableView(self)
 
-        self._view_type_tabs.addTab(self._image_view, 'image')
-        self._view_type_tabs.addTab(self._text_view, 'text')
-        self._view_type_tabs.addTab(self._both_view, 'both')
+        self._view_type_tabs.addTab(self._image_view, "image")
+        self._view_type_tabs.addTab(self._text_view, "text")
+        self._view_type_tabs.addTab(self._both_view, "both")
         self._view_type_tabs.setCurrentWidget(self._image_view)
         self._view_type_tabs.setCurrentIndex(
             {
-                'image': 0,
-                'text': 1,
-                'both': 2,
-            }.get(
-                settings.DEFAULT_CARD_VIEW_TYPE.get_value()
-            )
+                "image": 0,
+                "text": 1,
+                "both": 2,
+            }.get(settings.DEFAULT_CARD_VIEW_TYPE.get_value())
         )
 
         layout = QtWidgets.QVBoxLayout()

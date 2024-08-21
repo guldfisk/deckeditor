@@ -9,7 +9,7 @@ from deckeditor import paths
 
 
 class CustomSortMap(dict):
-    enabled_properties = ('cmc', 'colors', 'color_identity')
+    enabled_properties = ("cmc", "colors", "color_identity")
 
     def chained_get(self, keys: t.Iterable[str], default: t.Any = None) -> t.Any:
         v = self
@@ -21,17 +21,17 @@ class CustomSortMap(dict):
         return v
 
     def get_cardboard_value(self, cardboard: Cardboard, sort_property: str, default: t.Any = None) -> t.Any:
-        return self.chained_get(('cardboards', cardboard.name, sort_property), default = default)
+        return self.chained_get(("cardboards", cardboard.name, sort_property), default=default)
 
     def set_cardboard_value(self, cardboard: Cardboard, sort_property: str, value: t.Any) -> None:
         try:
-            self['cardboards'][cardboard.name][sort_property] = value
+            self["cardboards"][cardboard.name][sort_property] = value
         except KeyError:
-            self['cardboards'][cardboard.name] = {sort_property: value}
+            self["cardboards"][cardboard.name] = {sort_property: value}
 
     def unset_cardboard_value(self, cardboard: Cardboard, sort_property: str) -> None:
         try:
-            del self['cardboards'][cardboard.name][sort_property]
+            del self["cardboards"][cardboard.name][sort_property]
         except KeyError:
             pass
 
@@ -39,19 +39,19 @@ class CustomSortMap(dict):
     def empty(cls) -> CustomSortMap:
         return CustomSortMap(
             {
-                'cardboards': {},
-                'printings': {},
+                "cardboards": {},
+                "printings": {},
             }
         )
 
     @classmethod
     def load(cls) -> CustomSortMap:
         try:
-            with open(paths.CUSTOM_SORT_MAP_PATH, 'rb') as f:
+            with open(paths.CUSTOM_SORT_MAP_PATH, "rb") as f:
                 return pickle.load(f)
         except FileNotFoundError:
             return cls.empty()
 
     def save(self) -> None:
-        with open(paths.CUSTOM_SORT_MAP_PATH, 'wb') as f:
+        with open(paths.CUSTOM_SORT_MAP_PATH, "wb") as f:
             pickle.dump(self, f)

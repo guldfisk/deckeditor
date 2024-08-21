@@ -4,14 +4,14 @@ from PyQt5.QtGui import QTransform
 
 
 def transform_factory(
-    horizontal_scaling_factor: float = 1.,
-    vertical_shearing_factor: float = .0,
-    horizontal_projection_factor: float = .0,
-    horizontal_shearing_factor: float = .0,
-    vertical_scaling_factor: float = 1.,
-    vertical_projection_factor: float = 0.,
-    horizontal_translation_factor: float = 0.,
-    vertical_translation_factor: float = 0.,
+    horizontal_scaling_factor: float = 1.0,
+    vertical_shearing_factor: float = 0.0,
+    horizontal_projection_factor: float = 0.0,
+    horizontal_shearing_factor: float = 0.0,
+    vertical_scaling_factor: float = 1.0,
+    vertical_projection_factor: float = 0.0,
+    horizontal_translation_factor: float = 0.0,
+    vertical_translation_factor: float = 0.0,
     division_factor: float = 1.0,
 ) -> QTransform:
     return QTransform(

@@ -41,9 +41,7 @@ class ReleaseSelector(QWidget):
         if versioned_cube is None:
             return
         self._cube_selector.setCurrentIndex(
-            LOBBIES_CONTROLLER.versioned_cubes.index(
-                LOBBIES_CONTROLLER.release_versioned_cube_map[release_id]
-            )
+            LOBBIES_CONTROLLER.versioned_cubes.index(LOBBIES_CONTROLLER.release_versioned_cube_map[release_id])
         )
         idx = 0
         self._release_selector.clear()
@@ -67,11 +65,7 @@ class ReleaseSelector(QWidget):
 
     def _on_cube_selected(self, idx: int) -> None:
         versioned_cube = LOBBIES_CONTROLLER.versioned_cubes[idx]
-        if not self._release_selector.currentData() in (
-            release.id
-            for release in
-            versioned_cube.releases
-        ):
+        if not self._release_selector.currentData() in (release.id for release in versioned_cube.releases):
             self._release_selector.clear()
             for release in versioned_cube.releases:
                 self._release_selector.addItem(release.name, release.id)

@@ -1,6 +1,6 @@
 import os
 
-from PyQt5 import QtWidgets, QtCore, QtSvg
+from PyQt5 import QtCore, QtSvg, QtWidgets
 from PyQt5.QtCore import Qt
 
 from deckeditor import paths
@@ -18,7 +18,7 @@ class Notification(QtWidgets.QFrame):
         self._icon = QtSvg.QSvgWidget(
             os.path.join(
                 paths.ICONS_PATH,
-                'exclamation_mark.svg',
+                "exclamation_mark.svg",
             )
         )
 
@@ -31,8 +31,8 @@ class Notification(QtWidgets.QFrame):
 
         self._layout = QtWidgets.QHBoxLayout()
 
-        self._layout.addWidget(self._icon, alignment = Qt.AlignTop)
-        self._layout.addWidget(self._label, alignment = Qt.AlignTop)
+        self._layout.addWidget(self._icon, alignment=Qt.AlignTop)
+        self._layout.addWidget(self._label, alignment=Qt.AlignTop)
 
         self.setLayout(self._layout)
 

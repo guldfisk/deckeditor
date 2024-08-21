@@ -2,19 +2,22 @@ from __future__ import annotations
 
 import typing as t
 
-from deckeditor.models.cubes.alignment.stackinggrid import CardStacker, StackingGrid, StackerMap
+from deckeditor.models.cubes.alignment.stackinggrid import (
+    CardStacker,
+    StackerMap,
+    StackingGrid,
+)
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
+from deckeditor.values import IMAGE_HEIGHT, IMAGE_WIDTH, STANDARD_IMAGE_MARGIN
 
 
 class StaticCardStacker(CardStacker):
-
     def __init__(
         self,
         aligner: StackingGrid,
         index: t.Tuple[int, int],
         size: t.Tuple[float, float],
-        max_spacing: float = 50.,
+        max_spacing: float = 50.0,
     ):
         super().__init__(aligner, index)
         self._max_spacing: float = max_spacing
@@ -31,10 +34,7 @@ class StaticCardStacker(CardStacker):
 
     @property
     def _spacing(self):
-        return min(
-            self._max_spacing,
-            self._spacing_free_room / max(len(self._cards), 1)
-        )
+        return min(self._max_spacing, self._spacing_free_room / max(len(self._cards), 1))
 
     def calculate_requested_size(self) -> t.Tuple[float, float]:
         return 0, 0
@@ -55,7 +55,7 @@ class StaticCardStacker(CardStacker):
 
 
 class StaticStackingGrid(StackingGrid):
-    name = 'Static Stacking Grid'
+    name = "Static Stacking Grid"
 
     _card_stacker_width: float
     _card_stacker_height: float
@@ -65,7 +65,7 @@ class StaticStackingGrid(StackingGrid):
         scene: SelectionScene,
         *,
         margin: float = STANDARD_IMAGE_MARGIN,
-        stacker_height: float = 2.,
+        stacker_height: float = 2.0,
         rows: int = 5,
         columns: int = 5,
         show_grid: bool = False,
@@ -74,10 +74,10 @@ class StaticStackingGrid(StackingGrid):
 
         super().__init__(
             scene,
-            margin = margin,
-            rows = rows,
-            columns = columns,
-            show_grid = show_grid,
+            margin=margin,
+            rows=rows,
+            columns=columns,
+            show_grid=show_grid,
         )
 
     def request_space(self, card_stacker: CardStacker, x: int, y: int) -> None:
@@ -88,11 +88,11 @@ class StaticStackingGrid(StackingGrid):
         self._card_stacker_height = int(IMAGE_HEIGHT * self._stacker_height)
 
         return StackerMap(
-            aligner = self,
-            row_amount = rows,
-            column_amount = columns,
-            default_column_width = self._card_stacker_width,
-            default_row_height = self._card_stacker_height,
+            aligner=self,
+            row_amount=rows,
+            column_amount=columns,
+            default_column_width=self._card_stacker_width,
+            default_row_height=self._card_stacker_height,
         )
 
     def create_stacker(self, x: int, y: int) -> CardStacker:
@@ -102,5 +102,5 @@ class StaticStackingGrid(StackingGrid):
             (
                 self._card_stacker_width,
                 self._card_stacker_height,
-            )
+            ),
         )

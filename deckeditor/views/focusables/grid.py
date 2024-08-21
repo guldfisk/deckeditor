@@ -1,14 +1,18 @@
 import typing as t
 
-from PIL import Image
-
-from PyQt5 import QtGui, QtWidgets, QtCore
-from PyQt5.QtCore import QAbstractTableModel, QModelIndex, pyqtSignal
-from PyQt5.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem, QWidget, QTableView, QHeaderView, QAbstractItemView
-
+from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 from mtgorp.models.interfaces import Cardboard
-
-from mtgimg.interface import SizeSlug, IMAGE_SIZE_MAP
+from PIL import Image
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QAbstractTableModel, QModelIndex, pyqtSignal
+from PyQt5.QtWidgets import (
+    QAbstractItemView,
+    QHeaderView,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QTableView,
+    QWidget,
+)
 
 from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.context.context import Context
@@ -16,11 +20,10 @@ from deckeditor.models.focusables.grid import CubeablesGrid
 from deckeditor.utils.actions import WithActions
 
 
-T = t.TypeVar('T')
+T = t.TypeVar("T")
 
 
 class CubeableImageDelegate(QStyledItemDelegate):
-
     def __init__(self, parent: t.Optional[QtCore.QObject], size_slug: SizeSlug = SizeSlug.MEDIUM) -> None:
         super().__init__(parent)
         self._size_slug = size_slug
@@ -36,7 +39,9 @@ class CubeableImageDelegate(QStyledItemDelegate):
     ) -> t.Optional[QWidget]:
         return None
 
-    def _get_image_done_callback(self, index: QModelIndex, model: QAbstractTableModel) -> t.Callable[[Image.Image], None]:
+    def _get_image_done_callback(
+        self, index: QModelIndex, model: QAbstractTableModel
+    ) -> t.Callable[[Image.Image], None]:
         def _image_done(image: Image.Image) -> None:
             model.dataChanged.emit(index, index)
 
@@ -50,12 +55,12 @@ class CubeableImageDelegate(QStyledItemDelegate):
         if isinstance(cubeable, Cardboard):
             cubeable = cubeable.original_printing
 
-        image_promise = Context.pixmap_loader.get_pixmap(cubeable, size_slug = self._size_slug)
+        image_promise = Context.pixmap_loader.get_pixmap(cubeable, size_slug=self._size_slug)
 
         if image_promise.is_fulfilled:
             painter.drawPixmap(option.rect, image_promise.get())
         else:
-            painter.drawPixmap(option.rect, Context.pixmap_loader.get_default_pixmap(size_slug = self._size_slug))
+            painter.drawPixmap(option.rect, Context.pixmap_loader.get_default_pixmap(size_slug=self._size_slug))
             image_promise.then(self._get_image_done_callback(index, index.model()))
 
 
@@ -101,11 +106,7 @@ class FocusableGridView(QTableView, WithActions):
         cubeable = self.model().get_item(current)
         if cubeable is not None:
             self.current_focusable_changed.emit(cubeable)
-            Context.focus_card_changed.emit(
-                FocusEvent(
-                    cubeable
-                )
-            )
+            Context.focus_card_changed.emit(FocusEvent(cubeable))
 
     def _get_change_size_action(self, size_slug: SizeSlug) -> QtWidgets.QAction:
         return self._create_action(size_slug.name, lambda: self.set_size(size_slug))
@@ -113,7 +114,7 @@ class FocusableGridView(QTableView, WithActions):
     def _context_menu_event(self, position: QtCore.QPoint):
         menu = QtWidgets.QMenu(self)
 
-        change_size_menu = menu.addMenu('Change Image Size')
+        change_size_menu = menu.addMenu("Change Image Size")
 
         for size_slug in SizeSlug:
             change_size_menu.addAction(self._get_change_size_action(size_slug))
@@ -141,21 +142,13 @@ class FocusableGridView(QTableView, WithActions):
         self._check_width()
 
     def mouseMoveEvent(self, e: QtGui.QMouseEvent) -> None:
-        cubeable = self.model().get_item(
-            self.indexAt(e.pos())
-        )
+        cubeable = self.model().get_item(self.indexAt(e.pos()))
         if cubeable is not None:
-            Context.focus_card_changed.emit(
-                FocusEvent(
-                    cubeable
-                )
-            )
+            Context.focus_card_changed.emit(FocusEvent(cubeable))
 
     def keyPressEvent(self, key_event: QtGui.QKeyEvent) -> None:
         if key_event.key() == QtCore.Qt.Key_Enter or key_event.key() == QtCore.Qt.Key_Return:
-            cubeable = self.model().get_item(
-                self.currentIndex()
-            )
+            cubeable = self.model().get_item(self.currentIndex())
             if cubeable is not None:
                 self.focusable_selected.emit(cubeable)
 

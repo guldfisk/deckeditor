@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from enum import Enum
 
-from PyQt5 import QtGui
-
-from mtgorp.models.interfaces import Cardboard, Printing, Card
-from mtgorp.models.persistent.attributes.colors import Color
-from mtgorp.models.persistent.attributes.typeline import LAND
-
 from magiccube.laps.tickets.ticket import BaseTicket
 from magiccube.laps.traps.trap import BaseTrap
+from mtgorp.models.interfaces import Card, Cardboard, Printing
+from mtgorp.models.persistent.attributes.colors import Color
+from mtgorp.models.persistent.attributes.typeline import LAND
+from PyQt5 import QtGui
 
 from deckeditor.components.cardview.focuscard import Focusable
 

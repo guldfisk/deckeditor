@@ -1,16 +1,14 @@
-import typing as t
-
-from threading import Lock, Thread
 import time
+import typing as t
+from threading import Lock, Thread
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtCore, QtWidgets
 
 from deckeditor.notifications.notification import Notification
 
 
 class Alarm(Thread):
-
-    def __init__(self, callback: t.Callable, *args, delay: float = 4.):
+    def __init__(self, callback: t.Callable, *args, delay: float = 4.0):
         super().__init__()
         self._callback = callback
         self._args = args
@@ -22,7 +20,6 @@ class Alarm(Thread):
 
 
 class SingleAccessList(list):
-
     def __init__(self):
         super().__init__()
         self._lock = Lock()
@@ -42,7 +39,6 @@ class SingleAccessList(list):
 
 
 class NotificationFrame(object):
-
     def __init__(self, window: QtWidgets.QMainWindow, spacing: int = 10):
         self._window = window
         self._spacing = spacing
@@ -72,7 +68,7 @@ class NotificationFrame(object):
         Alarm(
             self._remove_notification,
             notification,
-            delay = QtCore.QSettings().value('notification_linger_duration', 4.5, float)
+            delay=QtCore.QSettings().value("notification_linger_duration", 4.5, float),
         ).start()
 
         notification.show()

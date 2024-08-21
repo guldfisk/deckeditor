@@ -1,14 +1,11 @@
-from PyQt5.QtCore import Qt, QModelIndex
-
-from mtgorp.models.interfaces import Printing, Cardboard
-
 from magiccube.collections.cubeable import Cubeable
+from mtgorp.models.interfaces import Cardboard, Printing
+from PyQt5.QtCore import QModelIndex, Qt
 
 from deckeditor.models.sequence import GenericItemSequence
 
 
 class CardboardList(GenericItemSequence[Cardboard]):
-
     def data(self, index: QModelIndex, role: int = ...) -> str:
         if role == Qt.DisplayRole:
             cardboard = self.get_item(index)
@@ -17,7 +14,6 @@ class CardboardList(GenericItemSequence[Cardboard]):
 
 
 class PrintingList(GenericItemSequence[Printing]):
-
     def data(self, index: QModelIndex, role: int = ...) -> str:
         if role == Qt.DisplayRole:
             printing = self.get_item(index)
@@ -26,7 +22,6 @@ class PrintingList(GenericItemSequence[Printing]):
 
 
 class CubeablesList(GenericItemSequence[Cubeable]):
-
     def data(self, index: QModelIndex, role: int = ...) -> str:
         if role == Qt.DisplayRole:
             cubeable = self.get_item(index)
@@ -35,9 +30,8 @@ class CubeablesList(GenericItemSequence[Cubeable]):
 
 
 class ExpansionPrintingList(PrintingList):
-
     def data(self, index: QModelIndex, role: int = ...) -> str:
         if role == Qt.DisplayRole:
             printing = self.get_item(index)
             if printing:
-                return f'{printing.expansion.name} - {printing.expansion.code}'
+                return f"{printing.expansion.name} - {printing.expansion.code}"

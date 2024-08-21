@@ -1,1 +1,1 @@
-from deckeditor.serialization import *
+from deckeditor.serialization import *  # noqa

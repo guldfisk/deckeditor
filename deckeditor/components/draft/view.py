@@ -9,31 +9,33 @@ from collections import defaultdict
 from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
 
+from cubeclient.models import ApiClient, CubeBoosterSpecification, RatingMap, User
+from magiccube.collections.cubeable import Cubeable, cardboardize
+from mtgdraft.client import BoosterTracker, DraftClient
+from mtgdraft.models import (
+    Burn,
+    BurnPick,
+    DraftBooster,
+    DraftConfiguration,
+    DraftRound,
+    PickPoint,
+    SinglePick,
+    SinglePickPick,
+)
+from mtgorp.db.database import CardDatabase
 from notifypy import Notify
 from notifypy.exceptions import UnsupportedPlatform
-
-from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QObject, pyqtSignal, Qt
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import QUndoStack, QGraphicsItem, QMessageBox
-
+from PyQt5.QtWidgets import QGraphicsItem, QMessageBox, QUndoStack
 from yeetlong.multiset import Multiset
 
-from mtgorp.db.database import CardDatabase
-
-from magiccube.collections.cubeable import Cubeable, cardboardize
-
-from cubeclient.models import ApiClient, CubeBoosterSpecification, RatingMap, User
-
-from mtgdraft.client import DraftClient, BoosterTracker
-from mtgdraft.models import DraftRound, SinglePickPick, BurnPick, PickPoint, DraftConfiguration, DraftBooster, SinglePick, Burn
-
-from deckeditor import paths
-from deckeditor import values
+from deckeditor import paths, values
 from deckeditor.components.cardview.focuscard import FocusEvent
-from deckeditor.components.draft.draftbots import collect_bots, bot_pick
+from deckeditor.components.draft.draftbots import bot_pick, collect_bots
 from deckeditor.components.draft.picktable import PickTableSchema
-from deckeditor.components.draft.values import GHOST_COLOR, BURN_COLOR, PICK_COLOR
+from deckeditor.components.draft.values import BURN_COLOR, GHOST_COLOR, PICK_COLOR
 from deckeditor.components.editables.editor import TabMeta
 from deckeditor.components.settings import settings
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
@@ -51,7 +53,6 @@ from deckeditor.views.generic.readonlylisttable import ReadOnlyListTableView
 
 
 class _DraftClient(DraftClient):
-
     def __init__(
         self,
         api_client: ApiClient,
@@ -59,7 +60,7 @@ class _DraftClient(DraftClient):
         db: CardDatabase,
         draft_model: DraftModel,
     ):
-        super().__init__(api_client, draft_id, db, verify_ssl = not Context.no_ssl_verify)
+        super().__init__(api_client, draft_id, db, verify_ssl=not Context.no_ssl_verify)
         self._draft_model = draft_model
         self._rating_map: t.Optional[RatingMap] = None
 
@@ -69,7 +70,7 @@ class _DraftClient(DraftClient):
 
     def _on_message_error(self, error: Exception) -> None:
         Context.notification_message.emit(
-            'Error when handling message from draft server (most likely due to db mismatch), see log for details'
+            "Error when handling message from draft server (most likely due to db mismatch), see log for details"
         )
         logging.error(error)
 
@@ -94,8 +95,8 @@ class _DraftClient(DraftClient):
                     self._rating_map = Context.cube_api_client.ratings_for_release(releases[0].id).get()
                     self._rating_map.inflate()
                 except Exception as e:
-                    logging.warning(f'Could not load rating map for release {releases[0]}: {e}')
-                    Context.notification_message.emit('Failed loading rating map')
+                    logging.warning(f"Could not load rating map for release {releases[0]}: {e}")
+                    Context.notification_message.emit("Failed loading rating map")
                     self._rating_map = None
 
         self._draft_model.draft_started.emit(draft_configuration)
@@ -179,21 +180,21 @@ class DraftModel(QObject):
         self._update_head(min(n, target_head))
 
     def _on_received_booster(self, pick_point: PickPoint, timeout: t.Optional[float], began_at: float) -> None:
-        self.received_booster.emit(pick_point, timeout or 0., began_at)
+        self.received_booster.emit(pick_point, timeout or 0.0, began_at)
         if self._pick_counter_head >= pick_point.global_pick_number:
             self._update_head(pick_point.global_pick_number, pick_point.global_pick_number > self._pick_number)
 
         if not Context.main_window.isActiveWindow() and settings.NOTIFY_ON_BOOSTER_ARRIVED.get_value():
             try:
                 notification = Notify()
-                notification.title = 'New pack'
-                notification.message = f'pack {pick_point.round.pack} pick {pick_point.pick_number}'
+                notification.title = "New pack"
+                notification.message = f"pack {pick_point.round.pack} pick {pick_point.pick_number}"
                 notification.application_name = values.APPLICATION_NAME
                 notification.icon = paths.ICON_PATH
                 notification.send()
             except UnsupportedPlatform:
-                Context.notification_message.emit('OS notifications not available')
-                Context.settings.setValue('notify_on_booster_arrived', False)
+                Context.notification_message.emit("OS notifications not available")
+                Context.settings.setValue("notify_on_booster_arrived", False)
 
     def _on_pick(self, pick_point: PickPoint) -> None:
         new = True
@@ -211,14 +212,14 @@ class DraftModel(QObject):
         self._pending_picked_scene = None
         self._pending_picked_position = None
         if self._pick_counter_head >= pick_point.global_pick_number:
-            self._update_head(pick_point.global_pick_number + 1, new = new)
+            self._update_head(pick_point.global_pick_number + 1, new=new)
 
     def connect(self) -> None:
         self._draft_client = _DraftClient(
-            api_client = Context.cube_api_client,
-            draft_id = self._key,
-            db = Context.db,
-            draft_model = self,
+            api_client=Context.cube_api_client,
+            draft_id=self._key,
+            db=Context.db,
+            draft_model=self,
         )
 
     def close(self) -> None:
@@ -243,10 +244,10 @@ class DraftModel(QObject):
         toggle: bool = False,
     ) -> None:
         if self._pick_counter_head != self._draft_client.history.current.global_pick_number:
-            Context.notification_message.emit('Can\'t pick from historic pack')
+            Context.notification_message.emit("Can't pick from historic pack")
             return
 
-        if card.values.get('ghost'):
+        if card.values.get("ghost"):
             return
 
         if not settings.INFER_PICK_BURN.get_value():
@@ -313,13 +314,7 @@ class DraftModel(QObject):
                 self._pending_picked_position = position
                 self._pending_picked_scene = scene
 
-            if (
-                self._pick and
-                (
-                    self._burn
-                    or len(self._draft_client.history.current.booster.cubeables) == 1
-                )
-            ):
+            if self._pick and (self._burn or len(self._draft_client.history.current.booster.cubeables) == 1):
                 self._pick.clear_highlight()
                 if self._burn:
                     self._burn.clear_highlight()
@@ -334,19 +329,18 @@ class DraftModel(QObject):
 
     def persist(self) -> t.Any:
         return {
-            'pick_number': self._pick_number,
-            'key': self._key,
+            "pick_number": self._pick_number,
+            "key": self._key,
         }
 
     @classmethod
     def load(cls, state: t.Any) -> DraftModel:
-        draft_model = cls(key = state['key'])
-        draft_model._pick_number = state['pick_number']
+        draft_model = cls(key=state["key"])
+        draft_model._pick_number = state["pick_number"]
         return draft_model
 
 
 class BoosterImageView(CubeImageView):
-
     def __init__(self, undo_stack: QUndoStack, scene: CubeScene, draft_model: DraftModel):
         super().__init__(undo_stack, scene)
         self._draft_model = draft_model
@@ -360,9 +354,9 @@ class BoosterImageView(CubeImageView):
             self.floating[0],
             image_view.scene(),
             image_view.mapToScene(drop_event.pos()),
-            burn = False,
-            infer = False,
-            toggle = False,
+            burn=False,
+            infer=False,
+            toggle=False,
         )
 
         self.floating[:] = []
@@ -373,19 +367,19 @@ class BoosterImageView(CubeImageView):
 
         item: QGraphicsItem = self.itemAt(position)
 
-        if item and isinstance(item, PhysicalCard) and not item.values.get('ghost'):
+        if item and isinstance(item, PhysicalCard) and not item.values.get("ghost"):
             menu.addSeparator()
 
-            pick_action = QtWidgets.QAction('Pick', menu)
+            pick_action = QtWidgets.QAction("Pick", menu)
             pick_action.triggered.connect(
-                lambda: self._draft_model.perform_pick_action(item, burn = False, infer = False, toggle = False)
+                lambda: self._draft_model.perform_pick_action(item, burn=False, infer=False, toggle=False)
             )
             menu.addAction(pick_action)
 
             if isinstance(self._draft_model.draft_client.draft_format, Burn):
-                burn_action = QtWidgets.QAction('Burn', menu)
+                burn_action = QtWidgets.QAction("Burn", menu)
                 burn_action.triggered.connect(
-                    lambda: self._draft_model.perform_pick_action(item, burn = True, infer = False, toggle = False)
+                    lambda: self._draft_model.perform_pick_action(item, burn=True, infer=False, toggle=False)
                 )
                 menu.addAction(burn_action)
 
@@ -395,7 +389,7 @@ class BoosterImageView(CubeImageView):
 
         menu.addSeparator()
 
-        sort_menu = menu.addMenu('Sorts')
+        sort_menu = menu.addMenu("Sorts")
 
         for action in self._sort_macro_actions[:3]:
             sort_menu.addAction(action)
@@ -412,7 +406,6 @@ class BoosterImageView(CubeImageView):
 
 
 class PickMetaInfo(QtWidgets.QWidget):
-
     def __init__(self, draft_model: DraftModel):
         super().__init__()
         self._draft_model = draft_model
@@ -434,31 +427,29 @@ class PickMetaInfo(QtWidgets.QWidget):
         booster_amount = self._draft_model.draft_client.booster_tracker[drafter]
         if not booster_amount:
             return drafter.username
-        boosters = '⬤' * booster_amount
+        boosters = "⬤" * booster_amount
         if pick_point.round.clockwise:
-            return boosters + ' ' + drafter.username
-        return drafter.username + ' ' + boosters
+            return boosters + " " + drafter.username
+        return drafter.username + " " + boosters
 
     def set_pick_point(self, pick_point: PickPoint) -> None:
         is_current = pick_point == self._draft_model.draft_client.history.current
         self._players_list.setText(
-            (
-                ' -> '
-                if pick_point.round.clockwise else
-                ' <- '
-            ).join(
+            (" -> " if pick_point.round.clockwise else " <- ").join(
                 self._get_draft_label(drafter, pick_point, is_current)
-                for drafter in
-                self._draft_model.draft_client.draft_configuration.drafters.loop_from(Context.cube_api_client.user)
+                for drafter in self._draft_model.draft_client.draft_configuration.drafters.loop_from(
+                    Context.cube_api_client.user
+                )
             )
         )
         self._pack_counter_label.setText(
-            'Pack: {}/{} Pick {}, {}'.format(
+            "Pack: {}/{} Pick {}, {}".format(
                 pick_point.round.pack,
                 sum(
                     spec.amount
-                    for spec in
-                    self._draft_model.draft_client.draft_configuration.pool_specification.booster_specifications
+                    for spec in (
+                        self._draft_model.draft_client.draft_configuration.pool_specification.booster_specifications
+                    )
                 ),
                 pick_point.pick_number,
                 pick_point.global_pick_number,
@@ -467,7 +458,6 @@ class PickMetaInfo(QtWidgets.QWidget):
 
 
 class Countdown(QtWidgets.QLabel):
-
     def __init__(self):
         super().__init__()
         self._timer = QtCore.QTimer()
@@ -481,7 +471,7 @@ class Countdown(QtWidgets.QLabel):
         self._timer.start(1000)
 
     def _update_display(self) -> None:
-        self.setText(str(datetime.timedelta(seconds = int(self._remaining_time))))
+        self.setText(str(datetime.timedelta(seconds=int(self._remaining_time))))
 
     def _on_timeout(self) -> None:
         self._remaining_time = max(0, self._remaining_time - 1)
@@ -489,7 +479,6 @@ class Countdown(QtWidgets.QLabel):
 
 
 class BoosterWidget(QtWidgets.QWidget):
-
     def __init__(self, draft_model: DraftModel):
         super().__init__()
         self._undo_stack = Context.get_undo_stack()
@@ -503,17 +492,17 @@ class BoosterWidget(QtWidgets.QWidget):
         self._countdown = Countdown()
         self._countdown.hide()
 
-        self._picking_info = QtWidgets.QLabel('')
+        self._picking_info = QtWidgets.QLabel("")
         self._picking_info.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
 
         self._booster_scene = CubeScene(
-            mode = CubeEditMode.CLOSED,
-            scene_type = SceneType.BOOSTER,
+            mode=CubeEditMode.CLOSED,
+            scene_type=SceneType.BOOSTER,
         )
         self._booster_view = CubeView(
-            scene = self._booster_scene,
-            undo_stack = self._undo_stack,
-            cube_image_view = BoosterImageView(
+            scene=self._booster_scene,
+            undo_stack=self._undo_stack,
+            cube_image_view=BoosterImageView(
                 self._undo_stack,
                 self._booster_scene,
                 self._draft_model,
@@ -561,10 +550,10 @@ class BoosterWidget(QtWidgets.QWidget):
             return
 
         self._draft_model.perform_pick_action(
-            card = card,
-            burn = modifiers == Qt.ShiftModifier,
-            infer = True,
-            toggle = True,
+            card=card,
+            burn=modifiers == Qt.ShiftModifier,
+            infer=True,
+            toggle=True,
         )
 
     def _update_pick_meta(self) -> None:
@@ -581,14 +570,14 @@ class BoosterWidget(QtWidgets.QWidget):
         else:
             self._head_meta_info.hide()
 
-        self._picking_info.setText('' if latest.pick else 'picking')
+        self._picking_info.setText("" if latest.pick else "picking")
 
     def _clear(self) -> None:
         items = self._booster_scene.items()
         if items:
             self._booster_scene.get_cube_modification(
-                remove = items,
-                closed_operation = True,
+                remove=items,
+                closed_operation=True,
             ).redo()
 
     def _highlight_picks_burns(
@@ -603,7 +592,7 @@ class BoosterWidget(QtWidgets.QWidget):
             cubeables_to_cards_map[card.cubeable].append(card)
 
         for cards in cubeables_to_cards_map.values():
-            cards.sort(key = lambda c: c.values.get('ghost', False), reverse = True)
+            cards.sort(key=lambda c: c.values.get("ghost", False), reverse=True)
 
         for cubeables, color in (
             (picked, PICK_COLOR),
@@ -627,26 +616,27 @@ class BoosterWidget(QtWidgets.QWidget):
 
         release_id = (
             pick_point.round.booster_specification.release.id
-            if isinstance(pick_point.round.booster_specification, CubeBoosterSpecification) else
-            []
+            if isinstance(pick_point.round.booster_specification, CubeBoosterSpecification)
+            else []
         )
 
         previous_picks = (
             self._draft_model.draft_client.history.preceding_picks(pick_point)
-            if Context.settings.value('ghost_cards', True, bool) else
-            None
+            if Context.settings.value("ghost_cards", True, bool)
+            else None
         )
 
-        ghost_cards: t.List[PhysicalCard] = [
-            PhysicalCard.from_cubeable(cubeable, release_id = release_id, values = {'ghost': True})
-            for cubeable in
-            previous_picks[0].booster.cubeables - pick_point.booster.cubeables
-        ] if previous_picks else []
+        ghost_cards: t.List[PhysicalCard] = (
+            [
+                PhysicalCard.from_cubeable(cubeable, release_id=release_id, values={"ghost": True})
+                for cubeable in previous_picks[0].booster.cubeables - pick_point.booster.cubeables
+            ]
+            if previous_picks
+            else []
+        )
 
         cards = [
-            PhysicalCard.from_cubeable(cubeable, release_id = release_id)
-            for cubeable in
-            pick_point.booster.cubeables
+            PhysicalCard.from_cubeable(cubeable, release_id=release_id) for cubeable in pick_point.booster.cubeables
         ] + ghost_cards
 
         if self._draft_model.draft_client.rating_map is not None and settings.SHOW_PICKABLE_RATINGS.get_value():
@@ -654,18 +644,18 @@ class BoosterWidget(QtWidgets.QWidget):
                 rating = self._draft_model.draft_client.rating_map.get(cardboardize(card.cubeable))
                 if rating is not None:
                     card.set_info_text(str(rating.rating))
-                    card.values['rating'] = rating.rating
+                    card.values["rating"] = rating.rating
 
         self._booster_scene.get_cube_modification(
-            add = cards,
-            remove = self._booster_scene.items(),
-            closed_operation = True,
+            add=cards,
+            remove=self._booster_scene.items(),
+            closed_operation=True,
         ).redo()
         self._booster_scene.get_default_sort().redo()
 
         for ghost_card in ghost_cards:
             ghost_card.add_highlight(GHOST_COLOR)
-            ghost_card.values['ghost'] = True
+            ghost_card.values["ghost"] = True
 
         picks = Multiset()
         burns = Multiset()
@@ -810,11 +800,11 @@ class BotsView(QtWidgets.QWidget):
         self._draft_model = draft_model
 
         self._active = False
-        self._active_button = QtWidgets.QPushButton('activate')
+        self._active_button = QtWidgets.QPushButton("activate")
         self._active_button.clicked.connect(self._activate_toggle)
 
         self._mode_picker = QtWidgets.QComboBox()
-        self._mode_picker.addItems(('Pick', 'Recommend'))
+        self._mode_picker.addItems(("Pick", "Recommend"))
 
         self._delay_pick = QtWidgets.QSpinBox()
         self._delay_pick.setRange(0, 60)
@@ -833,8 +823,8 @@ class BotsView(QtWidgets.QWidget):
         options_layout = QtWidgets.QFormLayout()
 
         options_layout.addWidget(self._active_button)
-        options_layout.addRow('mode', self._mode_picker)
-        options_layout.addRow('delay', self._delay_pick)
+        options_layout.addRow("mode", self._mode_picker)
+        options_layout.addRow("delay", self._delay_pick)
 
         bot_select_layout = QtWidgets.QVBoxLayout()
 
@@ -854,14 +844,14 @@ class BotsView(QtWidgets.QWidget):
             return
 
         self._active = False
-        self._active_button.setText('activate')
+        self._active_button.setText("activate")
         if self._pending_pick is not None:
             self._pending_pick.cancel()
             self._pending_pick = None
 
     def _on_bot_complete(self, pick: Cubeable, booster: DraftBooster) -> None:
         if booster == self._draft_model.draft_client.history.current.booster and self._active:
-            self.picked.emit(pick, self._mode_picker.currentText() == 'Recommend')
+            self.picked.emit(pick, self._mode_picker.currentText() == "Recommend")
 
     def _submit_booster(self, pick_point: PickPoint, timeout: t.Optional[float] = None, began_at: float = 0) -> None:
         if not self._active:
@@ -880,11 +870,11 @@ class BotsView(QtWidgets.QWidget):
         if self._active:
             return
 
-        if self._mode_picker.currentText() == 'Pick':
+        if self._mode_picker.currentText() == "Pick":
             confirm_dialog = QMessageBox()
-            confirm_dialog.setText('Confirm bot draft')
+            confirm_dialog.setText("Confirm bot draft")
             confirm_dialog.setInformativeText(
-                'You sure you want to activate bot with mode: {}?'.format(self._mode_picker.currentText())
+                "You sure you want to activate bot with mode: {}?".format(self._mode_picker.currentText())
             )
             confirm_dialog.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
             confirm_dialog.setDefaultButton(QMessageBox.No)
@@ -894,10 +884,10 @@ class BotsView(QtWidgets.QWidget):
                 return
 
         if self._executor is None:
-            self._executor = ThreadPoolExecutor(max_workers = 3)
+            self._executor = ThreadPoolExecutor(max_workers=3)
 
         self._active = True
-        self._active_button.setText('deactivate')
+        self._active_button.setText("deactivate")
 
         current_booster = self._draft_model.draft_client.history.current
 
@@ -906,7 +896,6 @@ class BotsView(QtWidgets.QWidget):
 
 
 class DraftView(Editable):
-
     def __init__(
         self,
         draft_model: DraftModel,
@@ -923,7 +912,7 @@ class DraftView(Editable):
 
         self._bottom_tabs = QtWidgets.QTabWidget()
 
-        self._pool_view = PoolView(self._pool_model, undo_stack = self._undo_stack) if pool_view is None else pool_view
+        self._pool_view = PoolView(self._pool_model, undo_stack=self._undo_stack) if pool_view is None else pool_view
 
         self._pick_history_model = ListTableModel(PickTableSchema())
 
@@ -938,9 +927,9 @@ class DraftView(Editable):
 
         self._bots_view = BotsView(self._draft_model)
 
-        self._bottom_tabs.addTab(self._pool_view, 'pool')
-        self._bottom_tabs.addTab(self._picks_table, 'picks')
-        self._bottom_tabs.addTab(self._bots_view, 'bots')
+        self._bottom_tabs.addTab(self._pool_view, "pool")
+        self._bottom_tabs.addTab(self._picks_table, "picks")
+        self._bottom_tabs.addTab(self._bots_view, "bots")
 
         self._splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
@@ -962,12 +951,12 @@ class DraftView(Editable):
     def _on_pick_point_focus(self, pick_point: PickPoint) -> None:
         Context.focus_card_changed.emit(
             FocusEvent(
-                focusable = pick_point.pick.main_picked,
-                release_id = (
+                focusable=pick_point.pick.main_picked,
+                release_id=(
                     pick_point.round.booster_specification.release.id
-                    if isinstance(pick_point.round.booster_specification, CubeBoosterSpecification) else
-                    None
-                )
+                    if isinstance(pick_point.round.booster_specification, CubeBoosterSpecification)
+                    else None
+                ),
             )
         )
 
@@ -1015,18 +1004,16 @@ class DraftView(Editable):
 
         release_id = (
             pick.round.booster_specification.release.id
-            if isinstance(pick.round.booster_specification, CubeBoosterSpecification) else
-            None
+            if isinstance(pick.round.booster_specification, CubeBoosterSpecification)
+            else None
         )
 
         (self._pool_view.pool_model.pool if scene is None else scene).get_cube_modification(
-            add = [
-                PhysicalCard.from_cubeable(cubeable, release_id = release_id)
-                for cubeable in
-                pick.pick.added_cubeables
+            add=[
+                PhysicalCard.from_cubeable(cubeable, release_id=release_id) for cubeable in pick.pick.added_cubeables
             ],
-            closed_operation = True,
-            position = position,
+            closed_operation=True,
+            position=position,
         ).redo()
 
     def _on_draft_completed(self, pool_id: int, session_name: str):
@@ -1038,7 +1025,7 @@ class DraftView(Editable):
                 self._pool_view,
                 TabMeta(
                     session_name,
-                    key = f'pool-{pool_id}',
+                    key=f"pool-{pool_id}",
                 ),
             )
         Context.editor.close_tab(self.tab)
@@ -1055,18 +1042,18 @@ class DraftView(Editable):
 
     def persist(self) -> t.Any:
         return {
-            'pool_view': self._pool_view.persist(),
-            'splitter': self._splitter.saveState(),
-            'draft_model': self._draft_model.persist(),
-            'tab_type': self.tab_type,
+            "pool_view": self._pool_view.persist(),
+            "splitter": self._splitter.saveState(),
+            "draft_model": self._draft_model.persist(),
+            "tab_type": self.tab_type,
         }
 
     @classmethod
     def load(cls, state: t.Any, undo_stack: QUndoStack) -> DraftView:
         draft_view = cls(
-            draft_model = DraftModel.load(state['draft_model']),
-            pool_view = PoolView.load(state['pool_view'], undo_stack),
-            undo_stack = undo_stack,
+            draft_model=DraftModel.load(state["draft_model"]),
+            pool_view=PoolView.load(state["pool_view"], undo_stack),
+            undo_stack=undo_stack,
         )
-        draft_view._splitter.restoreState(state['splitter'])
+        draft_view._splitter.restoreState(state["splitter"])
         return draft_view

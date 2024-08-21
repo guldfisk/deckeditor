@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QGraphicsScene
 
 
 class GraphicsMiniView(QtWidgets.QGraphicsView):
-
     def __init__(self):
         super().__init__()
 

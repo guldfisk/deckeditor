@@ -1,54 +1,53 @@
 from __future__ import annotations
 
-from PyQt5 import QtWidgets, QtCore
+from lobbyclient.model import Lobby, LobbyOptions
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import pyqtSignal
-
-from lobbyclient.model import LobbyOptions, Lobby
 
 from deckeditor.components.lobbies.client import LobbyModelClientConnection
 from deckeditor.components.lobbies.interfaces import LobbiesViewInterface
 from deckeditor.components.lobbies.tabs import LobbyTabs
 from deckeditor.models.listtable import ListTableModel
 from deckeditor.models.lobbies.schemas import LobbiesSchema
-from deckeditor.store.models import GameTypeOptions, LobbyOptions as LobbyOptionsStore
+from deckeditor.store.models import GameTypeOptions
+from deckeditor.store.models import LobbyOptions as LobbyOptionsStore
 from deckeditor.utils.actions import WithActions
 from deckeditor.views.generic.readonlylisttable import ReadOnlyListTableView
 
 
 class CreateLobbyDialog(QtWidgets.QDialog):
-
     def __init__(self, parent: LobbiesView = None):
         super().__init__(parent)
         self._lobby_view = parent
 
-        self.setWindowTitle('Create Lobby')
+        self.setWindowTitle("Create Lobby")
 
-        lobby_options = LobbyOptionsStore.get_options_for_name('default') or {}
+        lobby_options = LobbyOptionsStore.get_options_for_name("default") or {}
 
         self._lobby_name_selector = QtWidgets.QLineEdit()
 
         self._game_type_selector = QtWidgets.QComboBox()
-        self._game_type_selector.addItems(('sealed', 'draft'))
-        self._game_type_selector.setCurrentText(lobby_options.get('game_type', 'draft'))
+        self._game_type_selector.addItems(("sealed", "draft"))
+        self._game_type_selector.setCurrentText(lobby_options.get("game_type", "draft"))
 
-        self._size_selector_label = QtWidgets.QLabel('size')
+        self._size_selector_label = QtWidgets.QLabel("size")
         self._size_selector = QtWidgets.QSpinBox()
         self._size_selector.setMinimum(1)
         self._size_selector.setMaximum(64)
-        self._size_selector.setValue(lobby_options.get('size', 8))
+        self._size_selector.setValue(lobby_options.get("size", 8))
 
-        self._min_size_selector_label = QtWidgets.QLabel('min size')
+        self._min_size_selector_label = QtWidgets.QLabel("min size")
         self._min_size_selector = QtWidgets.QSpinBox()
         self._min_size_selector.setMinimum(0)
         self._min_size_selector.setMaximum(64)
-        self._min_size_selector.setValue(lobby_options.get('minimum_size', 0))
+        self._min_size_selector.setValue(lobby_options.get("minimum_size", 0))
 
-        self._requires_ready_selector = QtWidgets.QCheckBox('require ready')
-        self._requires_ready_selector.setChecked(lobby_options.get('require_ready', True))
-        self._auto_unready_selector = QtWidgets.QCheckBox('auto unready')
-        self._auto_unready_selector.setChecked(lobby_options.get('unready_on_change', True))
+        self._requires_ready_selector = QtWidgets.QCheckBox("require ready")
+        self._requires_ready_selector.setChecked(lobby_options.get("require_ready", True))
+        self._auto_unready_selector = QtWidgets.QCheckBox("auto unready")
+        self._auto_unready_selector.setChecked(lobby_options.get("unready_on_change", True))
 
-        self._ok_button = QtWidgets.QPushButton('OK', self)
+        self._ok_button = QtWidgets.QPushButton("OK", self)
 
         layout = QtWidgets.QGridLayout(self)
 
@@ -68,10 +67,10 @@ class CreateLobbyDialog(QtWidgets.QDialog):
 
     def _get_lobby_options(self) -> LobbyOptions:
         return LobbyOptions(
-            size = self._size_selector.value(),
-            minimum_size = self._min_size_selector.value(),
-            require_ready = self._requires_ready_selector.isChecked(),
-            unready_on_change = self._auto_unready_selector.isChecked(),
+            size=self._size_selector.value(),
+            minimum_size=self._min_size_selector.value(),
+            require_ready=self._requires_ready_selector.isChecked(),
+            unready_on_change=self._auto_unready_selector.isChecked(),
         )
 
     def _create(self) -> None:
@@ -79,18 +78,15 @@ class CreateLobbyDialog(QtWidgets.QDialog):
         game_type = self._game_type_selector.currentText()
 
         LobbyOptionsStore.save_options(
-            'default',
-            {
-                'game_type': game_type,
-                **lobby_options.__dict__
-            },
+            "default",
+            {"game_type": game_type, **lobby_options.__dict__},
         )
 
         self._lobby_view.lobby_model.create_lobby(
-            name = self._lobby_name_selector.text(),
-            game_type = game_type,
-            lobby_options = lobby_options,
-            game_options = GameTypeOptions.get_options_for_game_type(game_type) or {},
+            name=self._lobby_name_selector.text(),
+            game_type=game_type,
+            lobby_options=lobby_options,
+            game_options=GameTypeOptions.get_options_for_game_type(game_type) or {},
         )
 
         self.accept()
@@ -114,7 +110,7 @@ class LobbiesView(LobbiesViewInterface, WithActions):
 
         self._lobby_tabs = LobbyTabs(self)
 
-        self._create_lobby_button = QtWidgets.QPushButton('Create lobby')
+        self._create_lobby_button = QtWidgets.QPushButton("Create lobby")
         self._create_lobby_button.clicked.connect(self._create_lobby)
 
         if not self._lobby_model.is_connected:
@@ -133,7 +129,7 @@ class LobbiesView(LobbiesViewInterface, WithActions):
         layout.addWidget(splitter)
         layout.addWidget(self._create_lobby_button)
 
-        self._create_action('Create Lobby', self._create_lobby, 'N')
+        self._create_action("Create Lobby", self._create_lobby, "N")
 
     def _on_connection_status_change(self, connected: bool) -> None:
         self._create_lobby_button.setEnabled(connected)

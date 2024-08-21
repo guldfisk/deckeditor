@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import typing
-import re
 import typing as t
 
 from PyQt5.QtWidgets import QApplication
@@ -18,21 +18,21 @@ class EmbargoApp(QApplication):
 
     def __init__(self, argv: typing.List[str]) -> None:
         super().__init__(argv)
-        with open(os.path.join(paths.RESOURCE_PATH, 'style.qss'), 'r') as f:
+        with open(os.path.join(paths.RESOURCE_PATH, "style.qss"), "r") as f:
             icon_path = os.path.join(
                 paths.RESOURCE_PATH,
-                'qss_icons',
-                'rc',
-                '',
-            ).replace('\\', '/')
+                "qss_icons",
+                "rc",
+                "",
+            ).replace("\\", "/")
 
-            pattern = re.compile('url\((.*)\)')
+            pattern = re.compile(r"url\((.*)\)")
 
             r = pattern.sub(f'url("{icon_path}\\1")', f.read())
 
             self.setStyleSheet(r)
 
-        self.setOrganizationDomain('prohunterdogkeeper.dk')
+        self.setOrganizationDomain("prohunterdogkeeper.dk")
         self.setApplicationName(values.APPLICATION_NAME)
 
     @classmethod
@@ -45,11 +45,11 @@ def restart(save_session: bool = True) -> None:
     if save_session:
         try:
             Context.main_window.save_state()
-        except:
+        except Exception:
             pass
 
     if not Context.compiled:
-        logging.warning('cannot restart when not compiled, quiting instead')
+        logging.warning("cannot restart when not compiled, quiting instead")
         sys.exit()
 
     os.execl(values.EXECUTE_PATH, values.EXECUTE_PATH, *sys.argv[1:])

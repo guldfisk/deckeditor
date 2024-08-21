@@ -1,7 +1,7 @@
 import typing as t
 
 
-T = t.TypeVar('T')
+T = t.TypeVar("T")
 
 
 def minmax(min_value: T, value: T, max_value: T) -> T:

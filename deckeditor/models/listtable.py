@@ -1,16 +1,14 @@
 import typing as t
 
+from hardcandy.schema import Primitive, Schema
 from PyQt5 import QtCore
 from PyQt5.QtCore import QModelIndex, Qt
 
-from hardcandy.schema import Schema, Primitive
 
-
-T = t.TypeVar('T')
+T = t.TypeVar("T")
 
 
 class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
-
     def __init__(self, schema: Schema, lines: t.Iterable[T] = ()):
         super().__init__()
 
@@ -28,7 +26,7 @@ class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
         return len(self._schema.fields)
 
     def data(self, index: QModelIndex, role: int = None) -> Primitive:
-        if not role in (Qt.DisplayRole, Qt.EditRole):
+        if role not in (Qt.DisplayRole, Qt.EditRole):
             return None
 
         try:
@@ -70,7 +68,7 @@ class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
         if row + count > len(self._lines):
             return False
         self.beginRemoveRows(parent, row, row - 1 + count)
-        del self._lines[row:row + count]
+        del self._lines[row : row + count]
         self.endRemoveRows()
         return True
 
@@ -140,10 +138,10 @@ class ListTableModel(t.Generic[T], QtCore.QAbstractTableModel):
         return self._lines[i]
 
     def __setitem__(self, i: int, o: T) -> None:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def __delitem__(self, i: int) -> None:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def __len__(self) -> int:
         return self._lines.__len__()

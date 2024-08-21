@@ -1,20 +1,23 @@
 import typing as t
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget
 
 from deckeditor.components.settings import settings
 from deckeditor.components.settings.settingeditor import (
-    SettingEditor, OptionsSettingEditor, BooleanSettingEditor, StringSettingEditor, AlchemySettingEditor, IntegerSettingEditor,
-    SchemaSettingEditor
+    BooleanSettingEditor,
+    IntegerSettingEditor,
+    OptionsSettingEditor,
+    SchemaSettingEditor,
+    SettingEditor,
+    StringSettingEditor,
 )
 from deckeditor.context.context import Context
 from deckeditor.utils.dialogs import SingleInstanceDialog
 
 
 class SettingsPane(QWidget):
-
     def __init__(self, setting_editors: t.Sequence[SettingEditor]):
         super().__init__()
 
@@ -26,7 +29,6 @@ class SettingsPane(QWidget):
 
 
 class SettingsTreeItem(QtWidgets.QTreeWidgetItem):
-
     def __init__(self, category_name: str, settings_pane: SettingsPane):
         super().__init__()
         self._settings_pane = settings_pane
@@ -42,140 +44,140 @@ class SettingsDialog(SingleInstanceDialog):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Settings')
+        self.setWindowTitle("Settings")
 
         self._settings_map = (
             (
-                'General',
+                "General",
                 (
                     BooleanSettingEditor(
                         settings.REPORT_ERRORS,
-                        'Help improve this disaster :^)',
+                        "Help improve this disaster :^)",
                     ),
                     OptionsSettingEditor(
                         settings.DEFAULT_CARD_VIEW_TYPE,
-                        'Default layout of focus card view.',
-                        ('image', 'text', 'both'),
+                        "Default layout of focus card view.",
+                        ("image", "text", "both"),
                     ),
                     BooleanSettingEditor(
                         settings.FRAMELESS,
-                        'Removes title bar of main window.',
+                        "Removes title bar of main window.",
                     ),
                     BooleanSettingEditor(
                         settings.LAZY_TABS,
-                        'Don\'t load editor tabs before they receive focus.',
+                        "Don't load editor tabs before they receive focus.",
                     ),
                 ),
                 (),
             ),
             (
-                'Cards View',
+                "Cards View",
                 (
                     BooleanSettingEditor(
                         settings.DEFAULT_CUBEVIEW_HEADER_HIDDEN,
-                        'Header collapsed by default.',
+                        "Header collapsed by default.",
                     ),
                     BooleanSettingEditor(
                         settings.IMAGE_VIEW_SCROLL_DEFAULT_ZOOM,
-                        'If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom.',
+                        "If unchecked, scroll wheel scrolls view vertically, hold ctrl while scrolling to zoom.",
                     ),
                     BooleanSettingEditor(
                         settings.SELECT_ON_COVERED_PARTS,
-                        'If checked, select all cards intersecting rubber band on completion, also cards '
-                        'covered by other cards.',
+                        "If checked, select all cards intersecting rubber band on completion, also cards "
+                        "covered by other cards.",
                     ),
                     BooleanSettingEditor(
                         settings.ON_VIEW_CARD_COUNT,
-                        'Show card count / selection info on top of card view.',
+                        "Show card count / selection info on top of card view.",
                     ),
                     BooleanSettingEditor(
                         settings.FIT_ALL_CARDS,
-                        'When fitting view, always fit all cards in view, instead of only the selected if present.',
+                        "When fitting view, always fit all cards in view, instead of only the selected if present.",
                     ),
                     BooleanSettingEditor(
                         settings.DOUBLECLICK_MATCH_ON_CARDBOARDS,
-                        'When ctrl doubleclicking a card, select all cardboards matching instead of printings.',
+                        "When ctrl doubleclicking a card, select all cardboards matching instead of printings.",
                     ),
                     SchemaSettingEditor(
                         settings.SCENE_DEFAULTS,
-                        'Change default values for card views per type.',
+                        "Change default values for card views per type.",
                     ),
                 ),
                 (),
             ),
             (
-                'Files',
+                "Files",
                 (
                     BooleanSettingEditor(
                         settings.AUTO_SORT_NON_EMB_FILES_ON_OPEN,
-                        'Auto sort non emb files on open.',
+                        "Auto sort non emb files on open.",
                     ),
                     BooleanSettingEditor(
                         settings.CONFIRM_CLOSING_MODIFIED_FILE,
-                        'Files count as having been modified, even if it is just moving cards around in the same zone.'
-                        ' Will be changed eventually.',
+                        "Files count as having been modified, even if it is just moving cards around in the same zone."
+                        " Will be changed eventually.",
                     ),
                 ),
                 (),
             ),
             (
-                'Connection',
+                "Connection",
                 (
                     BooleanSettingEditor(
                         settings.AUTO_LOGIN,
-                        'Automatically attempt login on start up.',
+                        "Automatically attempt login on start up.",
                     ),
                 ),
                 (),
             ),
             (
-                'Limited',
+                "Limited",
                 (
                     BooleanSettingEditor(
                         settings.DEFAULT_FOCUS_TRAP_SUB_PRINTING,
-                        'Default focus appropriate sub-printing of trap during hover-based focus instead of entire '
-                        'trap.',
+                        "Default focus appropriate sub-printing of trap during hover-based focus instead of entire "
+                        "trap.",
                     ),
                     BooleanSettingEditor(
                         settings.FLATTEN_RECURSIVELY,
-                        'Flatten all flattenable children of af trap instead of of one level at a time.',
+                        "Flatten all flattenable children of af trap instead of of one level at a time.",
                     ),
                     BooleanSettingEditor(
                         settings.ALWAYS_FLATTEN_ALL,
-                        'Always flatten all, instead of only selected, when cards are selected.',
+                        "Always flatten all, instead of only selected, when cards are selected.",
                     ),
                     BooleanSettingEditor(
                         settings.DONT_AUTO_FLATTEN_BIG,
-                        'Dont flatten big traps when flattening all or recursively.',
+                        "Dont flatten big traps when flattening all or recursively.",
                     ),
                 ),
                 (
                     (
-                        'Draft',
+                        "Draft",
                         (
                             BooleanSettingEditor(
                                 settings.NOTIFY_ON_BOOSTER_ARRIVED,
-                                'Display OS notification when new pack arrives and application does not have focus.',
+                                "Display OS notification when new pack arrives and application does not have focus.",
                             ),
                             BooleanSettingEditor(
                                 settings.HIDE_LOBBIES_ON_NEW_DRAFT,
-                                'Applies both on new drafts and reconnect.',
+                                "Applies both on new drafts and reconnect.",
                             ),
                             BooleanSettingEditor(
                                 settings.INFER_PICK_BURN,
-                                'When burn drafting, try to infer whether a pick is a burn or not when appropriate.',
+                                "When burn drafting, try to infer whether a pick is a burn or not when appropriate.",
                             ),
                             BooleanSettingEditor(
                                 settings.PICK_ON_DOUBLE_CLICK,
-                                'Allow picking by double clicking card.',
+                                "Allow picking by double clicking card.",
                             ),
                             BooleanSettingEditor(
                                 settings.GHOST_CARDS,
-                                'Show cards from booster that did not wheel as greyed out.',
+                                "Show cards from booster that did not wheel as greyed out.",
                             ),
                             BooleanSettingEditor(
                                 settings.SHOW_PICKABLE_RATINGS,
-                                'Show most recent ELO rating of pickable in booster view when available.',
+                                "Show most recent ELO rating of pickable in booster view when available.",
                             ),
                         ),
                         (),
@@ -183,78 +185,79 @@ class SettingsDialog(SingleInstanceDialog):
                 ),
             ),
             (
-                'images',
+                "images",
                 (
                     IntegerSettingEditor(
                         settings.IMAGE_CACHE_SIZE,
-                        'Max amount of images to cache, dont make to small or it gets weird.',
-                        min_value = 0,
-                        max_value = 1024,
+                        "Max amount of images to cache, dont make to small or it gets weird.",
+                        min_value=0,
+                        max_value=1024,
                     ),
                     BooleanSettingEditor(
                         settings.REMOTE_IMAGES,
-                        'Get images from server instead of generating locally.',
+                        "Get images from server instead of generating locally.",
                     ),
                     StringSettingEditor(
                         settings.REMOTE_IMAGE_URL,
-                        'Where to get remote images from.',
+                        "Where to get remote images from.",
                     ),
                     BooleanSettingEditor(
                         settings.ALLOW_LOCAL_IMAGE_FALLBACK,
-                        'Generate images locally if they are unavailable remotely.',
+                        "Generate images locally if they are unavailable remotely.",
                     ),
                     BooleanSettingEditor(
                         settings.ALLOW_DISK_WITH_LOCAL_IMAGES,
-                        'If false, never cache or load images from disk',
-                    )
+                        "If false, never cache or load images from disk",
+                    ),
                 ),
                 (),
             ),
             (
-                'db',
+                "db",
                 (
                     BooleanSettingEditor(
                         settings.SQL_DB,
-                        'Less start-up overhead and memory usage, but slower application in general, especially searching.',
+                        "Less start-up overhead and memory usage, but slower application in general,"
+                        " especially searching.",
                     ),
                     StringSettingEditor(
                         settings.SQL_HOST,
-                        'Sql database host.',
+                        "Sql database host.",
                     ),
                     StringSettingEditor(
                         settings.SQL_DATABASE_NAME,
-                        'Sql database name.',
+                        "Sql database name.",
                     ),
                     StringSettingEditor(
                         settings.SQL_USER,
-                        'Sql database user.',
+                        "Sql database user.",
                     ),
                     StringSettingEditor(
                         settings.SQL_PASSWORD,
-                        'Sql database password.',
-                        hide_text = True,
+                        "Sql database password.",
+                        hide_text=True,
                     ),
                     StringSettingEditor(
                         settings.SQL_DIALECT,
-                        'Sql database dialect.',
+                        "Sql database dialect.",
                     ),
                     StringSettingEditor(
                         settings.SQL_DRIVER,
-                        'Sql database driver.',
+                        "Sql database driver.",
                     ),
                 ),
                 (),
             ),
             (
-                'store',
+                "store",
                 (
                     BooleanSettingEditor(
                         settings.EXTERNAL_STORE_DB,
-                        'If false just use sqlite.',
+                        "If false just use sqlite.",
                     ),
                     StringSettingEditor(
                         settings.EXTERNAL_DATABASE_NAME,
-                        'Name of database for storage.',
+                        "Name of database for storage.",
                     ),
                 ),
                 (),
@@ -279,13 +282,13 @@ class SettingsDialog(SingleInstanceDialog):
         self._description_box = QtWidgets.QTextEdit()
         self._description_box.setReadOnly(True)
 
-        self._cancel_button = QtWidgets.QPushButton('Cancel')
+        self._cancel_button = QtWidgets.QPushButton("Cancel")
         self._cancel_button.clicked.connect(self.cancel)
 
-        self._apply_button = QtWidgets.QPushButton('Apply')
+        self._apply_button = QtWidgets.QPushButton("Apply")
         self._apply_button.clicked.connect(self.apply)
 
-        self._ok_button = QtWidgets.QPushButton('OK')
+        self._ok_button = QtWidgets.QPushButton("OK")
         self._ok_button.clicked.connect(self.ok)
 
         self._apply_button.setEnabled(False)
@@ -322,7 +325,7 @@ class SettingsDialog(SingleInstanceDialog):
 
     def apply(self) -> None:
         if any(editor.setting.requires_restart for editor in self._setting_changes):
-            Context.notification_message.emit('Some of the settings changes requires restarting to take effect.')
+            Context.notification_message.emit("Some of the settings changes requires restarting to take effect.")
 
         for setting, value in self._setting_changes.items():
             setting.setting.set_value(value)
@@ -331,8 +334,8 @@ class SettingsDialog(SingleInstanceDialog):
         self,
         tree: t.Sequence[t.Tuple[str, t.Sequence[SettingEditor], t.Sequence]],
     ) -> t.Iterator[SettingEditor]:
-        for name, settings, children in tree:
-            for setting in settings:
+        for name, _settings, children in tree:
+            for setting in _settings:
                 yield setting
             yield from self._walk_settings_tree(children)
 
@@ -341,15 +344,15 @@ class SettingsDialog(SingleInstanceDialog):
         tree: t.Sequence[t.Tuple[str, t.Sequence[SettingEditor], t.Sequence]],
         item: t.Union[QtWidgets.QTreeWidget, QtWidgets.QTreeWidget],
     ) -> None:
-        for name, settings, children in tree:
+        for name, _settings, children in tree:
             _item = SettingsTreeItem(
                 name,
                 SettingsPane(
-                    settings,
+                    _settings,
                 ),
             )
 
-            for setting in settings:
+            for setting in _settings:
                 setting.selected.connect(self._handle_setting_chosen)
                 setting.show_description.connect(lambda s, d: self._description_box.setText(d))
 

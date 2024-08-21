@@ -1,8 +1,7 @@
-from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5 import QtCore, QtGui
 
 
 class LineDeleteMixin(object):
-
     def _enable_row_header_delete(self) -> None:
         self.verticalHeader().sectionClicked.connect(lambda i: self.model().removeRow(i))
 

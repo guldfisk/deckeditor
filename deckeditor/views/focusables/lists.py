@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtCore import pyqtSignal, QModelIndex
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QModelIndex, pyqtSignal
 
 from deckeditor.components.cardview.cubeableview import F
 from deckeditor.components.cardview.focuscard import FocusEvent

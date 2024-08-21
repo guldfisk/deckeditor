@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import typing as t
 
+from lobbyclient.client import Lobby
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QWidget
-
-from lobbyclient.client import Lobby
 
 from deckeditor.components.lobbies.client import LobbyModelClientConnection
 
@@ -15,11 +14,11 @@ class LobbyViewInterface(QWidget):
 
     @property
     def lobby(self) -> t.Optional[Lobby]:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     @property
     def lobby_model(self) -> LobbyModelClientConnection:
-        raise NotImplemented()
+        raise NotImplementedError()
 
 
 class LobbiesViewInterface(QWidget):
@@ -27,7 +26,7 @@ class LobbiesViewInterface(QWidget):
 
     @property
     def lobby_model(self) -> LobbyModelClientConnection:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def set_model(self, lobby_model: LobbyModelClientConnection) -> None:
-        raise NotImplemented()
+        raise NotImplementedError()

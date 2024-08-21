@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import pyqtSignal, QModelIndex
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QModelIndex, pyqtSignal
 from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QHeaderView, QAbstractItemView
+from PyQt5.QtWidgets import QAbstractItemView, QHeaderView
 
 from deckeditor.models.listtable import ListTableModel
 
 
-T = t.TypeVar('T')
+T = t.TypeVar("T")
 
 
 class ReadOnlyListTableView(t.Generic[T], QtWidgets.QTableView):

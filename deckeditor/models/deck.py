@@ -4,14 +4,16 @@ import pickle
 import typing as t
 from abc import abstractmethod
 
-from PyQt5.QtCore import QObject, pyqtSignal
-
-from mtgorp.models.collections.deck import Deck as OrpDeck
-from mtgorp.models.serilization.serializeable import Serializeable, serialization_model, Inflator
-from mtgorp.models.serilization.strategies.raw import RawStrategy
-
 from magiccube.collections.cube import Cube
 from magiccube.collections.infinites import Infinites
+from mtgorp.models.collections.deck import Deck as OrpDeck
+from mtgorp.models.serilization.serializeable import (
+    Inflator,
+    Serializeable,
+    serialization_model,
+)
+from mtgorp.models.serilization.strategies.raw import RawStrategy
+from PyQt5.QtCore import QObject, pyqtSignal
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.context.context import Context
@@ -21,7 +23,6 @@ from deckeditor.models.cubes.scenetypes import SceneType
 
 
 class TabModel(Serializeable):
-
     @abstractmethod
     def serialize(self) -> serialization_model:
         pass
@@ -41,7 +42,6 @@ class TabModel(Serializeable):
 
 
 class Deck(TabModel):
-
     def __init__(self, maindeck: Cube, sideboard: Cube):
         self._maindeck = maindeck
         self._sideboard = sideboard
@@ -56,15 +56,15 @@ class Deck(TabModel):
 
     def serialize(self) -> serialization_model:
         return {
-            'maindeck': self._maindeck.serialize(),
-            'sideboard': self._sideboard.serialize(),
+            "maindeck": self._maindeck.serialize(),
+            "sideboard": self._sideboard.serialize(),
         }
 
     @classmethod
     def deserialize(cls, value: serialization_model, inflator: Inflator) -> Deck:
         return cls(
-            maindeck = Cube.deserialize(value['maindeck'], inflator),
-            sideboard = Cube.deserialize(value['sideboard'], inflator),
+            maindeck=Cube.deserialize(value["maindeck"], inflator),
+            sideboard=Cube.deserialize(value["sideboard"], inflator),
         )
 
     def as_primitive_deck(self) -> OrpDeck:
@@ -108,21 +108,21 @@ class DeckModel(QObject):
         super().__init__()
         self._maindeck = (
             CubeScene(
-                cards = maindeck if isinstance(maindeck, t.Sequence) else None,
-                scene_type = SceneType.MAINDECK,
-                mode = mode,
+                cards=maindeck if isinstance(maindeck, t.Sequence) else None,
+                scene_type=SceneType.MAINDECK,
+                mode=mode,
             )
-            if maindeck is None or isinstance(maindeck, t.Sequence) else
-            maindeck
+            if maindeck is None or isinstance(maindeck, t.Sequence)
+            else maindeck
         )
         self._sideboard = (
             CubeScene(
-                cards = sideboard if isinstance(sideboard, t.Sequence) else None,
-                scene_type = SceneType.SIDEBOARD,
-                mode = mode,
+                cards=sideboard if isinstance(sideboard, t.Sequence) else None,
+                scene_type=SceneType.SIDEBOARD,
+                mode=mode,
             )
-            if sideboard is None or isinstance(sideboard, t.Sequence) else
-            sideboard
+            if sideboard is None or isinstance(sideboard, t.Sequence)
+            else sideboard
         )
 
         for scene in (self._maindeck, self._sideboard):
@@ -147,8 +147,8 @@ class DeckModel(QObject):
 
     def serialize(self) -> t.Mapping[str, t.Any]:
         return {
-            'maindeck': self._maindeck,
-            'sideboard': self._sideboard,
+            "maindeck": self._maindeck,
+            "sideboard": self._sideboard,
         }
 
     def persist(self) -> t.Any:
@@ -158,18 +158,18 @@ class DeckModel(QObject):
     def load(cls, state: t.Any) -> DeckModel:
         state = pickle.loads(state)
         return cls(
-            state['maindeck'],
-            state['sideboard'],
+            state["maindeck"],
+            state["sideboard"],
         )
 
 
 class PoolModel(DeckModel):
     _default_infinite_names = (
-        'Plains',
-        'Island',
-        'Swamp',
-        'Forest',
-        'Mountain',
+        "Plains",
+        "Island",
+        "Swamp",
+        "Forest",
+        "Mountain",
     )
 
     def __init__(
@@ -181,34 +181,34 @@ class PoolModel(DeckModel):
     ):
         super().__init__(
             CubeScene(
-                cards = maindeck if isinstance(maindeck, t.Sequence) else None,
-                mode = CubeEditMode.CLOSED,
-                scene_type = SceneType.MAINDECK,
+                cards=maindeck if isinstance(maindeck, t.Sequence) else None,
+                mode=CubeEditMode.CLOSED,
+                scene_type=SceneType.MAINDECK,
             )
-            if maindeck is None or isinstance(maindeck, t.Sequence) else
-            maindeck,
+            if maindeck is None or isinstance(maindeck, t.Sequence)
+            else maindeck,
             CubeScene(
-                cards = sideboard if isinstance(sideboard, t.Sequence) else None,
-                mode = CubeEditMode.CLOSED,
-                scene_type = SceneType.SIDEBOARD,
+                cards=sideboard if isinstance(sideboard, t.Sequence) else None,
+                mode=CubeEditMode.CLOSED,
+                scene_type=SceneType.SIDEBOARD,
             )
-            if sideboard is None or isinstance(sideboard, t.Sequence) else
-            sideboard,
+            if sideboard is None or isinstance(sideboard, t.Sequence)
+            else sideboard,
         )
         self._pool = (
             CubeScene(
-                cards = pool if isinstance(pool, t.Sequence) else None,
-                mode = CubeEditMode.CLOSED,
-                scene_type = SceneType.POOL,
+                cards=pool if isinstance(pool, t.Sequence) else None,
+                mode=CubeEditMode.CLOSED,
+                scene_type=SceneType.POOL,
             )
-            if pool is None or isinstance(pool, t.Sequence) else
-            pool
+            if pool is None or isinstance(pool, t.Sequence)
+            else pool
         )
-        self._infinites = Infinites(
-            Context.db.cardboards[cardboard_name]
-            for cardboard_name in
-            self._default_infinite_names
-        ) if infinites is None else infinites
+        self._infinites = (
+            Infinites(Context.db.cardboards[cardboard_name] for cardboard_name in self._default_infinite_names)
+            if infinites is None
+            else infinites
+        )
 
         self._scenes = {self._maindeck, self._sideboard, self._pool}
 
@@ -233,14 +233,12 @@ class PoolModel(DeckModel):
             scene.infinites = self._infinites
 
     def as_pool(self) -> Pool:
-        return Pool(
-            self._maindeck.cube + self._sideboard.cube + self._pool.cube
-        )
+        return Pool(self._maindeck.cube + self._sideboard.cube + self._pool.cube)
 
     def serialize(self) -> t.Mapping[str, t.Any]:
         return {
-            'pool': self._pool,
-            'infinites': RawStrategy.serialize(self.infinites),
+            "pool": self._pool,
+            "infinites": RawStrategy.serialize(self.infinites),
             **super().serialize(),
         }
 
@@ -248,8 +246,8 @@ class PoolModel(DeckModel):
     def load(cls, state: t.Any) -> PoolModel:
         state = pickle.loads(state)
         return cls(
-            maindeck = state['maindeck'],
-            sideboard = state['sideboard'],
-            pool = state['pool'],
-            infinites = RawStrategy(Context.db).deserialize(Infinites, state['infinites']),
+            maindeck=state["maindeck"],
+            sideboard=state["sideboard"],
+            pool=state["pool"],
+            infinites=RawStrategy(Context.db).deserialize(Infinites, state["infinites"]),
         )

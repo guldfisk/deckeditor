@@ -1,5 +1,5 @@
-import typing as t
 import os
+import typing as t
 import uuid
 from abc import abstractmethod
 
@@ -7,7 +7,6 @@ from deckeditor.components.views.editables.editable import Editable, Tab
 
 
 class TabMeta(object):
-
     def __init__(self, name: str, path: t.Optional[str] = None, key: t.Optional[str] = None):
         self._path: t.Optional[str] = path
         self._key = key if key is not None else str(uuid.uuid4())
@@ -32,19 +31,16 @@ class TabMeta(object):
 
     @property
     def truncated_name(self) -> str:
-        return self._name if len(self._name) <= 25 else self._name[:11] + '...' + self._name[-11:]
+        return self._name if len(self._name) <= 25 else self._name[:11] + "..." + self._name[-11:]
 
     def __hash__(self) -> int:
         return hash(self._key)
 
     def __eq__(self, other) -> bool:
-        return (
-            isinstance(other, self.__class__)
-            and self._key == other._key
-        )
+        return isinstance(other, self.__class__) and self._key == other._key
 
     def __repr__(self) -> str:
-        return '{}({}, {})'.format(
+        return "{}({}, {})".format(
             self.__class__.__name__,
             self._name,
             self._key,
@@ -52,7 +48,6 @@ class TabMeta(object):
 
 
 class Editor(object):
-
     @abstractmethod
     def current_editable(self) -> t.Optional[Editable]:
         pass

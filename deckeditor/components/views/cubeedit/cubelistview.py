@@ -1,10 +1,8 @@
-from PyQt5.QtCore import Qt, pyqtSignal, QModelIndex
-from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QTableWidgetItem, QTableView, QHeaderView
-
-from mtgorp.models.interfaces import Printing
-
 from magiccube.collections.cubeable import Cubeable
+from mtgorp.models.interfaces import Printing
+from PyQt5.QtCore import QModelIndex, Qt, pyqtSignal
+from PyQt5.QtGui import QMouseEvent
+from PyQt5.QtWidgets import QHeaderView, QTableView, QTableWidgetItem
 
 from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.context.context import Context
@@ -24,7 +22,9 @@ class CubeListView(QTableView, LineDeleteMixin):
         self.doubleClicked.connect(self._on_double_clicked)
 
     def _on_double_clicked(self, index: QModelIndex) -> None:
-        self.cubeable_double_clicked.emit(self.model().sourceModel().items_at(self.model().mapToSource(index).row())[0])
+        self.cubeable_double_clicked.emit(
+            self.model().sourceModel().items_at(self.model().mapToSource(index).row())[0]
+        )
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         super().mouseMoveEvent(event)
@@ -34,7 +34,6 @@ class CubeListView(QTableView, LineDeleteMixin):
 
 
 class CubeableTableItem(QTableWidgetItem):
-
     def __init__(self, cubeable: Cubeable):
         super().__init__()
         self._cubeable = cubeable

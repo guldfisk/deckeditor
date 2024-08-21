@@ -3,12 +3,10 @@ from __future__ import annotations
 import typing as t
 from abc import abstractmethod
 
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import pyqtSignal, QObject
-
-from sqlalchemy.orm.attributes import QueryableAttribute
-
 from hardcandy import fields
+from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtCore import QObject, pyqtSignal
+from sqlalchemy.orm.attributes import QueryableAttribute
 
 from deckeditor.components.settings.settings import Setting
 from deckeditor.models.cubes.alignment.aligner import Aligner
@@ -190,21 +188,19 @@ class AlchemySettingEditor(SettingEditor):
         self._combo = QtWidgets.QComboBox()
 
         self._combo.currentTextChanged.connect(
-            lambda v: self.selected.emit(self, EDB.Session.query(self._pk_column).filter(self._field == v).scalar() or 0)
+            lambda v: self.selected.emit(
+                self, EDB.Session.query(self._pk_column).filter(self._field == v).scalar() or 0
+            )
         )
         self._label.focus_description.connect(lambda d: self.show_description.emit(self, d))
 
     def reset(self) -> None:
         self._combo.clear()
-        self._combo.addItems(
-            row
-            for row, in
-            EDB.Session.query(self._field)
-        )
+        self._combo.addItems(row for row, in EDB.Session.query(self._field))
         model = EDB.Session.query(self._model_type).get(self.value)
         if model is None:
-            self._combo.addItem('Select macro')
-            model = 'Select macro'
+            self._combo.addItem("Select macro")
+            model = "Select macro"
         else:
             model = getattr(model, self._field.name)
         self._combo.setCurrentText(model)
@@ -227,7 +223,6 @@ class AlignerOption(QtWidgets.QWidget):
 
 
 class IntegerAlignerOption(AlignerOption):
-
     def __init__(self, field: fields.Integer):
         super().__init__(field)
 
@@ -246,7 +241,6 @@ class IntegerAlignerOption(AlignerOption):
 
 
 class BooleanAlignerOption(AlignerOption):
-
     def __init__(self, field: fields.Integer):
         super().__init__(field)
 
@@ -333,15 +327,15 @@ class SchemaSettingEditor(SettingEditor):
 
         self._container = QtWidgets.QWidget()
         layout = QtWidgets.QFormLayout(self._container)
-        layout.addRow('Scene Type', self._scene_type_selector)
-        layout.addRow('Sort Macro', self._sort_selector)
-        layout.addRow('Aligner', self._aligner_type_selector)
-        layout.addRow('Aligner Options', self._aligner_option_pane_stack)
+        layout.addRow("Scene Type", self._scene_type_selector)
+        layout.addRow("Sort Macro", self._sort_selector)
+        layout.addRow("Aligner", self._aligner_type_selector)
+        layout.addRow("Aligner Options", self._aligner_option_pane_stack)
 
     def _on_scene_type_changed(self, scene_type: str) -> None:
         scene_values = self._current_value[scene_type]
 
-        aligner_type = scene_values['aligner_type']
+        aligner_type = scene_values["aligner_type"]
 
         self._aligner_type_selector.blockSignals(True)
         self._aligner_type_selector.setCurrentText(aligner_type)
@@ -349,18 +343,19 @@ class SchemaSettingEditor(SettingEditor):
 
         self._sort_selector.blockSignals(True)
         self._sort_selector.setCurrentText(
-            EDB.Session.query(SortMacro.name).filter(SortMacro.id == scene_values['sort_macro']).scalar() or 'Select Macro'
+            EDB.Session.query(SortMacro.name).filter(SortMacro.id == scene_values["sort_macro"]).scalar()
+            or "Select Macro"
         )
         self._sort_selector.blockSignals(False)
 
         pane = self._aligner_options_map[aligner_type]
         self._aligner_option_pane_stack.setCurrentWidget(pane)
-        pane.set_values(self._current_value[scene_type]['aligner_options'])
+        pane.set_values(self._current_value[scene_type]["aligner_options"])
 
     def _on_sort_changed(self, macro_name: str) -> None:
-        self._current_value[
-            self._scene_type_selector.currentText()
-        ]['sort_macro'] = EDB.Session.query(SortMacro.id).filter(SortMacro.name == macro_name).scalar() or 0
+        self._current_value[self._scene_type_selector.currentText()]["sort_macro"] = (
+            EDB.Session.query(SortMacro.id).filter(SortMacro.name == macro_name).scalar() or 0
+        )
         self.selected.emit(self, self._current_value)
 
     def _on_aligner_type_changed(self, aligner_type: str) -> None:
@@ -372,28 +367,27 @@ class SchemaSettingEditor(SettingEditor):
 
         current_scene_values = self._current_value[self._scene_type_selector.currentText()]
 
-        current_scene_values['aligner_options'] = default_options
-        current_scene_values['aligner_type'] = aligner_type
+        current_scene_values["aligner_options"] = default_options
+        current_scene_values["aligner_type"] = aligner_type
 
         pane.set_values(default_options)
         self.selected.emit(self, self._current_value)
 
-    def _on_aligner_option_changed(self, aligner_type: str, option: str, value: t.Any, ) -> None:
-        self._current_value[
-            self._scene_type_selector.currentText()
-        ]['aligner_options'][option] = value
+    def _on_aligner_option_changed(
+        self,
+        aligner_type: str,
+        option: str,
+        value: t.Any,
+    ) -> None:
+        self._current_value[self._scene_type_selector.currentText()]["aligner_options"][option] = value
         self.selected.emit(self, self._current_value)
 
     def reset(self) -> None:
         self._sort_selector.blockSignals(True)
         self._sort_selector.clear()
-        self._sort_selector.addItems(
-            row
-            for row, in
-            EDB.Session.query(SortMacro.name)
-        )
+        self._sort_selector.addItems(row for row, in EDB.Session.query(SortMacro.name))
         if not self._sort_selector.count():
-            self._sort_selector.addItem('Select macro')
+            self._sort_selector.addItem("Select macro")
         self._sort_selector.blockSignals(False)
 
         self._current_value = self.value

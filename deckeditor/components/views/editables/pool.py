@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QUndoStack, QGraphicsScene
+from PyQt5.QtWidgets import QGraphicsScene, QUndoStack
 
 from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import TabType
@@ -14,7 +14,6 @@ from deckeditor.models.deck import PoolModel
 
 
 class PoolView(MultiCubesView):
-
     def __init__(
         self,
         pool_model: PoolModel,
@@ -36,24 +35,24 @@ class PoolView(MultiCubesView):
 
         self._maindeck_cube_view = (
             maindeck_cube_view
-            if maindeck_cube_view is not None else
-            CubeView(
+            if maindeck_cube_view is not None
+            else CubeView(
                 self._pool_model.maindeck,
                 self._undo_stack,
             )
         )
         self._sideboard_cube_view = (
             sideboard_cube_view
-            if sideboard_cube_view is not None else
-            CubeView(
+            if sideboard_cube_view is not None
+            else CubeView(
                 self._pool_model.sideboard,
                 self._undo_stack,
             )
         )
         self._pool_cube_view = (
             pool_cube_view
-            if pool_cube_view is not None else
-            CubeView(
+            if pool_cube_view is not None
+            else CubeView(
                 self._pool_model.pool,
                 self._undo_stack,
             )
@@ -95,7 +94,7 @@ class PoolView(MultiCubesView):
     def _on_cube_scene_selection_cleared(self, scene: QGraphicsScene) -> None:
         for _scene in self._all_scenes:
             if _scene != scene:
-                _scene.clear_selection(propagate = False)
+                _scene.clear_selection(propagate=False)
 
     def _connect_move_cubeable(
         self,
@@ -109,8 +108,8 @@ class PoolView(MultiCubesView):
                     [card],
                     (
                         secondary_target.cube_scene
-                        if modifiers & QtCore.Qt.ShiftModifier else
-                        primary_target.cube_scene
+                        if modifiers & QtCore.Qt.ShiftModifier
+                        else primary_target.cube_scene
                     ),
                     QPoint(),
                 )
@@ -120,9 +119,7 @@ class PoolView(MultiCubesView):
 
     def is_empty(self) -> bool:
         return not (
-            self._pool_model.maindeck.items()
-            or self._pool_model.sideboard.items()
-            or self._pool_model.pool.items()
+            self._pool_model.maindeck.items() or self._pool_model.sideboard.items() or self._pool_model.pool.items()
         )
 
     @property
@@ -135,37 +132,37 @@ class PoolView(MultiCubesView):
 
     def persist(self) -> t.Any:
         return {
-            'maindeck_view': self._maindeck_cube_view.persist(),
-            'sideboard_view': self._sideboard_cube_view.persist(),
-            'pool_view': self._pool_cube_view.persist(),
-            'horizontal_splitter': self._horizontal_splitter.saveState(),
-            'vertical_splitter': self._vertical_splitter.saveState(),
-            'pool_model': self._pool_model.persist(),
-            'tab_type': self.tab_type,
+            "maindeck_view": self._maindeck_cube_view.persist(),
+            "sideboard_view": self._sideboard_cube_view.persist(),
+            "pool_view": self._pool_cube_view.persist(),
+            "horizontal_splitter": self._horizontal_splitter.saveState(),
+            "vertical_splitter": self._vertical_splitter.saveState(),
+            "pool_model": self._pool_model.persist(),
+            "tab_type": self.tab_type,
         }
 
     @classmethod
     def load(cls, state: t.Any, undo_stack: QUndoStack) -> PoolView:
-        pool_model = PoolModel.load(state['pool_model'])
+        pool_model = PoolModel.load(state["pool_model"])
         pool_view = cls(
             pool_model,
-            maindeck_cube_view = CubeView.load(
-                state['maindeck_view'],
+            maindeck_cube_view=CubeView.load(
+                state["maindeck_view"],
                 pool_model.maindeck,
-                undo_stack = undo_stack,
+                undo_stack=undo_stack,
             ),
-            sideboard_cube_view = CubeView.load(
-                state['sideboard_view'],
+            sideboard_cube_view=CubeView.load(
+                state["sideboard_view"],
                 pool_model.sideboard,
-                undo_stack = undo_stack,
+                undo_stack=undo_stack,
             ),
-            pool_cube_view = CubeView.load(
-                state['pool_view'],
+            pool_cube_view=CubeView.load(
+                state["pool_view"],
                 pool_model.pool,
-                undo_stack = undo_stack,
+                undo_stack=undo_stack,
             ),
-            undo_stack = undo_stack,
+            undo_stack=undo_stack,
         )
-        pool_view._horizontal_splitter.restoreState(state['horizontal_splitter'])
-        pool_view._vertical_splitter.restoreState(state['vertical_splitter'])
+        pool_view._horizontal_splitter.restoreState(state["horizontal_splitter"])
+        pool_view._vertical_splitter.restoreState(state["vertical_splitter"])
         return pool_view

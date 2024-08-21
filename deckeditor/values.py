@@ -7,25 +7,22 @@ from enum import Enum
 from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
 
 
-APPLICATION_NAME = 'Embargo Edit'
-VERSION = '0.1.9'
+APPLICATION_NAME = "Embargo Edit"
+VERSION = "0.1.9"
 
-IS_WINDOWS = sys.platform.startswith('win')
+IS_WINDOWS = sys.platform.startswith("win")
 
-EXECUTE_PATH = (
-    ''
-    if IS_WINDOWS else
-    '/usr/share/embargoedit/editor/editor'
-)
+EXECUTE_PATH = "" if IS_WINDOWS else "/usr/share/embargoedit/editor/editor"
 
-STANDARD_DATETIME_FORMAT = '%d-%m-%Y %H:%M'
+STANDARD_DATETIME_FORMAT = "%d-%m-%Y %H:%M"
 
-REPO_TAGS_PATH = 'https://api.github.com/repos/guldfisk/deckeditor/tags'
+REPO_TAGS_PATH = "https://api.github.com/repos/guldfisk/deckeditor/tags"
+
 
 class DeckZoneType(Enum):
-    MAINDECK = 'Maindeck'
-    SIDEBOARD = 'Sideboard'
-    POOL = 'Pool'
+    MAINDECK = "Maindeck"
+    SIDEBOARD = "Sideboard"
+    POOL = "Pool"
 
 
 class Direction(Enum):
@@ -37,13 +34,13 @@ class Direction(Enum):
 
 IMAGE_WIDTH, IMAGE_HEIGHT = IMAGE_SIZE_MAP[frozenset((SizeSlug.MEDIUM, False))]
 
-STANDARD_IMAGE_MARGIN = .1
+STANDARD_IMAGE_MARGIN = 0.1
 
-SUPPORTED_EXTENSIONS = '*.deck *.cod *.json *.dec *.mwDeck *.embd *.embp'
+SUPPORTED_EXTENSIONS = "*.deck *.cod *.json *.dec *.mwDeck *.embd *.embp"
 
 LOGGING_LEVEL_MAP = {
-    'error': logging.ERROR,
-    'warning': logging.WARNING,
-    'info': logging.INFO,
-    'debug': logging.DEBUG,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
 }

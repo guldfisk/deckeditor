@@ -1,4 +1,4 @@
-from PyQt5 import QtWidgets, QtGui
+from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal
 
 
@@ -11,7 +11,6 @@ class ClickableFrame(QtWidgets.QFrame):
 
 
 class Spoiler(QtWidgets.QWidget):
-
     def __init__(self, expanded: bool = True):
         super().__init__()
 

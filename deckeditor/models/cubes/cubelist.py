@@ -2,23 +2,18 @@ from __future__ import annotations
 
 import typing as t
 
-from sortedcontainers import SortedDict
-
-from PyQt5 import QtGui
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QAbstractTableModel, QModelIndex
-from PyQt5.QtWidgets import QUndoStack
-
-from mtgorp.models.interfaces import Printing
-
 from magiccube.collections.delta import CubeDeltaOperation
+from mtgorp.models.interfaces import Printing
+from PyQt5 import QtGui
+from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PyQt5.QtWidgets import QUndoStack
+from sortedcontainers import SortedDict
 
 from deckeditor.models.cubes.cubescene import CubeScene, PhysicalCardChange
 from deckeditor.models.focusables.color import UIColor
 
 
 class ChangeOperationCheck(object):
-
     def __init__(self):
         self._changing = False
 
@@ -35,7 +30,6 @@ class ChangeOperationCheck(object):
 
 
 class CubeList(QAbstractTableModel):
-
     def __init__(self, cube_scene: CubeScene, undo_stack: QUndoStack):
         super().__init__()
         self._cube_scene = cube_scene
@@ -43,12 +37,12 @@ class CubeList(QAbstractTableModel):
 
         self._lines = SortedDict(lambda c: str(c.id))
         self._column_names = (
-            'Qty',
-            'Name',
-            'Set',
-            'Mana Cost',
-            'Typeline',
-            'p/t/l',
+            "Qty",
+            "Name",
+            "Set",
+            "Mana Cost",
+            "Typeline",
+            "p/t/l",
         )
         self._changing = ChangeOperationCheck()
         self._cube_scene.content_changed.connect(self._on_cards_changed)
@@ -85,12 +79,8 @@ class CubeList(QAbstractTableModel):
 
             self._undo_stack.push(
                 self._cube_scene.get_cube_modification(
-                    modification = CubeDeltaOperation(
-                        {
-                            cubeable: -value
-                            for cubeable, value in
-                            self._lines.items()[row: row + count]
-                        }
+                    modification=CubeDeltaOperation(
+                        {cubeable: -value for cubeable, value in self._lines.items()[row : row + count]}
                     )
                 )
             )
@@ -108,15 +98,12 @@ class CubeList(QAbstractTableModel):
             return False
 
         self._undo_stack.push(
-            self._cube_scene.get_cube_modification(
-                modification = CubeDeltaOperation({cubeable: value - quantity})
-            )
-
+            self._cube_scene.get_cube_modification(modification=CubeDeltaOperation({cubeable: value - quantity}))
         )
         return True
 
     def data(self, index: QModelIndex, role: int = ...) -> t.Any:
-        if not role in (Qt.DisplayRole, Qt.EditRole, Qt.BackgroundRole):
+        if role not in (Qt.DisplayRole, Qt.EditRole, Qt.BackgroundRole):
             return None
 
         try:
@@ -127,9 +114,7 @@ class CubeList(QAbstractTableModel):
         c = index.column()
 
         if role == Qt.BackgroundRole:
-            return QtGui.QBrush(
-                UIColor.for_focusable(cubeable).value
-            )
+            return QtGui.QBrush(UIColor.for_focusable(cubeable).value)
 
         if c == 0:
             return quantity
@@ -138,35 +123,31 @@ class CubeList(QAbstractTableModel):
             return cubeable.cardboard.name if isinstance(cubeable, Printing) else cubeable.description
 
         if c == 2:
-            return cubeable.expansion.code if isinstance(cubeable, Printing) else ''
+            return cubeable.expansion.code if isinstance(cubeable, Printing) else ""
 
         if c == 3:
             return (
                 str(cubeable.cardboard.front_card.mana_cost)
-                if isinstance(cubeable, Printing) and cubeable.cardboard.front_card.mana_cost is not None else
-                ''
+                if isinstance(cubeable, Printing) and cubeable.cardboard.front_card.mana_cost is not None
+                else ""
             )
 
         if c == 4:
-            return (
-                str(cubeable.cardboard.front_card.type_line)
-                if isinstance(cubeable, Printing) else
-                ''
-            )
+            return str(cubeable.cardboard.front_card.type_line) if isinstance(cubeable, Printing) else ""
 
         if c == 5:
             return (
                 str(
                     cubeable.cardboard.front_card.loyalty
-                    if cubeable.cardboard.front_card.loyalty is not None else
-                    (
+                    if cubeable.cardboard.front_card.loyalty is not None
+                    else (
                         cubeable.cardboard.front_card.power_toughness
-                        if cubeable.cardboard.front_card.power_toughness is not None else
-                        ''
+                        if cubeable.cardboard.front_card.power_toughness is not None
+                        else ""
                     )
                 )
-                if isinstance(cubeable, Printing) else
-                ''
+                if isinstance(cubeable, Printing)
+                else ""
             )
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:

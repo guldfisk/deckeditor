@@ -1,15 +1,13 @@
 import typing as t
 
+from mtgimg.interface import IMAGE_SIZE_MAP, SizeSlug
+from mtgorp.models.interfaces import Cardboard, Printing
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 
-from mtgorp.models.interfaces import Cardboard, Printing
-
-from mtgimg.interface import SizeSlug, IMAGE_SIZE_MAP
-
-from deckeditor.models.focusables.lists import ExpansionPrintingList
 from deckeditor.components.cardadd.cardadder import CardboardSelector
+from deckeditor.models.focusables.lists import ExpansionPrintingList
 from deckeditor.utils.dialogs import SingleInstanceDialog
 from deckeditor.views.focusables.multi import FocusableMultiView
 
@@ -19,11 +17,11 @@ class SelectOneOfPrintingsDialog(QDialog):
 
     def __init__(self, printings: t.Sequence[Printing]):
         super().__init__()
-        self.setWindowTitle('Select cubeable')
+        self.setWindowTitle("Select cubeable")
 
         self._list_model = ExpansionPrintingList(printings)
 
-        self._view = FocusableMultiView(image_mode = True, image_size = SizeSlug.SMALL)
+        self._view = FocusableMultiView(image_mode=True, image_size=SizeSlug.SMALL)
         self._view.set_model(self._list_model)
         self._view.focusable_selected.connect(self._on_cubeable_clicked)
 
@@ -41,10 +39,9 @@ class SelectOneOfPrintingsDialog(QDialog):
 
 
 class SelectCardboardDialog(SingleInstanceDialog):
-
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Select Cardboard')
+        self.setWindowTitle("Select Cardboard")
 
         self._cardboard_selector = CardboardSelector()
 

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import typing as t
 import os
-
-from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QIcon
-
-from mtgorp.models.serilization.strategies.raw import RawStrategy
+import typing as t
 
 from magiccube.collections.infinites import Infinites
+from mtgorp.models.serilization.strategies.raw import RawStrategy
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QIcon
 
 from deckeditor import paths
 from deckeditor.components.lobbies.interfaces import LobbyViewInterface
@@ -21,16 +19,14 @@ from deckeditor.views.focusables.dialogs import SelectCardboardDialog
 
 
 class InfinitesSummary(QtWidgets.QLabel, OptionsSelector):
-
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         self.setText(
-            ', '.join(
+            ", ".join(
                 sorted(
                     c.name
-                    for c in
-                    RawStrategy(Context.db).deserialize(
+                    for c in RawStrategy(Context.db).deserialize(
                         Infinites,
-                        options['infinites'],
+                        options["infinites"],
                     )
                 )
             )
@@ -38,7 +34,6 @@ class InfinitesSummary(QtWidgets.QLabel, OptionsSelector):
 
 
 class InfinitesTable(CardboardList):
-
     def __init__(self, lobby_view: LobbyViewInterface):
         super().__init__()
         self.setMinimumWidth(300)
@@ -59,10 +54,8 @@ class InfinitesTable(CardboardList):
                 self._lobby_view.lobby_model.set_options(
                     self._lobby_view.lobby.name,
                     {
-                        'infinites': RawStrategy.serialize(
-                            self._infinites - Infinites(
-                                (Context.db.cardboards[item.data(0)],)
-                            )
+                        "infinites": RawStrategy.serialize(
+                            self._infinites - Infinites((Context.db.cardboards[item.data(0)],))
                         ),
                     },
                 )
@@ -76,7 +69,6 @@ class InfinitesTable(CardboardList):
 
 
 class InfinitesSelector(QtWidgets.QWidget, OptionsSelector):
-
     def __init__(self, lobby_view: LobbyViewInterface):
         super().__init__()
 
@@ -85,11 +77,7 @@ class InfinitesSelector(QtWidgets.QWidget, OptionsSelector):
 
         self._toggle_button = QtWidgets.QPushButton()
         self._toggle_button.setFixedSize(QSize(20, 20))
-        self._toggle_button.setIcon(
-            QIcon(
-                os.path.join(paths.ICONS_PATH, 'maximize.svg')
-            )
-        )
+        self._toggle_button.setIcon(QIcon(os.path.join(paths.ICONS_PATH, "maximize.svg")))
 
         self._expanded = False
 
@@ -97,11 +85,7 @@ class InfinitesSelector(QtWidgets.QWidget, OptionsSelector):
 
         self._add_button = QtWidgets.QPushButton()
         self._add_button.setFixedSize(QSize(20, 20))
-        self._add_button.setIcon(
-            QIcon(
-                os.path.join(paths.ICONS_PATH, 'plus.svg')
-            )
-        )
+        self._add_button.setIcon(QIcon(os.path.join(paths.ICONS_PATH, "plus.svg")))
 
         self._add_button.pressed.connect(self._handle_add)
 
@@ -118,15 +102,13 @@ class InfinitesSelector(QtWidgets.QWidget, OptionsSelector):
         layout.setContentsMargins(0, 0, 0, 0)
 
         layout.addWidget(self._stack)
-        layout.addWidget(self._toggle_button, alignment = QtCore.Qt.AlignTop)
-        layout.addWidget(self._add_button, alignment = QtCore.Qt.AlignTop)
+        layout.addWidget(self._toggle_button, alignment=QtCore.Qt.AlignTop)
+        layout.addWidget(self._add_button, alignment=QtCore.Qt.AlignTop)
 
     def _handle_toggle(self) -> None:
         self._expanded = not self._expanded
         self._toggle_button.setIcon(
-            QIcon(
-                os.path.join(paths.ICONS_PATH, 'minimize.svg' if self._expanded else 'maximize.svg')
-            )
+            QIcon(os.path.join(paths.ICONS_PATH, "minimize.svg" if self._expanded else "maximize.svg"))
         )
         self._stack.setCurrentWidget(self._table if self._expanded else self._summary)
 
@@ -139,16 +121,12 @@ class InfinitesSelector(QtWidgets.QWidget, OptionsSelector):
         self._lobby_view.lobby_model.set_options(
             self._lobby_view.lobby.name,
             {
-                'infinites': RawStrategy.serialize(
-                    self._infinites + Infinites(
-                        (cardboard,)
-                    )
-                ),
+                "infinites": RawStrategy.serialize(self._infinites + Infinites((cardboard,))),
             },
         )
 
     def update_content(self, options: t.Mapping[str, t.Any], enabled: bool) -> None:
         self._summary.update_content(options, enabled)
-        self._infinites = RawStrategy(Context.db).deserialize(Infinites, options['infinites'])
+        self._infinites = RawStrategy(Context.db).deserialize(Infinites, options["infinites"])
         self._table.update_content(self._infinites, enabled)
         self._add_button.setEnabled(enabled)

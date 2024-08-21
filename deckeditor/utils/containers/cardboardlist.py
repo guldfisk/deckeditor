@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtCore import QPoint, QModelIndex
-
 from mtgorp.models.interfaces import Cardboard
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QModelIndex, QPoint
 
 from deckeditor.components.cardview.focuscard import FocusEvent
 from deckeditor.context.context import Context
 
 
 class CardboardItem(QtWidgets.QListWidgetItem):
-
     def __init__(self, cardboard: Cardboard):
         super().__init__()
         self._cardboard = cardboard
@@ -53,7 +51,5 @@ class CardboardList(QtWidgets.QListWidget):
 
     def set_cardboards(self, cardboards: t.Iterable[Cardboard]):
         self.clear()
-        for cardboard in sorted(cardboards, key = lambda _cardboard: _cardboard.name):
-            self.addItem(
-                CardboardItem(cardboard)
-            )
+        for cardboard in sorted(cardboards, key=lambda _cardboard: _cardboard.name):
+            self.addItem(CardboardItem(cardboard))

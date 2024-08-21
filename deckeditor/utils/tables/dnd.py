@@ -1,11 +1,10 @@
 import typing as t
 
-from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QModelIndex
 
 
 class ListDNDTable(QtWidgets.QTableView):
-
     def __init__(self):
         super().__init__()
 
@@ -31,7 +30,7 @@ class ListDNDTable(QtWidgets.QTableView):
             mime = QtCore.QMimeData()
             stream = QtCore.QByteArray()
 
-            mime.setData('cards', stream)
+            mime.setData("cards", stream)
             drag.setMimeData(mime)
             drag.exec_()
 

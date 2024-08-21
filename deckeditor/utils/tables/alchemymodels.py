@@ -3,21 +3,19 @@ from abc import abstractmethod
 from collections import OrderedDict
 from enum import Enum
 
+from lru import LRU
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QModelIndex, Qt
 from PyQt5.sip import wrappertype
-
 from sqlalchemy import func
 from sqlalchemy.orm import Query
 from sqlalchemy.orm.attributes import QueryableAttribute
-
-from lru import LRU
 
 from deckeditor.store import EDB
 from deckeditor.utils.delegates import ComboBoxDelegate
 
 
-T = t.TypeVar('T')
+T = t.TypeVar("T")
 
 Primitive = t.Union[None, str, int, float, bool]
 
@@ -27,7 +25,6 @@ class PrimitiveConversionError(Exception):
 
 
 class ConvertibleColumn(t.Generic[T]):
-
     def __init__(self, column: QueryableAttribute):
         self._column = column
 
@@ -48,7 +45,6 @@ class ConvertibleColumn(t.Generic[T]):
 
 
 class PrimitiveColumn(ConvertibleColumn[T]):
-
     def to_primitive(self, value: T) -> Primitive:
         return value
 
@@ -57,7 +53,6 @@ class PrimitiveColumn(ConvertibleColumn[T]):
 
 
 class MappingColumn(ConvertibleColumn[T]):
-
     def __init__(self, column: QueryableAttribute, mapping: t.Iterable[t.Tuple[Primitive, T]]):
         super().__init__(column)
         self._mapping = OrderedDict(mapping)
@@ -76,36 +71,25 @@ class MappingColumn(ConvertibleColumn[T]):
             raise PrimitiveConversionError()
 
 
-E = t.TypeVar('E', bound = Enum)
+E = t.TypeVar("E", bound=Enum)
 
 
 class EnumColumn(MappingColumn[E]):
-
     def __init__(self, column: QueryableAttribute, enum: t.Type[E]):
         super().__init__(
             column,
-            (
-                (e.value, e)
-                for e in
-                enum
-            ),
+            ((e.value, e) for e in enum),
         )
 
 
 class _SqlAlchemyTableModelMeta(wrappertype):
-
     def __new__(mcs, classname, base_classes, attributes):
-        attributes['_columns'] = [
-            v
-            for k, v in
-            attributes.items()
-            if isinstance(v, ConvertibleColumn)
-        ]
+        attributes["_columns"] = [v for k, v in attributes.items() if isinstance(v, ConvertibleColumn)]
 
         return wrappertype.__new__(mcs, classname, base_classes, attributes)
 
 
-class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass = _SqlAlchemyTableModelMeta):
+class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass=_SqlAlchemyTableModelMeta):
     _columns: t.Sequence[ConvertibleColumn]
 
     def __init__(
@@ -127,9 +111,9 @@ class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass = _SqlAlc
             self._columns = columns
 
         if not self._columns:
-            raise ValueError('Specify at least one column')
+            raise ValueError("Specify at least one column")
 
-        self._header_names = tuple(' '.join(v.capitalize() for v in c.column.name.split('_')) for c in self._columns)
+        self._header_names = tuple(" ".join(v.capitalize() for v in c.column.name.split("_")) for c in self._columns)
 
         self._cache = LRU(int(page_size * 2))
         self._cached_size = None
@@ -166,7 +150,7 @@ class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass = _SqlAlc
         return len(self._columns)
 
     def data(self, index: QModelIndex, role: int = ...) -> t.Any:
-        if not role in (Qt.DisplayRole, Qt.EditRole):
+        if role not in (Qt.DisplayRole, Qt.EditRole):
             return None
 
         row = self.get_item_at_index(index.row())
@@ -215,23 +199,15 @@ class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass = _SqlAlc
         items = list(
             filter(
                 lambda i: i is not None,
-                (
-                    getattr(self.get_item_at_index(idx), pk_column.name)
-                    for idx in
-                    range(row, row + count)
-                )
+                (getattr(self.get_item_at_index(idx), pk_column.name) for idx in range(row, row + count)),
             )
         )
 
         if not items:
             return False
 
-        EDB.Session.query(self._model_type).filter(
-            pk_column.in_(
-                items
-            )
-        ).delete(
-            syncronize_session = 'fetch',
+        EDB.Session.query(self._model_type).filter(pk_column.in_(items)).delete(
+            syncronize_session="fetch",
         )
 
         if self._auto_commit:
@@ -263,16 +239,11 @@ class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass = _SqlAlc
         items = [
             _item
             for _item in (
-                self.get_item_at_index(idx)
-                for idx in
-                range(floor, max(sourceRow, destinationChild) + count)
-            ) if _item is not None
+                self.get_item_at_index(idx) for idx in range(floor, max(sourceRow, destinationChild) + count)
+            )
+            if _item is not None
         ]
-        old_values = [
-            getattr(_item, self._order_by_column.name)
-            for _item in
-            items
-        ]
+        old_values = [getattr(_item, self._order_by_column.name) for _item in items]
 
         for _ in range(count):
             items.insert(destinationChild - floor, items.pop(sourceRow - floor))
@@ -295,40 +266,22 @@ class AlchemyModel(t.Generic[T], QtCore.QAbstractTableModel, metaclass = _SqlAlc
 
 
 class IndexedAlchemyModel(AlchemyModel[T]):
-
     def removeRows(self, row: int, count: int, parent: QModelIndex = QModelIndex()) -> bool:
         self.beginRemoveRows(parent, row, row - 1 + count)
         pk_column = self._model_type.__mapper__.primary_key[0]
 
-        items = list(
-            filter(
-                lambda i: i is not None,
-                (
-                    self.get_item_at_index(idx)
-                    for idx in
-                    range(row, row + count)
-                )
-            )
-        )
+        items = list(filter(lambda i: i is not None, (self.get_item_at_index(idx) for idx in range(row, row + count))))
 
         if not items:
             return False
 
         EDB.Session.query(self._model_type).filter(
-            pk_column.in_(
-                [
-                    getattr(_item, pk_column.name)
-                    for _item in
-                    items
-                ]
-            )
+            pk_column.in_([getattr(_item, pk_column.name) for _item in items])
         ).delete(
-            synchronize_session = 'fetch',
+            synchronize_session="fetch",
         )
 
-        self.get_query().filter(
-            self._order_by_column >= getattr(items[-1], self._order_by_column.name)
-        ).update(
+        self.get_query().filter(self._order_by_column >= getattr(items[-1], self._order_by_column.name)).update(
             {self._order_by_column: self._order_by_column - len(items)},
         )
 
@@ -345,9 +298,7 @@ class IndexedAlchemyModel(AlchemyModel[T]):
             self._order_by_column.name,
             index,
         )
-        self.get_query().filter(
-            self._order_by_column >= index
-        ).update(
+        self.get_query().filter(self._order_by_column >= index).update(
             {self._order_by_column: self._order_by_column + 1},
         )
         EDB.Session.add(item)

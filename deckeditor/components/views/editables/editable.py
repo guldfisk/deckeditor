@@ -5,13 +5,13 @@ from abc import abstractmethod
 from enum import Enum
 
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QUndoStack
+from PyQt5.QtWidgets import QUndoStack, QWidget
 
 
 class TabType(Enum):
-    DECK = 'deck'
-    POOL = 'pool'
-    DRAFT = 'draft'
+    DECK = "deck"
+    POOL = "pool"
+    DRAFT = "draft"
 
 
 class Tab(QWidget):
@@ -50,7 +50,6 @@ class Tab(QWidget):
 
 
 class Editable(QWidget):
-
     def __init__(self, undo_stack: QUndoStack) -> None:
         super().__init__()
         self.tab: t.Optional[Tab] = None

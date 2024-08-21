@@ -2,21 +2,30 @@ from __future__ import annotations
 
 import typing as t
 
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QModelIndex, Qt, pyqtSignal
+from PyQt5.QtWidgets import QCompleter, QDialog, QDialogButtonBox, QInputDialog
 from sqlalchemy import func
-
-from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtCore import Qt, pyqtSignal, QModelIndex
-from PyQt5.QtWidgets import QCompleter, QInputDialog, QDialogButtonBox, QDialog
 from sqlalchemy.orm import Query, make_transient
 
-from deckeditor.sorting.sorting import SortProperty, SortDirection, SortDimension, DimensionContinuity
+from deckeditor.sorting.sorting import (
+    DimensionContinuity,
+    SortDimension,
+    SortDirection,
+    SortProperty,
+)
 from deckeditor.store import EDB
-from deckeditor.store.models import SortSpecification, SortMacro
+from deckeditor.store.models import SortMacro, SortSpecification
 from deckeditor.utils.actions import WithActions
 from deckeditor.utils.components.enumselector import EnumSelector
 from deckeditor.utils.delegates import CheckBoxDelegate, ComboBoxDelegate
-from deckeditor.utils.tables.alchemymodels import IndexedAlchemyModel, MappingColumn, EnumColumn, PrimitiveColumn, T
 from deckeditor.utils.dialogs import SingleInstanceDialog
+from deckeditor.utils.tables.alchemymodels import (
+    EnumColumn,
+    IndexedAlchemyModel,
+    MappingColumn,
+    PrimitiveColumn,
+)
 from deckeditor.utils.tables.dnd import ListDNDTable
 from deckeditor.utils.tables.listdelete import LineDeleteMixin
 
@@ -35,10 +44,10 @@ class SortSpecificationDimensionModel(IndexedAlchemyModel[SortSpecification]):
         auto_commit: bool = False,
     ):
         super().__init__(
-            model_type = SortSpecification,
-            order_by = SortSpecification.index,
-            page_size = page_size,
-            auto_commit = auto_commit,
+            model_type=SortSpecification,
+            order_by=SortSpecification.index,
+            page_size=page_size,
+            auto_commit=auto_commit,
         )
         self._macro = macro
         self._dimension = dimension
@@ -113,7 +122,6 @@ class SortsTable(ListDNDTable, LineDeleteMixin):
 
 
 class MacrosTable(ListDNDTable, LineDeleteMixin):
-
     def __init__(self):
         super().__init__()
 
@@ -159,7 +167,7 @@ class SortPropertySelector(QtWidgets.QLineEdit):
             try:
                 sort_property = SortProperty.names_to_sort_property[self.text()]
             except KeyError:
-                fragments = self.text().split(' ')
+                fragments = self.text().split(" ")
                 if not fragments:
                     return
                 for key in sorted(SortProperty.names_to_sort_property.keys()):
@@ -180,7 +188,7 @@ class SortSpecificationSelector(QtWidgets.QWidget, WithActions):
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
-        self.setWindowTitle('Sort')
+        self.setWindowTitle("Sort")
 
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -191,7 +199,7 @@ class SortSpecificationSelector(QtWidgets.QWidget, WithActions):
         self._dimension_selector: EnumSelector[SortDimension] = EnumSelector(SortDimension)
         self._direction_selector: EnumSelector[SortDirection] = EnumSelector(SortDirection)
 
-        self._respect_custom_box = QtWidgets.QCheckBox('Respect custom sort values')
+        self._respect_custom_box = QtWidgets.QCheckBox("Respect custom sort values")
         self._respect_custom_box.setChecked(True)
 
         self._macroes_table = QtWidgets.QTableView()
@@ -204,22 +212,22 @@ class SortSpecificationSelector(QtWidgets.QWidget, WithActions):
         def set_dimension(dimension: SortDimension) -> t.Callable[[], None]:
             return lambda: self._dimension_selector.set_value(dimension)
 
-        self._create_action('Auto Dimension', set_dimension(SortDimension.AUTO), 'Alt+Q')
-        self._create_action('Horizontal Dimension', set_dimension(SortDimension.HORIZONTAL), 'Alt+W')
-        self._create_action('Vertical Dimension', set_dimension(SortDimension.VERTICAL), 'Alt+E')
-        self._create_action('Sub Divisions Dimension', set_dimension(SortDimension.SUB_DIVISIONS), 'Alt+R')
+        self._create_action("Auto Dimension", set_dimension(SortDimension.AUTO), "Alt+Q")
+        self._create_action("Horizontal Dimension", set_dimension(SortDimension.HORIZONTAL), "Alt+W")
+        self._create_action("Vertical Dimension", set_dimension(SortDimension.VERTICAL), "Alt+E")
+        self._create_action("Sub Divisions Dimension", set_dimension(SortDimension.SUB_DIVISIONS), "Alt+R")
 
         def set_direction(direction: SortDirection) -> t.Callable[[], None]:
             return lambda: self._direction_selector.set_value(direction)
 
-        self._create_action('Auto Direction', set_direction(SortDirection.AUTO), 'Alt+A')
-        self._create_action('Ascending Direction', set_direction(SortDirection.ASCENDING), 'Alt+S')
-        self._create_action('Descending Direction', set_direction(SortDirection.DESCENDING), 'Alt+D')
+        self._create_action("Auto Direction", set_direction(SortDirection.AUTO), "Alt+A")
+        self._create_action("Ascending Direction", set_direction(SortDirection.ASCENDING), "Alt+S")
+        self._create_action("Descending Direction", set_direction(SortDirection.DESCENDING), "Alt+D")
 
         self._create_action(
-            'Toggle Respect Custom',
+            "Toggle Respect Custom",
             lambda: self._respect_custom_box.setChecked(not self._respect_custom_box.isChecked()),
-            'Alt+F',
+            "Alt+F",
         )
 
         self.setLayout(layout)
@@ -227,10 +235,10 @@ class SortSpecificationSelector(QtWidgets.QWidget, WithActions):
     def _on_sort_property_selected(self, sort_property: t.Type[SortProperty]) -> None:
         self.sort_specification_selected.emit(
             SortSpecification(
-                sort_property = sort_property,
-                dimension = self._dimension_selector.get_value(),
-                direction = self._direction_selector.get_value(),
-                respect_custom = self._respect_custom_box.isChecked(),
+                sort_property=sort_property,
+                dimension=self._dimension_selector.get_value(),
+                direction=self._direction_selector.get_value(),
+                respect_custom=self._respect_custom_box.isChecked(),
             )
         )
 
@@ -240,7 +248,7 @@ class SortSpecificationSelectorDialog(SingleInstanceDialog):
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
-        self.setWindowTitle('New sort specification')
+        self.setWindowTitle("New sort specification")
 
         layout = QtWidgets.QVBoxLayout(self)
 
@@ -267,7 +275,7 @@ class EditMacroesDialog(QDialog, WithActions):
 
     def __init__(self, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
-        self.setWindowTitle('Sort')
+        self.setWindowTitle("Sort")
 
         layout = QtWidgets.QGridLayout(self)
 
@@ -278,34 +286,34 @@ class EditMacroesDialog(QDialog, WithActions):
         self._sub_table = SortsTable()
 
         self._macroes_model: IndexedAlchemyModel[SortMacro] = IndexedAlchemyModel(
-            model_type = SortMacro,
-            order_by = SortMacro.index,
-            columns = [
+            model_type=SortMacro,
+            order_by=SortMacro.index,
+            columns=[
                 PrimitiveColumn(SortMacro.name),
                 EnumColumn(SortMacro.horizontal_continuity, DimensionContinuity),
                 EnumColumn(SortMacro.vertical_continuity, DimensionContinuity),
                 EnumColumn(SortMacro.sub_continuity, DimensionContinuity),
             ],
-            auto_commit = False,
+            auto_commit=False,
         )
         self._macroes_table = MacrosTable()
         self._macroes_table.setModel(self._macroes_model)
         self._macroes_table.selectionModel().currentChanged.connect(self._on_macro_selected)
 
-        self._new_macro_button = QtWidgets.QPushButton('New Macro')
+        self._new_macro_button = QtWidgets.QPushButton("New Macro")
         self._new_macro_button.clicked.connect(self._on_new_macro)
-        self._new_macro_button.setShortcut('Ctrl+Shift+N')
+        self._new_macro_button.setShortcut("Ctrl+Shift+N")
 
-        self._add_specification_button = QtWidgets.QPushButton('New Specification')
+        self._add_specification_button = QtWidgets.QPushButton("New Specification")
         self._add_specification_button.clicked.connect(self._on_add_sort_specification)
-        self._add_specification_button.setShortcut('Ctrl+N')
+        self._add_specification_button.setShortcut("Ctrl+N")
         self._add_specification_button.setDisabled(True)
 
         layout.addWidget(self._macro_name_label, 0, 0, 1, 1)
 
-        layout.addWidget(QtWidgets.QLabel('Horizontal'), 1, 0, 1, 1)
-        layout.addWidget(QtWidgets.QLabel('Vertical'), 1, 1, 1, 1)
-        layout.addWidget(QtWidgets.QLabel('Sub Divisions'), 1, 2, 1, 1)
+        layout.addWidget(QtWidgets.QLabel("Horizontal"), 1, 0, 1, 1)
+        layout.addWidget(QtWidgets.QLabel("Vertical"), 1, 1, 1, 1)
+        layout.addWidget(QtWidgets.QLabel("Sub Divisions"), 1, 2, 1, 1)
 
         layout.addWidget(self._horizontal_table, 2, 0, 1, 1)
         layout.addWidget(self._vertical_table, 2, 1, 1, 1)
@@ -352,7 +360,7 @@ class EditMacroesDialog(QDialog, WithActions):
             ):
                 table.setModel(None)
             self._add_specification_button.setDisabled(True)
-            self._macro_name_label.setText('')
+            self._macro_name_label.setText("")
             return
 
         for table, dimension in (
@@ -362,8 +370,8 @@ class EditMacroesDialog(QDialog, WithActions):
         ):
             table.setModel(
                 SortSpecificationDimensionModel(
-                    macro = macro,
-                    dimension = dimension,
+                    macro=macro,
+                    dimension=dimension,
                 )
             )
         self._add_specification_button.setDisabled(False)
@@ -374,13 +382,13 @@ class EditMacroesDialog(QDialog, WithActions):
         next_index = 0 if next_index is None else next_index + 1
         macro_name, success = QInputDialog.getText(
             self,
-            'Save macro',
-            'Choose name',
-            text = 'Macro {}'.format(next_index),
+            "Save macro",
+            "Choose name",
+            text="Macro {}".format(next_index),
         )
         if not success:
             return
-        macro = SortMacro(name = macro_name, index = next_index)
+        macro = SortMacro(name=macro_name, index=next_index)
         EDB.Session.add(macro)
         self._macroes_model.reset()
         self._macroes_table.selectionModel().setCurrentIndex(

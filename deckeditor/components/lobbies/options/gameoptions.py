@@ -10,14 +10,13 @@ from deckeditor.components.lobbies.options.games.sealed import SealedOptionsSele
 
 
 class GameOptionsSelector(QtWidgets.QStackedWidget):
-
     def __init__(self, lobby_view: LobbyViewInterface):
         super().__init__()
         self._lobby_view = lobby_view
 
         self._options_selectors = {
-            'draft': DraftOptionsSelector(lobby_view),
-            'sealed': SealedOptionsSelector(lobby_view),
+            "draft": DraftOptionsSelector(lobby_view),
+            "sealed": SealedOptionsSelector(lobby_view),
         }
         for option_selector in self._options_selectors.values():
             self.addWidget(option_selector)

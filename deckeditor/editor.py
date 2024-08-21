@@ -11,13 +11,17 @@ import traceback
 import typing as t
 
 import requests
-
-from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QWidget, QMainWindow, QAction, QUndoView, QMessageBox, QDialog
-
-from yeetlong.multiset import Multiset
-
 from magiccube.collections.delta import CubeDeltaOperation
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import (
+    QAction,
+    QDialog,
+    QMainWindow,
+    QMessageBox,
+    QUndoView,
+    QWidget,
+)
+from yeetlong.multiset import Multiset
 
 from deckeditor import paths, values
 from deckeditor.application.embargo import EmbargoApp
@@ -25,30 +29,35 @@ from deckeditor.authentication.login import LOGIN_CONTROLLER
 from deckeditor.components.authentication.login import LoginDialog
 from deckeditor.components.cardadd.cardadder import PrintingSelector
 from deckeditor.components.cardview.cubeableview import CubeableView
-from deckeditor.components.cardview.ratingview import RatingView
 from deckeditor.components.db.info import DBInfoDialog
 from deckeditor.components.db.update import DBUpdateDialog
-from deckeditor.components.editables.editablestabs import FileOpenException, EditablesTabs, FileSaveException
+from deckeditor.components.editables.editablestabs import (
+    EditablesTabs,
+    FileOpenException,
+    FileSaveException,
+)
 from deckeditor.components.help.about import AboutDialog
 from deckeditor.components.lobbies.view import LobbiesView, LobbyModelClientConnection
 from deckeditor.components.sample.hand import SampleHandDialog
 from deckeditor.components.sealed.view import LimitedSessionsView
 from deckeditor.components.settings import settings
 from deckeditor.components.settings.dialog import SettingsDialog
-from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import GraphicsMiniView
+from deckeditor.components.views.cubeedit.graphical.cubeimagepreview import (
+    GraphicsMiniView,
+)
 from deckeditor.components.views.cubeedit.graphical.sortdialog import EditMacroesDialog
 from deckeditor.components.views.editables.editable import TabType
 from deckeditor.components.views.editables.multicubesview import MultiCubesView
 from deckeditor.context.context import Context, DbType
 from deckeditor.models.cubes.alignment.init import init_aligners
 from deckeditor.models.cubes.scenetypes import SceneType
-from deckeditor.models.deck import DeckModel, Deck, TabModel, Pool
+from deckeditor.models.deck import Deck, DeckModel, Pool, TabModel
 from deckeditor.notifications.frame import NotificationFrame
 from deckeditor.serialization.tabmodelserializer import init_deck_serializers
 from deckeditor.server.client import EmbargoClient
 from deckeditor.server.server import EmbargoServer
 from deckeditor.sorting.custom import CustomSortMap
-from deckeditor.store import models, EDB
+from deckeditor.store import EDB, models
 from deckeditor.utils.actions import WithActions
 from deckeditor.utils.version import version_formatted
 from deckeditor.values import SUPPORTED_EXTENSIONS
@@ -56,7 +65,6 @@ from deckeditor.views.tournaments.matches import ScheduledMatchesView
 
 
 class MainView(QWidget):
-
     def __init__(self, parent: t.Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
@@ -73,7 +81,6 @@ class MainView(QWidget):
 
 
 class Dock(QtWidgets.QDockWidget, WithActions):
-
     def __init__(
         self,
         name: str,
@@ -92,7 +99,7 @@ class Dock(QtWidgets.QDockWidget, WithActions):
 
         self._wants_focus = wants_focus
 
-        self._create_action('Hide', self.hide, 'ESC')
+        self._create_action("Hide", self.hide, "ESC")
 
     @property
     def wants_focus(self) -> bool:
@@ -102,7 +109,7 @@ class Dock(QtWidgets.QDockWidget, WithActions):
 class MainWindow(QMainWindow, WithActions):
     pool_generated = QtCore.pyqtSignal(Multiset)
 
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         super().__init__(parent)
 
         self.setWindowIcon(QtGui.QIcon(paths.ICON_PATH))
@@ -118,14 +125,11 @@ class MainWindow(QMainWindow, WithActions):
         self._printing_view = CubeableView(self)
         Context.focus_card_changed.connect(self._printing_view.new_cubeable)
 
-        self._rating_view = RatingView()
-        Context.focus_card_changed.connect(self._rating_view.on_focus_event)
-
-        self._login_status_label = QtWidgets.QLabel('')
-        LOGIN_CONTROLLER.login_success.connect(lambda u, h: self._login_status_label.setText(f'{u.username}@{h}'))
-        LOGIN_CONTROLLER.login_failed.connect(lambda e: self._login_status_label.setText(''))
-        LOGIN_CONTROLLER.login_terminated.connect(lambda: self._login_status_label.setText(''))
-        LOGIN_CONTROLLER.login_pending.connect(lambda u, h: self._login_status_label.setText(f'logging in @ {h}'))
+        self._login_status_label = QtWidgets.QLabel("")
+        LOGIN_CONTROLLER.login_success.connect(lambda u, h: self._login_status_label.setText(f"{u.username}@{h}"))
+        LOGIN_CONTROLLER.login_failed.connect(lambda e: self._login_status_label.setText(""))
+        LOGIN_CONTROLLER.login_terminated.connect(lambda: self._login_status_label.setText(""))
+        LOGIN_CONTROLLER.login_pending.connect(lambda u, h: self._login_status_label.setText(f"logging in @ {h}"))
 
         self.statusBar().setContentsMargins(10, 0, 10, 0)
         self.statusBar().addPermanentWidget(self._login_status_label)
@@ -133,60 +137,46 @@ class MainWindow(QMainWindow, WithActions):
 
         self.statusBar().addPermanentWidget(QtWidgets.QLabel(version_formatted()))
 
-        self._card_view_dock = Dock('Card View', 'card_view_dock', self, self._printing_view, wants_focus = False)
+        self._card_view_dock = Dock("Card View", "card_view_dock", self, self._printing_view, wants_focus=False)
         Context.focus_freeze_changed.connect(
-            lambda frozen: self._card_view_dock.setWindowTitle(
-                'Card View'
-                + (' (frozen)' if frozen else '')
-            )
-        )
-
-        self._rating_view_dock = Dock('Rating View', 'rating_view_dock', self, self._rating_view, wants_focus = False)
-        Context.focus_freeze_changed.connect(
-            lambda frozen: self._rating_view_dock.setWindowTitle(
-                'Rating View'
-                + (' (frozen)' if frozen else '')
-            )
+            lambda frozen: self._card_view_dock.setWindowTitle("Card View" + (" (frozen)" if frozen else ""))
         )
 
         self._card_adder = PrintingSelector(self)
         self._card_adder.add_printings.connect(self._on_add_printings)
 
-        self._card_adder_dock = Dock('Card Adder', 'card adder dock', self, self._card_adder)
+        self._card_adder_dock = Dock("Card Adder", "card adder dock", self, self._card_adder)
 
         self._undo_view = QUndoView(Context.undo_group)
 
-        self._undo_view_dock = Dock('Undo View', 'undo view dock', self, self._undo_view)
+        self._undo_view_dock = Dock("Undo View", "undo view dock", self, self._undo_view)
 
-        self._lobby_view = LobbiesView(
-            LobbyModelClientConnection()
-        )
+        self._lobby_view = LobbiesView(LobbyModelClientConnection())
         self._lobby_view_dock = Dock(
-            'Lobby View',
-            'lobbies',
+            "Lobby View",
+            "lobbies",
             self,
             self._lobby_view,
-            allowed_areas = QtCore.Qt.RightDockWidgetArea
-                            | QtCore.Qt.LeftDockWidgetArea
-                            | QtCore.Qt.BottomDockWidgetArea,
+            allowed_areas=QtCore.Qt.RightDockWidgetArea
+            | QtCore.Qt.LeftDockWidgetArea
+            | QtCore.Qt.BottomDockWidgetArea,
         )
 
         self._cube_view_minimap = GraphicsMiniView()
         Context.focus_scene_changed.connect(lambda scene: self._cube_view_minimap.set_scene(scene))
 
-        self._cube_view_minimap_dock = Dock('Minimap', 'minimap', self, self._cube_view_minimap, wants_focus = False)
+        self._cube_view_minimap_dock = Dock("Minimap", "minimap", self, self._cube_view_minimap, wants_focus=False)
 
         self._limited_sessions_view = LimitedSessionsView()
 
-        self._limited_sessions_dock = Dock('Limited', 'Limited', self, self._limited_sessions_view)
+        self._limited_sessions_dock = Dock("Limited", "Limited", self, self._limited_sessions_view)
 
         self._matches_view = ScheduledMatchesView()
 
-        self._matches_view_dock = Dock('Matches', 'Matches', self, self._matches_view)
+        self._matches_view_dock = Dock("Matches", "Matches", self, self._matches_view)
 
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._card_adder_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._card_view_dock)
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._rating_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._undo_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._lobby_view_dock)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._cube_view_minimap_dock)
@@ -194,7 +184,6 @@ class MainWindow(QMainWindow, WithActions):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self._matches_view_dock)
 
         self._card_view_dock.hide()
-        self._rating_view_dock.hide()
         self._card_adder_dock.hide()
         self._undo_view_dock.hide()
         self._lobby_view_dock.hide()
@@ -210,100 +199,87 @@ class MainWindow(QMainWindow, WithActions):
 
         all_menus = [
             (
-                menu_bar.addMenu('File'),
+                menu_bar.addMenu("File"),
                 (
-                    ('New Deck', 'Ctrl+N', self._new_deck),
-                    ('Open Deck', 'Ctrl+O', lambda: self.open(Deck)),
-                    ('Open Pool', 'Ctrl+P', lambda: self.open(Pool)),
-                    ('Save', 'Ctrl+S', self._save),
-                    ('Save As', 'Ctrl+Shift+S', self._save_as),
-                    ('Export Deck', 'Ctrl+Shift+E', self._export_deck),
-                    ('Close Tab', 'Ctrl+W', self._close_tab),
-                    'line',
-                    ('Exit', 'Ctrl+Q', self.close),
-
+                    ("New Deck", "Ctrl+N", self._new_deck),
+                    ("Open Deck", "Ctrl+O", lambda: self.open(Deck)),
+                    ("Open Pool", "Ctrl+P", lambda: self.open(Pool)),
+                    ("Save", "Ctrl+S", self._save),
+                    ("Save As", "Ctrl+Shift+S", self._save_as),
+                    ("Export Deck", "Ctrl+Shift+E", self._export_deck),
+                    ("Close Tab", "Ctrl+W", self._close_tab),
+                    "line",
+                    ("Exit", "Ctrl+Q", self.close),
                 ),
             ),
             (
-                menu_bar.addMenu('Edit'),
+                menu_bar.addMenu("Edit"),
                 (
-                    ('Undo', 'Ctrl+Z', Context.undo_group.undo),
-                    ('Redo', 'Ctrl+Shift+Z', Context.undo_group.redo),
-                    'line',
-                    ('Add cards', 'Ctrl+F', self._add_cards),
-                    ('Sort Macroes', 'Ctrl+M', self._edit_sort_macroes),
+                    ("Undo", "Ctrl+Z", Context.undo_group.undo),
+                    ("Redo", "Ctrl+Shift+Z", Context.undo_group.redo),
+                    "line",
+                    ("Add cards", "Ctrl+F", self._add_cards),
+                    ("Sort Macroes", "Ctrl+M", self._edit_sort_macroes),
                 ),
             ),
             (
-                menu_bar.addMenu('View'),
+                menu_bar.addMenu("View"),
                 (
-                    ('Card View', 'Meta+1', lambda: self._toggle_dock_view(self._card_view_dock)),
-                    ('Card Adder', 'Meta+2', lambda: self._toggle_dock_view(self._card_adder_dock)),
-                    ('Limited', 'Meta+3', lambda: self._toggle_dock_view(self._limited_sessions_dock)),
-                    ('Lobbies', 'Meta+4', lambda: self._toggle_dock_view(self._lobby_view_dock)),
-                    ('Matches', 'Meta+5', lambda: self._toggle_dock_view(self._matches_view_dock)),
-                    ('Rating', 'Meta+6', lambda: self._toggle_dock_view(self._rating_view_dock)),
-                    ('Undo', None, lambda: self._toggle_dock_view(self._undo_view_dock)),
-                    ('Minimap', None, lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
+                    ("Card View", "Meta+1", lambda: self._toggle_dock_view(self._card_view_dock)),
+                    ("Card Adder", "Meta+2", lambda: self._toggle_dock_view(self._card_adder_dock)),
+                    ("Limited", "Meta+3", lambda: self._toggle_dock_view(self._limited_sessions_dock)),
+                    ("Lobbies", "Meta+4", lambda: self._toggle_dock_view(self._lobby_view_dock)),
+                    ("Matches", "Meta+5", lambda: self._toggle_dock_view(self._matches_view_dock)),
+                    ("Undo", None, lambda: self._toggle_dock_view(self._undo_view_dock)),
+                    ("Minimap", None, lambda: self._toggle_dock_view(self._cube_view_minimap_dock)),
                 ),
             ),
             (
-                menu_bar.addMenu('Connect'),
+                menu_bar.addMenu("Connect"),
                 (
-                    ('Login', 'Ctrl+L', LoginDialog(self).exec_),
-                    ('Logout', None, LOGIN_CONTROLLER.log_out),
+                    ("Login", "Ctrl+L", LoginDialog(self).exec_),
+                    ("Logout", None, LOGIN_CONTROLLER.log_out),
                 ),
             ),
             (
-                menu_bar.addMenu('Draft'),
+                menu_bar.addMenu("Draft"),
                 (
-                    ('Go To Latest', 'Alt+Up', self._draft_history_wrapper('go_to_latest')),
-                    ('Go Back', 'Alt+Left', self._draft_history_wrapper('go_backwards')),
-                    ('Go Forward', 'Alt+Right', self._draft_history_wrapper('go_forward')),
-                    ('Go To Start', 'Alt+Down', self._draft_history_wrapper('go_to_start')),
+                    ("Go To Latest", "Alt+Up", self._draft_history_wrapper("go_to_latest")),
+                    ("Go Back", "Alt+Left", self._draft_history_wrapper("go_backwards")),
+                    ("Go Forward", "Alt+Right", self._draft_history_wrapper("go_forward")),
+                    ("Go To Start", "Alt+Down", self._draft_history_wrapper("go_to_start")),
+                ),
+            ),
+            (menu_bar.addMenu("Simulate"), (("Sample Hand", "Ctrl+H", self._sample_hand),)),
+            (
+                menu_bar.addMenu("Preferences"),
+                (("Settings", "Ctrl+Alt+S", lambda: SettingsDialog.get().exec_()),),
+            ),
+            (
+                menu_bar.addMenu("DB"),
+                (
+                    ("Info", None, lambda: DBInfoDialog().exec_()),
+                    ("Update", None, lambda: DBUpdateDialog().exec_()),
+                    ("Validate", None, lambda: LOGIN_CONTROLLER.validate(True)),
                 ),
             ),
             (
-                menu_bar.addMenu('Simulate'),
-                (
-                    ('Sample Hand', 'Ctrl+H', self._sample_hand),
-                )
-            ),
-            (
-                menu_bar.addMenu('Preferences'),
-                (
-                    ('Settings', 'Ctrl+Alt+S', lambda: SettingsDialog.get().exec_()),
-                ),
-            ),
-            (
-                menu_bar.addMenu('DB'),
-                (
-                    ('Info', None, lambda: DBInfoDialog().exec_()),
-                    ('Update', None, lambda: DBUpdateDialog().exec_()),
-                    ('Validate', None, lambda: LOGIN_CONTROLLER.validate(True)),
-                ),
-            ),
-            (
-                menu_bar.addMenu('Help'),
-                (
-                    ('About', None, lambda: AboutDialog().exec_()),
-                ),
+                menu_bar.addMenu("Help"),
+                (("About", None, lambda: AboutDialog().exec_()),),
             ),
         ]
 
         if Context.debug:
             all_menus.append(
                 (
-                    menu_bar.addMenu('Test'),
-                    (
-                        ('Test', 'Ctrl+T', self._test),
-                    ),
+                    menu_bar.addMenu("Test"),
+                    (("Test", "Ctrl+T", self._test),),
                 )
             )
 
         for menu, lines in all_menus:
             for line in lines:
-                if line == 'line':
+                if line == "line":
                     menu.addSeparator()
                 else:
                     name, shortcut, action = line
@@ -313,7 +289,7 @@ class MainWindow(QMainWindow, WithActions):
                     _action.triggered.connect(action)
                     menu.addAction(_action)
 
-        self._create_action('toggle freeze focus', Context.toggle_frozen_focus, 'Alt+F')
+        self._create_action("toggle freeze focus", Context.toggle_frozen_focus, "Alt+F")
 
         self._reset_dock_width = 500
         self._reset_dock_height = 1200
@@ -326,7 +302,7 @@ class MainWindow(QMainWindow, WithActions):
         self._load_state()
 
     def _test(self) -> None:
-        raise Exception('real cool test')
+        raise Exception("real cool test")
         # from notifypy import Notify
         # notification = Notify()
         # notification.title = 'New pack'
@@ -338,9 +314,7 @@ class MainWindow(QMainWindow, WithActions):
     def _sample_hand(self) -> None:
         tab = self._main_view.editables_tabs.currentWidget()
         if isinstance(tab.editable, MultiCubesView) and SceneType.MAINDECK in tab.editable.cube_views_map:
-            SampleHandDialog(
-                tab.editable.cube_views_map[SceneType.MAINDECK].cube_scene
-            ).exec_()
+            SampleHandDialog(tab.editable.cube_views_map[SceneType.MAINDECK].cube_scene).exec_()
 
     def _draft_history_wrapper(self, method: str) -> t.Callable[[], None]:
         def wrapper():
@@ -361,17 +335,11 @@ class MainWindow(QMainWindow, WithActions):
     def _on_add_printings(self, delta_operation: CubeDeltaOperation):
         tab = self._main_view.editables_tabs.currentWidget()
         if tab.tab_type == TabType.DECK:
-            tab.undo_stack.push(
-                tab.editable.deck_model.maindeck.get_cube_modification(delta_operation)
-            )
+            tab.undo_stack.push(tab.editable.deck_model.maindeck.get_cube_modification(delta_operation))
         elif tab.tab_type == TabType.POOL:
-            tab.undo_stack.push(
-                tab.editable.pool_model.maindeck.get_cube_modification(delta_operation)
-            )
+            tab.undo_stack.push(tab.editable.pool_model.maindeck.get_cube_modification(delta_operation))
         elif tab.tab_type == TabType.DRAFT:
-            tab.undo_stack.push(
-                tab.editable.pool_model.maindeck.get_cube_modification(delta_operation)
-            )
+            tab.undo_stack.push(tab.editable.pool_model.maindeck.get_cube_modification(delta_operation))
 
     def _toggle_dock_view(self, dock: Dock) -> None:
         if dock.wants_focus:
@@ -385,16 +353,10 @@ class MainWindow(QMainWindow, WithActions):
             dock.setVisible(not dock.isVisible())
 
     def _new_deck(self) -> None:
-        self._main_view.editables_tabs.setCurrentWidget(
-            self._main_view.editables_tabs.new_deck(
-                DeckModel()
-            )
-        )
+        self._main_view.editables_tabs.setCurrentWidget(self._main_view.editables_tabs.new_deck(DeckModel()))
 
     def _close_tab(self) -> None:
-        self._main_view.editables_tabs.tabCloseRequested.emit(
-            self._main_view.editables_tabs.currentIndex()
-        )
+        self._main_view.editables_tabs.tabCloseRequested.emit(self._main_view.editables_tabs.currentIndex())
 
     def _edit_sort_macroes(self) -> None:
         EditMacroesDialog().exec_()
@@ -413,7 +375,7 @@ class MainWindow(QMainWindow, WithActions):
         self._card_adder.query_edit.setFocus()
 
     def resizeEvent(self, resize_event: QtGui.QResizeEvent):
-        if hasattr(self, '_notification_frame'):
+        if hasattr(self, "_notification_frame"):
             self._notification_frame.stack_notifications()
 
     def open(self, target: t.Type[TabModel] = Deck):
@@ -435,44 +397,44 @@ class MainWindow(QMainWindow, WithActions):
         try:
             self._main_view.editables_tabs.open_file(file_path, target)
         except FileOpenException as e:
-            Context.notification_message.emit('Corrupt file or wrong inferred type.\n{}'.format(e))
+            Context.notification_message.emit("Corrupt file or wrong inferred type.\n{}".format(e))
 
     def _save(self):
         try:
             self._main_view.editables_tabs.save_tab()
         except FileSaveException:
-            Context.notification_message.emit('Invalid extension')
+            Context.notification_message.emit("Invalid extension")
 
     def _save_as(self):
         try:
             self._main_view.editables_tabs.save_tab_as()
         except FileSaveException:
-            Context.notification_message.emit('Invalid file extension')
+            Context.notification_message.emit("Invalid file extension")
 
     def _export_deck(self):
         try:
             self._main_view.editables_tabs.export_deck()
         except FileSaveException:
-            Context.notification_message.emit('Invalid extension')
+            Context.notification_message.emit("Invalid extension")
 
     def save_state(self):
-        Context.settings.setValue('geometry', self.saveGeometry())
-        Context.settings.setValue('window_state', self.saveState(0))
+        Context.settings.setValue("geometry", self.saveGeometry())
+        Context.settings.setValue("window_state", self.saveState(0))
         self._main_view.editables_tabs.save_session()
         Context.sort_map.save()
 
     def _load_state(self):
-        geometry = Context.settings.value('geometry', None)
+        geometry = Context.settings.value("geometry", None)
         if geometry is not None:
             self.restoreGeometry(geometry)
-        state = Context.settings.value('window_state')
+        state = Context.settings.value("window_state")
         if state is not None:
             self.restoreState(state, 0)
         self._main_view.editables_tabs.load_session()
         try:
             Context.sort_map = CustomSortMap.load()
         except (pickle.UnpicklingError, EOFError):
-            Context.notification_message.emit('Failed loading custom sort map')
+            Context.notification_message.emit("Failed loading custom sort map")
             return CustomSortMap.empty()
 
     def closeEvent(self, close_event):
@@ -485,7 +447,7 @@ class MainWindow(QMainWindow, WithActions):
 
 def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callable[[t.Any, t.Any, t.Any], None]:
     def exception_hook(exception_type, exception_value, _traceback):
-        separator = '-' * 80
+        separator = "-" * 80
         time_string = time.strftime("%Y-%m-%d, %H:%M:%S")
 
         traceback_info_file = io.StringIO()
@@ -493,26 +455,24 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
         traceback_info_file.seek(0)
         traceback_info = traceback_info_file.read()
 
-        errmsg = '{} {}'.format(
+        errmsg = "{} {}".format(
             str(exception_type),
             str(exception_value),
         )
 
-        msg = '\n'.join(
-            (separator, time_string, traceback_info, errmsg, '\n')
-        )
+        msg = "\n".join((separator, time_string, traceback_info, errmsg, "\n"))
 
         try:
             if not os.path.exists(paths.APP_DATA_PATH):
                 os.makedirs(paths.APP_DATA_PATH)
 
-            with open(paths.LOGS_PATH, 'a') as log_file:
+            with open(paths.LOGS_PATH, "a") as log_file:
                 log_file.write(msg)
         except IOError:
             pass
 
-        sys.stderr.write(traceback_info + '\n')
-        sys.stderr.write(errmsg + '\n')
+        sys.stderr.write(traceback_info + "\n")
+        sys.stderr.write(errmsg + "\n")
 
         # Promises are buggy
         if issubclass(exception_type, AssertionError):
@@ -522,9 +482,9 @@ def _get_exception_hook(main_window: t.Optional[MainWindow] = None) -> t.Callabl
             Context.cube_api_client.report_error(errmsg, traceback_info)
 
         errorbox = QMessageBox()
-        errorbox.setWindowTitle('OH NO :O')
+        errorbox.setWindowTitle("OH NO :O")
         errorbox.setText(
-            '{}\n{}'.format(
+            "{}\n{}".format(
                 traceback_info,
                 errmsg,
             )
@@ -544,69 +504,74 @@ class FilterAll(logging.Filter):
 def run():
     sys.excepthook = _get_exception_hook()
 
-    arg_parser = argparse.ArgumentParser(description = 'Edit decks')
+    arg_parser = argparse.ArgumentParser(description="Edit decks")
     arg_parser.add_argument(
-        '-v', '--version',
-        action = 'store_true',
-        help = 'show version',
+        "-v",
+        "--version",
+        action="store_true",
+        help="show version",
     )
     arg_parser.add_argument(
-        '-m', '--multi-instance',
-        action = 'store_true',
-        help = 'allow running in parallel with other instances of Embargo Edit',
+        "-m",
+        "--multi-instance",
+        action="store_true",
+        help="allow running in parallel with other instances of Embargo Edit",
     )
     arg_parser.add_argument(
-        '-d', '--debug',
-        action = 'store_true',
-        help = 'debug mode',
+        "-d",
+        "--debug",
+        action="store_true",
+        help="debug mode",
     )
     arg_parser.add_argument(
-        '-l', '--log-level',
-        action = 'store',
-        help = 'logging level',
-        default = 'debug',
-        choices = values.LOGGING_LEVEL_MAP.keys(),
+        "-l",
+        "--log-level",
+        action="store",
+        help="logging level",
+        default="debug",
+        choices=values.LOGGING_LEVEL_MAP.keys(),
     )
     arg_parser.add_argument(
-        '--echo-sql',
-        action = 'store_true',
-        help = 'Echo sql queries',
+        "--echo-sql",
+        action="store_true",
+        help="Echo sql queries",
     )
     arg_parser.add_argument(
-        '-n', '--no-server',
-        action = 'store_true',
-        help = 'dont start server',
+        "-n",
+        "--no-server",
+        action="store_true",
+        help="dont start server",
     )
     arg_parser.add_argument(
-        '--no-ssl-verify',
-        action = 'store_true',
-        help = 'disable ssl certificate verification for remote connections.',
+        "--no-ssl-verify",
+        action="store_true",
+        help="disable ssl certificate verification for remote connections.",
     )
     arg_parser.add_argument(
-        '--db-type',
-        type = str,
-        nargs = '?',
-        choices = ['sql', 'pickle', 'default'],
-        default = 'default',
-        help = 'what type of server to use. "default" means use the one defined in application settings',
+        "--db-type",
+        type=str,
+        nargs="?",
+        choices=["sql", "pickle", "default"],
+        default="default",
+        help='what type of server to use. "default" means use the one defined in application settings',
     )
     arg_parser.add_argument(
-        '--port',
-        metavar = 'P',
-        type = int,
-        nargs = '?',
-        default = 7777,
-        help = 'server port',
+        "--port",
+        metavar="P",
+        type=int,
+        nargs="?",
+        default=7777,
+        help="server port",
     )
     arg_parser.add_argument(
-        '--host',
-        metavar = 'H',
-        type = str,
-        nargs = '?',
-        default = 'localhost',
-        help = 'server host',
+        "--host",
+        metavar="H",
+        type=str,
+        nargs="?",
+        default="localhost",
+        help="server host",
     )
-    arg_parser.add_argument('files', metavar = 'F', type = str, nargs = '*', help = 'paths of files to open')
+    arg_parser.add_argument("files", metavar="F", type=str, nargs="*", help="paths of files to open")
 
     args = arg_parser.parse_args()
 
@@ -615,22 +580,22 @@ def run():
             v.handlers[:] = []
 
     logging.basicConfig(
-        format = '%(levelname)s %(message)s',
-        level = values.LOGGING_LEVEL_MAP[args.log_level],
-        stream = sys.stdout,
+        format="%(levelname)s %(message)s",
+        level=values.LOGGING_LEVEL_MAP[args.log_level],
+        stream=sys.stdout,
     )
 
-    logging.getLogger('PIL.PngImagePlugin').addFilter(FilterAll())
+    logging.getLogger("PIL.PngImagePlugin").addFilter(FilterAll())
 
     if args.version:
         print(version_formatted())
         return
 
     if not args.multi_instance:
-        client = EmbargoClient(host = args.host, port = args.port)
+        client = EmbargoClient(host=args.host, port=args.port)
 
         if client.check():
-            logging.info('instance already running')
+            logging.info("instance already running")
             if args.files:
                 for file in args.files:
                     client.open_file(os.path.abspath(file))
@@ -645,15 +610,15 @@ def run():
     db_type = DbType(args.db_type)
 
     if args.no_ssl_verify:
-        logging.warning('Running without ssl verification!')
+        logging.warning("Running without ssl verification!")
         requests.packages.urllib3.disable_warnings()
 
     init_args = {
-        'compiled': compiled,
-        'debug': args.debug,
-        'db_type': db_type,
-        'echo_sql': args.echo_sql,
-        'no_ssl_verify': args.no_ssl_verify,
+        "compiled": compiled,
+        "debug": args.debug,
+        "db_type": db_type,
+        "echo_sql": args.echo_sql,
+        "no_ssl_verify": args.no_ssl_verify,
     }
 
     try:
@@ -663,7 +628,7 @@ def run():
             return
         Context.init(app, **init_args)
 
-    EDB.init(echo = args.echo_sql)
+    EDB.init(echo=args.echo_sql)
 
     models.create(EDB.engine)
 
@@ -676,7 +641,7 @@ def run():
     sys.excepthook = _get_exception_hook(main_window)
 
     if not args.no_server:
-        Context.embargo_server = EmbargoServer(host = args.host, port = args.port)
+        Context.embargo_server = EmbargoServer(host=args.host, port=args.port)
         Context.embargo_server.start()
 
     main_window.showMaximized()
@@ -696,5 +661,5 @@ def run():
     sys.exit(app.exec_())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()

@@ -1,11 +1,9 @@
-from abc import abstractmethod, ABC
-
-from mtgorp.db.database import CardDatabase
+from abc import ABC, abstractmethod
 
 from magiccube.collections.cube import Cube
 from magiccube.collections.cubeable import Cubeable
-
 from mtgdraft.models import DraftBooster
+from mtgorp.db.database import CardDatabase
 
 
 class DraftBot(ABC):

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import typing as t
-
 from abc import ABC, abstractmethod
 
-from PyQt5 import QtWidgets, QtGui, QtCore
+from hardcandy.schema import Schema
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QPoint
 from PyQt5.QtWidgets import QUndoCommand, QUndoStack
-
-from hardcandy.schema import Schema
 
 from deckeditor.models.cubes.scenecard import SceneCard
 from deckeditor.models.cubes.selection import SelectionScene
@@ -16,7 +14,6 @@ from deckeditor.sorting.sorting import SortMacro
 
 
 class AlignmentCommand(ABC):
-
     @abstractmethod
     def redo(self):
         pass
@@ -62,13 +59,7 @@ class Aligner(ABC):
         return aligner
 
     def __reduce__(self):
-        return (
-            self._inflate,
-            (
-                self.__class__,
-                {k: v for k, v in self.__dict__.items() if not k == '_scene'}
-            )
-        )
+        return (self._inflate, (self.__class__, {k: v for k, v in self.__dict__.items() if not k == "_scene"}))
 
     @property
     def supports_sort_orientation(self) -> bool:

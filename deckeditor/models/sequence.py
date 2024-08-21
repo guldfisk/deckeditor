@@ -1,15 +1,13 @@
 import typing as t
-
 from abc import abstractmethod
 
-from PyQt5.QtCore import Qt, QModelIndex, QAbstractItemModel, QObject
+from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QObject, Qt
 
 
-T = t.TypeVar('T')
+T = t.TypeVar("T")
 
 
 class GenericItemSequence(t.Generic[T], QAbstractItemModel):
-
     def __init__(self, items: t.Optional[t.Sequence[T]] = ()):
         super().__init__()
         self._items = items

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from hardcandy import fields
 from hardcandy.schema import Schema
-
-from mtgdraft.models import PickPoint, SinglePickPick, BurnPick
+from mtgdraft.models import BurnPick, PickPoint, SinglePickPick
 
 from deckeditor.components.cardview.focuscard import describe_focusable
 
@@ -12,16 +11,21 @@ class PickTableSchema(Schema[PickPoint]):
     global_pick_number = fields.Integer()
     pack_number = fields.Lambda(lambda p: p.round.pack)
     pick_number = fields.Integer()
-    pick = fields.Lambda(lambda p: describe_focusable(p.pick.cubeable if isinstance(p.pick, SinglePickPick) else p.pick.pick))
-    burn = fields.Lambda(lambda p: describe_focusable(p.pick.burn) if isinstance(p.pick, BurnPick) and p.pick.burn is not None else '')
+    pick = fields.Lambda(
+        lambda p: describe_focusable(p.pick.cubeable if isinstance(p.pick, SinglePickPick) else p.pick.pick)
+    )
+    burn = fields.Lambda(
+        lambda p: describe_focusable(p.pick.burn) if isinstance(p.pick, BurnPick) and p.pick.burn is not None else ""
+    )
     pack = fields.Lambda(
-        lambda p: ', '.join(
+        lambda p: ", ".join(
             map(
                 describe_focusable,
                 p.booster.cubeables,
             )
         )
     )
+
 
 # class _LinesProxy(t.Sequence[PickPoint]):
 #

@@ -5,25 +5,27 @@ import typing as t
 
 import requests
 import simplejson
+from cubeclient.models import LimitedDeck, LimitedPool, LimitedSession
 from promise import promise
-
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QInputDialog, QHeaderView
-
-from cubeclient.models import LimitedSession, LimitedDeck, LimitedPool
+from PyQt5.QtWidgets import (
+    QAbstractItemView,
+    QHeaderView,
+    QInputDialog,
+    QTableWidget,
+    QTableWidgetItem,
+    QWidget,
+)
 
 from deckeditor.components.views.editables.deck import DeckView
 from deckeditor.context.context import Context
 
 
 class SessionsList(QTableWidget):
-
     def __init__(self, parent: LimitedSessionsView):
         super().__init__(0, 4, parent)
-        self.setHorizontalHeaderLabels(
-            ('name', 'format', 'players', 'created')
-        )
+        self.setHorizontalHeaderLabels(("name", "format", "players", "created"))
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.verticalHeader().hide()
@@ -54,7 +56,7 @@ class SessionsList(QTableWidget):
                 (
                     session.name,
                     session.game_format,
-                    ', '.join(sorted(player.username for player in session.players)),
+                    ", ".join(sorted(player.username for player in session.players)),
                     str(session.created_at),
                 )
             ):
@@ -64,12 +66,9 @@ class SessionsList(QTableWidget):
 
 
 class DeckList(QTableWidget):
-
     def __init__(self, decks: t.Optional[t.List[LimitedDeck]] = None):
         super().__init__(0, 2)
-        self.setHorizontalHeaderLabels(
-            ('name', 'created')
-        )
+        self.setHorizontalHeaderLabels(("name", "created"))
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         self._decks: t.Sequence[LimitedDeck] = [] if decks is None else decks
@@ -96,7 +95,6 @@ class DeckList(QTableWidget):
 
 
 class LimitedSessionView(QWidget):
-
     def __init__(self, parent: LimitedSessionsView, session: t.Optional[LimitedSession] = None):
         super().__init__(parent)
 
@@ -105,8 +103,8 @@ class LimitedSessionView(QWidget):
 
         self._name_label = QtWidgets.QLabel()
         self._deck_list = DeckList()
-        self._view_button = QtWidgets.QPushButton('View')
-        self._submit_button = QtWidgets.QPushButton('Submit')
+        self._view_button = QtWidgets.QPushButton("View")
+        self._submit_button = QtWidgets.QPushButton("Submit")
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -137,20 +135,18 @@ class LimitedSessionView(QWidget):
                 break
 
     def _on_upload_success(self, _) -> None:
-        Context.notification_message.emit('Deck submitted')
+        Context.notification_message.emit("Deck submitted")
         self._limited_sessions_view.update.emit()
         Context.cube_api_client.limited_session(self._session.id).then(self.set_session).catch(logging.warning)
 
     def _on_upload_error(self, error: Exception) -> None:
         if isinstance(error, ConnectionError):
-            Context.notification_message.emit('disconnected')
+            Context.notification_message.emit("disconnected")
         elif isinstance(error, requests.HTTPError):
             try:
-                message = '\n'.join(
-                    error.response.json()['errors']
-                )
+                message = "\n".join(error.response.json()["errors"])
             except simplejson.errors.JSONDecodeError:
-                message = 'Cannot upload deck'
+                message = "Cannot upload deck"
             Context.notification_message.emit(message)
 
     def _on_submit(self):
@@ -174,31 +170,29 @@ class LimitedSessionView(QWidget):
 
         deck_name, success = QInputDialog.getText(
             self,
-            'Submit Deck',
+            "Submit Deck",
             (
-                'Deck name'
-                + '. Session is not in deck building state. This is, in fact, C H E A T I N G.'
+                "Deck name" + ". Session is not in deck building state. This is, in fact, C H E A T I N G."
                 if (
                     self._session.state != LimitedSession.LimitedSessionState.DECK_BUILDING
-                    or player_pool.decks and self._session.open_decks
-                ) else
-                ''
+                    or player_pool.decks
+                    and self._session.open_decks
+                )
+                else ""
             ),
-            text = 'deck',
+            text="deck",
         )
 
         if not success:
             return
 
         Context.cube_api_client.upload_limited_deck(
-            pool_id = player_pool.id,
-            name = deck_name,
-            deck = deck,
+            pool_id=player_pool.id,
+            name=deck_name,
+            deck=deck,
         ).then(
             self._on_upload_success
-        ).catch(
-            self._on_upload_error
-        )
+        ).catch(self._on_upload_error)
 
     def set_session(self, session: LimitedSession) -> None:
         self.show()
@@ -239,13 +233,14 @@ class LimitedSessionsView(QWidget):
 
     def set_sessions(self, sessions: t.Sequence[LimitedSession]) -> t.Sequence[LimitedSession]:
         self._sessions_list.set_sessions(sessions)
-        if not self._limited_session_view.session in sessions:
+        if self._limited_session_view.session not in sessions:
             self._limited_session_view.hide()
 
         return sessions
 
     def _on_sealed_started(self, pool_id, open_tab) -> None:
         if open_tab:
+
             def _after_sessions_updated(sessions: t.Sequence[LimitedSession]) -> None:
                 found = False
                 for session in sessions:
@@ -257,9 +252,7 @@ class LimitedSessionsView(QWidget):
                     if found:
                         break
 
-            self._on_update().then(
-                _after_sessions_updated
-            )
+            self._on_update().then(_after_sessions_updated)
         else:
             self._on_update()
 
@@ -269,11 +262,9 @@ class LimitedSessionsView(QWidget):
             return promise.Promise.resolve([])
 
         return Context.cube_api_client.limited_sessions(
-            limit = 20,
-            filters = {
-                'state_filter': ['DECK_BUILDING', 'PLAYING'],
-                'players_filter': Context.cube_api_client.user.username,
+            limit=20,
+            filters={
+                "state_filter": ["DECK_BUILDING", "PLAYING"],
+                "players_filter": Context.cube_api_client.user.username,
             },
-        ).then(
-            self.set_sessions
-        )
+        ).then(self.set_sessions)

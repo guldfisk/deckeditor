@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import typing as t
 
+from magiccube.laps.lap import Lap
 from mtgorp.models.interfaces import Printing
 
-from magiccube.laps.lap import Lap
+from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import (
+    GraphicPixmapObject,
+)
 
-from deckeditor.components.views.cubeedit.graphical.graphicpixmapobject import GraphicPixmapObject
 
-
-C = t.TypeVar('C', bound = t.Union[Printing, Lap])
+C = t.TypeVar("C", bound=t.Union[Printing, Lap])
 
 
 class SceneCard(GraphicPixmapObject, t.Generic[C]):
@@ -25,7 +26,7 @@ class SceneCard(GraphicPixmapObject, t.Generic[C]):
         pass
 
     def __repr__(self):
-        return '{}({})'.format(
+        return "{}({})".format(
             self.__class__.__name__,
             self.cubeable,
         )

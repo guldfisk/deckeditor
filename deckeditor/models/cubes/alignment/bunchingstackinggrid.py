@@ -3,20 +3,23 @@ from __future__ import annotations
 import math
 import typing as t
 
-from deckeditor.models.cubes.alignment.stackinggrid import CardStacker, StackingGrid, StackerMap
+from deckeditor.models.cubes.alignment.stackinggrid import (
+    CardStacker,
+    StackerMap,
+    StackingGrid,
+)
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.values import IMAGE_WIDTH, IMAGE_HEIGHT, STANDARD_IMAGE_MARGIN
+from deckeditor.values import IMAGE_HEIGHT, IMAGE_WIDTH, STANDARD_IMAGE_MARGIN
 
 
 class StaticCardStacker(CardStacker):
-
     def __init__(
         self,
         aligner: StackingGrid,
         index: t.Tuple[int, int],
         size: t.Tuple[float, float],
-        max_spacing: float = 50.,
-        width_margin: float = .2,
+        max_spacing: float = 50.0,
+        width_margin: float = 0.2,
     ):
         super().__init__(aligner, index)
         self._max_spacing: float = max_spacing
@@ -59,9 +62,11 @@ class StaticCardStacker(CardStacker):
             )
         else:
             return int(
-                len(self._cards) - (columns - 1) * max_cards_per_column - 1
-                + (column - 1) * max_cards_per_column +
-                min(y // self._max_spacing, max_cards_per_column)
+                len(self._cards)
+                - (columns - 1) * max_cards_per_column
+                - 1
+                + (column - 1) * max_cards_per_column
+                + min(y // self._max_spacing, max_cards_per_column)
             )
 
     def _stack(self):
@@ -85,7 +90,7 @@ class StaticCardStacker(CardStacker):
 
 
 class BunchingStackingGrid(StackingGrid):
-    name = 'Bunch'
+    name = "Bunch"
 
     _card_stacker_width: float
     _card_stacker_height: float
@@ -96,7 +101,7 @@ class BunchingStackingGrid(StackingGrid):
         *,
         stacker_width: float = 1.6,
         margin: float = STANDARD_IMAGE_MARGIN,
-        stacker_height: float = 2.,
+        stacker_height: float = 2.0,
         rows: int = 5,
         columns: int = 5,
         show_grid: bool = False,
@@ -106,10 +111,10 @@ class BunchingStackingGrid(StackingGrid):
 
         super().__init__(
             scene,
-            margin = margin,
-            rows = rows,
-            columns = columns,
-            show_grid = show_grid,
+            margin=margin,
+            rows=rows,
+            columns=columns,
+            show_grid=show_grid,
         )
 
     def request_space(self, card_stacker: CardStacker, x: int, y: int) -> None:
@@ -120,11 +125,11 @@ class BunchingStackingGrid(StackingGrid):
         self._card_stacker_height = int(IMAGE_HEIGHT * self._stacker_height)
 
         return StackerMap(
-            aligner = self,
-            row_amount = rows,
-            column_amount = columns,
-            default_column_width = self._card_stacker_width,
-            default_row_height = self._card_stacker_height,
+            aligner=self,
+            row_amount=rows,
+            column_amount=columns,
+            default_column_width=self._card_stacker_width,
+            default_row_height=self._card_stacker_height,
         )
 
     def create_stacker(self, x: int, y: int) -> CardStacker:

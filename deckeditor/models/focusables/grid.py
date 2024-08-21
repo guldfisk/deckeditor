@@ -1,9 +1,8 @@
 import math
 import typing as t
 
-from PyQt5.QtCore import QModelIndex, QObject, QIdentityProxyModel
-
 from magiccube.collections.cubeable import Cubeable
+from PyQt5.QtCore import QIdentityProxyModel, QModelIndex, QObject
 
 from deckeditor.models.focusables.lists import CubeablesList
 

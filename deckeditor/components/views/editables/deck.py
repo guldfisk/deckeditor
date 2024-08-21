@@ -4,7 +4,7 @@ import typing as t
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QVBoxLayout, QUndoStack, QGraphicsScene
+from PyQt5.QtWidgets import QGraphicsScene, QUndoStack, QVBoxLayout
 
 from deckeditor.components.views.cubeedit.cubeview import CubeView
 from deckeditor.components.views.editables.editable import TabType
@@ -13,7 +13,6 @@ from deckeditor.models.deck import DeckModel
 
 
 class DeckView(MultiCubesView):
-
     def __init__(
         self,
         deck_model: DeckModel,
@@ -33,8 +32,8 @@ class DeckView(MultiCubesView):
 
         self._maindeck_cube_view = (
             maindeck_cube_view
-            if maindeck_cube_view is not None else
-            CubeView(
+            if maindeck_cube_view is not None
+            else CubeView(
                 self._deck_model.maindeck,
                 self._undo_stack,
             )
@@ -42,8 +41,8 @@ class DeckView(MultiCubesView):
 
         self._sideboard_cube_view = (
             sideboard_cube_view
-            if sideboard_cube_view is not None else
-            CubeView(
+            if sideboard_cube_view is not None
+            else CubeView(
                 self._deck_model.sideboard,
                 self._undo_stack,
             )
@@ -96,7 +95,7 @@ class DeckView(MultiCubesView):
     def _on_cube_scene_selection_cleared(self, scene: QGraphicsScene) -> None:
         for _scene in self._all_scenes:
             if _scene != scene:
-                _scene.clear_selection(propagate = False)
+                _scene.clear_selection(propagate=False)
 
     def is_empty(self) -> bool:
         return not (self._deck_model.maindeck.items() or self._deck_model.sideboard.items())
@@ -107,31 +106,31 @@ class DeckView(MultiCubesView):
 
     def persist(self) -> t.Any:
         return {
-            'maindeck_view': self._maindeck_cube_view.persist(),
-            'sideboard_view': self._sideboard_cube_view.persist(),
-            'splitter': self._horizontal_splitter.saveState(),
-            'deck_model': self._deck_model.persist(),
-            'tab_type': self.tab_type,
+            "maindeck_view": self._maindeck_cube_view.persist(),
+            "sideboard_view": self._sideboard_cube_view.persist(),
+            "splitter": self._horizontal_splitter.saveState(),
+            "deck_model": self._deck_model.persist(),
+            "tab_type": self.tab_type,
         }
 
     @classmethod
     def load(cls, state: t.Any, undo_stack: QUndoStack) -> DeckView:
-        deck_model = DeckModel.load(state['deck_model'])
+        deck_model = DeckModel.load(state["deck_model"])
         deck_view = DeckView(
             deck_model,
-            maindeck_cube_view = CubeView.load(
-                state['maindeck_view'],
+            maindeck_cube_view=CubeView.load(
+                state["maindeck_view"],
                 deck_model.maindeck,
-                undo_stack = undo_stack,
+                undo_stack=undo_stack,
             ),
-            sideboard_cube_view = CubeView.load(
-                state['sideboard_view'],
+            sideboard_cube_view=CubeView.load(
+                state["sideboard_view"],
                 deck_model.sideboard,
-                undo_stack = undo_stack,
+                undo_stack=undo_stack,
             ),
-            undo_stack = undo_stack,
+            undo_stack=undo_stack,
         )
-        deck_view._horizontal_splitter.restoreState(state['splitter'])
+        deck_view._horizontal_splitter.restoreState(state["splitter"])
         return deck_view
 
     @property

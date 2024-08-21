@@ -1,9 +1,8 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QObject, QEvent
+from PyQt5.QtCore import QEvent, QObject, Qt
 
 
 class VerticalScrollArea(QtWidgets.QScrollArea):
-
     def __init__(self):
         super().__init__()
         self.setWidgetResizable(True)

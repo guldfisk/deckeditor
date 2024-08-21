@@ -31,7 +31,6 @@ def spiral(direction: values.Direction) -> t.Iterator[t.Tuple[int, int]]:
     swaps = 0
 
     while True:
-
         yield _x, _y
 
         if _x == _y or _x == -_y:

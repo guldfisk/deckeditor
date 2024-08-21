@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
-
 from lobbyclient.client import Lobby
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import QObject, Qt, pyqtSignal
+from PyQt5.QtWidgets import QAbstractItemView, QTableWidget, QTableWidgetItem
 
 from deckeditor.components.lobbies.client import LobbyModelClientConnection
 from deckeditor.components.lobbies.interfaces import LobbyViewInterface
@@ -18,12 +16,9 @@ from deckeditor.utils.scroll import VerticalScrollArea
 
 
 class LobbyUserListView(QTableWidget):
-
     def __init__(self, lobby_model: LobbyModelClientConnection, lobby_name: str, parent: t.Optional[QObject] = None):
         super().__init__(0, 2, parent)
-        self.setHorizontalHeaderLabels(
-            ('name', 'ready')
-        )
+        self.setHorizontalHeaderLabels(("name", "ready"))
         self.setMaximumWidth(350)
         self.setMinimumWidth(200)
         self.setFocusPolicy(Qt.ClickFocus)
@@ -43,13 +38,13 @@ class LobbyUserListView(QTableWidget):
         users = () if lobby is None else lobby.users.values()
         self.setRowCount(len(users))
 
-        for index, user in enumerate(sorted(users, key = lambda u: u.username)):
+        for index, user in enumerate(sorted(users, key=lambda u: u.username)):
             item = QTableWidgetItem()
             item.setData(0, user.username)
             self.setItem(index, 0, item)
 
             item = QTableWidgetItem()
-            item.setData(0, 'ready' if user.ready else 'unready')
+            item.setData(0, "ready" if user.ready else "unready")
             self.setItem(index, 1, item)
 
 
@@ -63,15 +58,15 @@ class LobbyView(LobbyViewInterface):
 
         layout = QtWidgets.QGridLayout(self)
 
-        self._ready_button = QtWidgets.QPushButton('ready')
+        self._ready_button = QtWidgets.QPushButton("ready")
         self._ready_button.clicked.connect(self._toggle_ready)
 
-        self._start_game_button = QtWidgets.QPushButton('start')
+        self._start_game_button = QtWidgets.QPushButton("start")
         self._start_game_button.clicked.connect(self._start_game)
 
         self._game_type_selector = QtWidgets.QComboBox()
-        self._game_type_selector.addItem('draft')
-        self._game_type_selector.addItem('sealed')
+        self._game_type_selector.addItem("draft")
+        self._game_type_selector.addItem("sealed")
         self._game_type_selector.activated.connect(self._on_game_type_selected)
 
         self._options_selector = GameOptionsSelector(self)
@@ -79,7 +74,7 @@ class LobbyView(LobbyViewInterface):
         self._options_selector_area.setMinimumHeight(350)
         self._options_selector_area.setWidget(self._options_selector)
 
-        self._reconnect_button = QtWidgets.QPushButton('reconnect')
+        self._reconnect_button = QtWidgets.QPushButton("reconnect")
         self._reconnect_button.clicked.connect(self._reconnect)
 
         users_list = LobbyUserListView(self._lobby_model, self._lobby_name)
@@ -136,7 +131,7 @@ class LobbyView(LobbyViewInterface):
 
     def _reconnect(self) -> None:
         lobby = self._lobby_model.get_lobby(self._lobby_name)
-        if lobby.game_type == 'draft':
+        if lobby.game_type == "draft":
             Context.draft_started.emit(lobby.key)
 
     def _update_content(self) -> None:
@@ -148,14 +143,12 @@ class LobbyView(LobbyViewInterface):
         if user is None:
             return
 
-        can_edit_options = Context.cube_api_client.user.username == lobby.owner and lobby.state == 'pre-game'
+        can_edit_options = Context.cube_api_client.user.username == lobby.owner and lobby.state == "pre-game"
 
-        self._ready_button.setText(
-            'unready' if user.ready else 'ready'
-        )
-        self._ready_button.setVisible(lobby.state == 'pre-game')
+        self._ready_button.setText("unready" if user.ready else "ready")
+        self._ready_button.setVisible(lobby.state == "pre-game")
 
-        self._reconnect_button.setVisible(lobby.state == 'game')
+        self._reconnect_button.setVisible(lobby.state == "game")
 
         self._game_type_selector.setEnabled(can_edit_options)
 
@@ -163,15 +156,8 @@ class LobbyView(LobbyViewInterface):
         self._options_selector.update_content(lobby.game_type, lobby.game_options, can_edit_options)
 
         self._start_game_button.setVisible(
-            lobby.state == 'pre-game'
+            lobby.state == "pre-game"
             and Context.cube_api_client.user.username == lobby.owner
             and len(lobby.users) >= lobby.lobby_options.minimum_size
-            and (
-                not lobby.lobby_options.require_ready
-                or all(
-                    user.ready
-                    for user in
-                    lobby.users.values()
-                )
-            )
+            and (not lobby.lobby_options.require_ready or all(user.ready for user in lobby.users.values()))
         )

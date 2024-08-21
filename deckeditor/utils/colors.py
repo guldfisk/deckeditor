@@ -4,16 +4,7 @@ from PyQt5.QtGui import QColor
 
 
 def average_colors(colors: t.Sequence[QColor]) -> QColor:
-    return QColor(
-        *(
-            sum(
-                getattr(c, v)()
-                for c in colors
-            ) / len(colors)
-            for v in
-            ('red', 'green', 'blue', 'alpha')
-        )
-    )
+    return QColor(*(sum(getattr(c, v)() for c in colors) / len(colors) for v in ("red", "green", "blue", "alpha")))
 
 
 def overlay_colors(bottom: QColor, top: QColor) -> QColor:

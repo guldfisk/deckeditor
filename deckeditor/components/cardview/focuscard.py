@@ -1,9 +1,8 @@
 import typing as t
 from dataclasses import dataclass
 
+from magiccube.collections.cubeable import CardboardCubeable, Cubeable
 from mtgorp.models.interfaces import Cardboard, Printing
-
-from magiccube.collections.cubeable import Cubeable, CardboardCubeable
 
 
 Focusable = t.Union[Cubeable, Cardboard]

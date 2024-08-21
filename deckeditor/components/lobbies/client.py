@@ -2,21 +2,18 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5.QtCore import QObject, pyqtSignal
-
 from frozendict import frozendict
-
-from lobbyclient.client import LobbyClient, Lobby
+from lobbyclient.client import Lobby, LobbyClient
 from lobbyclient.model import LobbyOptions
+from PyQt5.QtCore import QObject, pyqtSignal
 
 from deckeditor.context.context import Context
 from deckeditor.store.models import GameTypeOptions
 
 
 class _LobbyClient(LobbyClient):
-
     def __init__(self, model: LobbyModelClientConnection, url: str, token: str):
-        super().__init__(url, token, verify_ssl = not Context.no_ssl_verify)
+        super().__init__(url, token, verify_ssl=not Context.no_ssl_verify)
         self._model = model
 
     def _lobbies_changed(
@@ -32,7 +29,7 @@ class _LobbyClient(LobbyClient):
         self._model.on_disconnected()
 
     def _on_client_error(self, message: t.Mapping[str, t.Any]) -> None:
-        message = message.get('message')
+        message = message.get("message")
         if message is not None:
             Context.notification_message.emit(message)
 
@@ -40,9 +37,9 @@ class _LobbyClient(LobbyClient):
         super()._on_close()
 
     def _game_started(self, lobby: Lobby, key: str) -> None:
-        if lobby.game_type == 'sealed':
+        if lobby.game_type == "sealed":
             Context.sealed_started.emit(int(key), True)
-        elif lobby.game_type == 'draft':
+        elif lobby.game_type == "draft":
             Context.draft_started.emit(key)
 
 
@@ -78,8 +75,10 @@ class LobbyModelClientConnection(QObject):
 
         self._lobby_client = _LobbyClient(
             self,
-            url = ('wss://' if Context.cube_api_client.scheme == 'https' else 'ws://') + Context.cube_api_client.host + '/ws/lobbies/',
-            token = Context.cube_api_client.token,
+            url=("wss://" if Context.cube_api_client.scheme == "https" else "ws://")
+            + Context.cube_api_client.host
+            + "/ws/lobbies/",
+            token=Context.cube_api_client.token,
         )
         self.connected.emit(True)
 

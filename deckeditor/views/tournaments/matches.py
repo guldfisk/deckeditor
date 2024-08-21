@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import typing as t
 
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5 import QtWidgets
-
+from cubeclient.models import LimitedDeck, ScheduledMatch, TournamentParticipant
 from hardcandy import fields
 from hardcandy.schema import Schema
-
-from cubeclient.models import ScheduledMatch, LimitedDeck, TournamentParticipant
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import Qt, pyqtSignal
 
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
 from deckeditor.components.views.editables.deck import DeckView
@@ -22,9 +20,9 @@ from deckeditor.views.generic.readonlylisttable import ReadOnlyListTableView
 
 
 class ParticipantsSchema(Schema):
-    player = fields.Lambda(lambda p: p.player.username if p.player else '')
+    player = fields.Lambda(lambda p: p.player.username if p.player else "")
     deck = fields.Lambda(lambda p: p.deck.name)
-    seed = fields.Float(max_precision = 3)
+    seed = fields.Float(max_precision=3)
 
 
 class ScheduledMatchView(QtWidgets.QWidget):
@@ -49,16 +47,16 @@ class ScheduledMatchView(QtWidgets.QWidget):
 
         self._deck_cache: t.MutableMapping[int, t.Optional[LimitedDeck]] = {}
 
-        self._deck_preview_model = DeckModel(mode = CubeEditMode.CLOSED)
+        self._deck_preview_model = DeckModel(mode=CubeEditMode.CLOSED)
         self._deck_preview = DeckView(
             self._deck_preview_model,
             Context.get_undo_stack(),
         )
 
-        self._no_preview_view = QtWidgets.QLabel('No preview selected')
+        self._no_preview_view = QtWidgets.QLabel("No preview selected")
         self._no_preview_view.setAlignment(Qt.AlignCenter)
 
-        self._preview_unavailable_view = QtWidgets.QLabel('Preview unavailable')
+        self._preview_unavailable_view = QtWidgets.QLabel("Preview unavailable")
         self._preview_unavailable_view.setAlignment(Qt.AlignCenter)
 
         self._preview_stack = QtWidgets.QStackedWidget()
@@ -70,9 +68,9 @@ class ScheduledMatchView(QtWidgets.QWidget):
         self.preview_fetched.connect(self._on_retrieved_deck)
         self._participants_view.current_item_changed.connect(self._on_participant_selected)
 
-        self._open_button = QtWidgets.QPushButton('Open')
+        self._open_button = QtWidgets.QPushButton("Open")
         self._open_button.clicked.connect(self._on_open_clicked)
-        self._open_all_button = QtWidgets.QPushButton('Open All')
+        self._open_all_button = QtWidgets.QPushButton("Open All")
         self._open_all_button.clicked.connect(self._on_open_all_clicked)
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -122,7 +120,7 @@ class ScheduledMatchView(QtWidgets.QWidget):
         self._preview_stack.setCurrentWidget(self._no_preview_view)
         self._match = match
         self._name_label.setText(match.tournament.name)
-        self._round_label.setText(f'Round {match.round}')
+        self._round_label.setText(f"Round {match.round}")
         self._participants_model.set_lines([seat.participant for seat in match.seats])
 
     def clear_cache(self) -> None:
@@ -134,9 +132,7 @@ class ScheduledMatchView(QtWidgets.QWidget):
         else:
             Context.cube_api_client.limited_deck(participant.deck.id).then(
                 lambda deck: self.preview_fetched.emit(deck.id, deck)
-            ).catch(
-                lambda e: self.preview_fetched.emit(participant.deck.id, None)
-            )
+            ).catch(lambda e: self.preview_fetched.emit(participant.deck.id, None))
 
     def _set_preview_deck(self, deck: t.Optional[LimitedDeck]) -> None:
         if deck is None:
@@ -150,9 +146,9 @@ class ScheduledMatchView(QtWidgets.QWidget):
             (self._deck_preview_model.sideboard, deck.deck.sideboard),
         ):
             scene.get_cube_modification(
-                remove = scene.items(),
-                add = [SceneCard.from_cubeable(printing) for printing in printings],
-                closed_operation = True,
+                remove=scene.items(),
+                add=[SceneCard.from_cubeable(printing) for printing in printings],
+                closed_operation=True,
             ).redo()
             scene.get_default_sort().redo()
 
@@ -165,7 +161,6 @@ class ScheduledMatchView(QtWidgets.QWidget):
 
 
 class ScheduledMatchesView(QtWidgets.QWidget):
-
     def __init__(self):
         super().__init__()
 
@@ -180,7 +175,7 @@ class ScheduledMatchesView(QtWidgets.QWidget):
         self._matches_list.current_item_changed.connect(self._match_view.set_match)
         self._matches_list.item_selected.connect(lambda: self._match_view.setFocus())
 
-        self._refresh_button = QtWidgets.QPushButton('Refresh')
+        self._refresh_button = QtWidgets.QPushButton("Refresh")
 
         self._refresh_button.clicked.connect(self._on_refresh_clicked)
         MATCHES_CONTROLLER.matches_changed.connect(self._on_matches_changed)
@@ -199,7 +194,7 @@ class ScheduledMatchesView(QtWidgets.QWidget):
     def _on_matches_changed(self, matches: t.AbstractSet[ScheduledMatch]) -> None:
         self._refresh_button.setEnabled(True)
         self._match_view.clear_cache()
-        self._matches_model.set_lines(sorted(matches, key = lambda m: m.tournament.created_at, reverse = True))
+        self._matches_model.set_lines(sorted(matches, key=lambda m: m.tournament.created_at, reverse=True))
 
     def _on_refresh_clicked(self) -> None:
         self._refresh_button.setEnabled(False)

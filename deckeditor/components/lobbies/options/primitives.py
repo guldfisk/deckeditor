@@ -9,7 +9,6 @@ from deckeditor.components.lobbies.options.selector import OptionsSelector
 
 
 class ComboSelector(QtWidgets.QComboBox, OptionsSelector):
-
     def __init__(self, lobby_view: LobbyViewInterface, option: str, options: t.AbstractSet[str]):
         super().__init__()
         self._option = option
@@ -33,9 +32,8 @@ class ComboSelector(QtWidgets.QComboBox, OptionsSelector):
 
 
 class CheckboxSelector(QtWidgets.QCheckBox, OptionsSelector):
-
     def __init__(self, lobby_view: LobbyViewInterface, option: str):
-        super().__init__(' '.join(w.capitalize() for w in option.split('_')))
+        super().__init__(" ".join(w.capitalize() for w in option.split("_")))
         self._option = option
 
         self._lobby_view = lobby_view
@@ -56,7 +54,6 @@ class CheckboxSelector(QtWidgets.QCheckBox, OptionsSelector):
 
 
 class IntegerOptionSelector(QtWidgets.QSpinBox, OptionsSelector):
-
     def __init__(self, lobby_view: LobbyViewInterface, allowed_range: t.Tuple[int, int] = (1, 180)):
         super().__init__()
         self._lobby_view = lobby_view

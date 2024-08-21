@@ -1,40 +1,34 @@
+import os
+import pickle
 import sys
 import threading
 import typing as t
-import pickle
-import os
-
 from pickle import UnpicklingError
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from cubeclient.models import LimitedDeck
+from magiccube.collections.cube import Cube
+from magiccube.collections.infinites import Infinites
+from mtgorp.models.serilization.serializeable import SerializationException
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QMessageBox, QUndoStack
 
-from mtgorp.models.serilization.serializeable import SerializationException
-
-from magiccube.collections.infinites import Infinites
-from magiccube.collections.cube import Cube
-
-from cubeclient.models import LimitedDeck
-
-from deckeditor.utils.actions import WithActions
+from deckeditor import paths
 from deckeditor.application.embargo import restart
-from deckeditor.utils.wrappers import notify_on_exception
-from deckeditor.components.views.editables.multicubesview import MultiCubesView
-from deckeditor.sorting.sorting import CMCExtractor, SortMacro, SortSpecification
-from deckeditor.components.draft.view import DraftView, DraftModel
+from deckeditor.components.draft.view import DraftModel, DraftView
 from deckeditor.components.editables.editor import Editor, TabMeta
-from deckeditor.models.cubes.physicalcard import PhysicalCard
-from deckeditor.values import SUPPORTED_EXTENSIONS
+from deckeditor.components.settings import settings
 from deckeditor.components.views.editables.deck import DeckView
-from deckeditor.components.views.editables.editable import Editable, TabType, Tab
+from deckeditor.components.views.editables.editable import Editable, Tab, TabType
+from deckeditor.components.views.editables.multicubesview import MultiCubesView
 from deckeditor.components.views.editables.pool import PoolView
 from deckeditor.context.context import Context
-from deckeditor.models.deck import DeckModel, PoolModel, TabModel, Deck, Pool
+from deckeditor.models.cubes.physicalcard import PhysicalCard
+from deckeditor.models.deck import Deck, DeckModel, Pool, PoolModel, TabModel
 from deckeditor.serialization.tabmodelserializer import TabModelSerializer
-from deckeditor import paths
-from deckeditor.components.settings import settings
-from deckeditor.store import EDB, models
+from deckeditor.utils.actions import WithActions
+from deckeditor.utils.wrappers import notify_on_exception
+from deckeditor.values import SUPPORTED_EXTENSIONS
 
 
 class FileIOException(Exception):
@@ -62,11 +56,9 @@ class EditablesTabBar(QtWidgets.QTabBar):
 
 
 def load_editable(serialized: t.Mapping[str, t.Any], undo_stack: t.Optional[QUndoStack] = None) -> Editable:
-    return (
-        PoolView
-        if serialized['tab_type'] == TabType.POOL else
-        DeckView
-    ).load(serialized, undo_stack or Context.get_undo_stack())
+    return (PoolView if serialized["tab_type"] == TabType.POOL else DeckView).load(
+        serialized, undo_stack or Context.get_undo_stack()
+    )
 
 
 class EditorTab(Tab):
@@ -96,7 +88,7 @@ class EditorTab(Tab):
         self._loading_label = None
 
         if self._editable is None:
-            self._loading_label = QtWidgets.QLabel('Loading...')
+            self._loading_label = QtWidgets.QLabel("Loading...")
             self._loading_label.setAlignment(QtCore.Qt.AlignCenter)
             self._layout.addWidget(self._loading_label)
             self.editable_loaded.connect(self._on_loaded)
@@ -136,8 +128,9 @@ class EditorTab(Tab):
             except Exception:
                 if Context.debug:
                     import traceback
+
                     traceback.print_exc()
-                Context.notification_message.emit('Failed loading tab')
+                Context.notification_message.emit("Failed loading tab")
                 self._editable = DeckView(DeckModel(), self._undo_stack)
 
             self._editable.tab = self
@@ -167,7 +160,7 @@ class EditorTab(Tab):
     def tab_type(self) -> str:
         if self._editable is not None:
             return self._editable.tab_type
-        return self._serialized['tab_type']
+        return self._serialized["tab_type"]
 
 
 class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
@@ -196,9 +189,9 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         self.currentChanged.connect(self._on_current_changed)
 
         for n in range(1, 8):
-            self._create_action(f'Go to tab {n}', self._get_go_to_tab(n - 1), f'Alt+{n}')
+            self._create_action(f"Go to tab {n}", self._get_go_to_tab(n - 1), f"Alt+{n}")
 
-        self._create_action(f'Go to last tab', self.go_to_last_tab, f'Alt+9')
+        self._create_action("Go to last tab", self.go_to_last_tab, "Alt+9")
 
         self.new_remote_deck.connect(self.new_limited_deck)
 
@@ -231,17 +224,15 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             self.add_editable(
                 (
                     DraftView.load(saved_draft, Context.get_undo_stack())
-                    if saved_draft is not None else
-                    DraftView(
-                        DraftModel(
-                            draft_id
-                        ),
+                    if saved_draft is not None
+                    else DraftView(
+                        DraftModel(draft_id),
                         Context.get_undo_stack(),
                     )
                 ),
                 TabMeta(
-                    'some draft',
-                    key = draft_id,
+                    "some draft",
+                    key=draft_id,
                 ),
             )
         )
@@ -256,13 +247,13 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             PoolView(
                 PoolModel(
                     list(map(PhysicalCard.from_cubeable, pool)),
-                    infinites = infinites,
+                    infinites=infinites,
                 ),
-                undo_stack = Context.get_undo_stack(),
+                undo_stack=Context.get_undo_stack(),
             ),
             TabMeta(
                 key,
-                key = key,
+                key=key,
             ),
         )
         self.setCurrentWidget(tab)
@@ -277,7 +268,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         return False
 
     def new_limited_deck(self, deck: LimitedDeck) -> None:
-        key = f'pool-deck-{deck.id}'
+        key = f"pool-deck-{deck.id}"
         if self._check_for_key(key):
             return
 
@@ -287,11 +278,11 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                     list(map(PhysicalCard.from_cubeable, deck.deck.maindeck)),
                     list(map(PhysicalCard.from_cubeable, deck.deck.sideboard)),
                 ),
-                undo_stack = Context.get_undo_stack(),
+                undo_stack=Context.get_undo_stack(),
             ),
             TabMeta(
                 deck.name,
-                key = key,
+                key=key,
             ),
         )
 
@@ -300,24 +291,22 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         self._sort_opened_view(tab.editable)
 
     def open_limited_deck(self, deck_id: t.Union[str, int]) -> None:
-        if self._check_for_key(f'pool-deck-{deck_id}'):
+        if self._check_for_key(f"pool-deck-{deck_id}"):
             return
 
         if Context.cube_api_client:
-            Context.cube_api_client.limited_deck(deck_id).then(
-                self.new_remote_deck.emit
-            ).catch(
-                lambda e: Context.notification_message.emit('Failed retrieving deck')
+            Context.cube_api_client.limited_deck(deck_id).then(self.new_remote_deck.emit).catch(
+                lambda e: Context.notification_message.emit("Failed retrieving deck")
             )
         else:
-            Context.notification_message.emit('Cannot fetch deck')
+            Context.notification_message.emit("Cannot fetch deck")
 
     @classmethod
     def _get_session_path(cls) -> str:
         return paths.DEBUG_SESSION_PATH if Context.debug else paths.SESSION_PATH
 
     def save_session(self) -> None:
-        with open(self._get_session_path(), 'wb') as session_file:
+        with open(self._get_session_path(), "wb") as session_file:
             tabs = []
             drafts = {}
             for tab, meta in self._metas.items():
@@ -327,9 +316,9 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                     tabs.append((tab.persist(), meta))
             pickle.dump(
                 {
-                    'tabs': tabs,
-                    'drafts': drafts,
-                    'current_tab_index': self.currentIndex(),
+                    "tabs": tabs,
+                    "drafts": drafts,
+                    "current_tab_index": self.currentIndex(),
                 },
                 session_file,
             )
@@ -338,27 +327,28 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         try:
             self.currentChanged.disconnect(self._on_current_changed)
             try:
-                previous_session = pickle.load(open(self._get_session_path(), 'rb'))
+                previous_session = pickle.load(open(self._get_session_path(), "rb"))
             except FileNotFoundError:
                 return
             except (UnpicklingError, EOFError):
-                Context.notification_message.emit('Failed loading previous session')
+                Context.notification_message.emit("Failed loading previous session")
                 return
 
-            for state, meta in previous_session['tabs']:
+            for state, meta in previous_session["tabs"]:
                 self.load_file(state, meta)
 
-            Context.saved_drafts = previous_session.get('drafts', {})
+            Context.saved_drafts = previous_session.get("drafts", {})
 
         except Exception:
             if Context.debug:
                 import traceback
+
                 traceback.print_exc()
             confirm_dialog = QMessageBox()
-            confirm_dialog.setText('Corrupt session')
+            confirm_dialog.setText("Corrupt session")
             confirm_dialog.setInformativeText(
-                'Persistent session is corrupt. This may be due to backward incompatible changes in Embargo Edit.\n'
-                'Would you like to delete the session?'
+                "Persistent session is corrupt. This may be due to backward incompatible changes in Embargo Edit.\n"
+                "Would you like to delete the session?"
             )
             confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             confirm_dialog.setDefaultButton(QMessageBox.Yes)
@@ -366,13 +356,13 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
 
             if return_code == QMessageBox.Yes:
                 os.remove(self._get_session_path())
-                restart(save_session = False)
+                restart(save_session=False)
             else:
                 sys.exit()
 
             return
 
-        idx = previous_session['current_tab_index']
+        idx = previous_session["current_tab_index"]
         self.setCurrentIndex(idx)
         self._on_current_changed(self.currentIndex())
         self.currentChanged.connect(self._on_current_changed)
@@ -389,7 +379,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     def new_deck(self, model: DeckModel) -> Tab:
         return self.add_editable(
             DeckView(model, Context.get_undo_stack()),
-            TabMeta('untitled deck'),
+            TabMeta("untitled deck"),
         )
 
     def load_file(self, state: t.Any, meta: TabMeta) -> Tab:
@@ -408,7 +398,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
 
     @notify_on_exception(
         (FileNotFoundError, FileOpenException),
-        lambda e: 'File not found' if isinstance(e, FileNotFoundError) else ', '.join(map(str, e.args)),
+        lambda e: "File not found" if isinstance(e, FileNotFoundError) else ", ".join(map(str, e.args)),
     )
     def open_file(self, path: str, target: t.Type[TabModel] = Deck) -> None:
         for editable, meta in self._metas.items():
@@ -422,22 +412,22 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         meta = TabMeta(file_name, path)
         editable = None
 
-        if extension.lower() == 'embd':
-            with open(path, 'rb') as f:
+        if extension.lower() == "embd":
+            with open(path, "rb") as f:
                 try:
                     tab = self.load_file(pickle.load(f), meta)
                 except UnpicklingError:
-                    raise FileOpenException('corrupt file')
+                    raise FileOpenException("corrupt file")
 
-        elif extension.lower() == 'embp':
-            with open(path, 'rb') as f:
+        elif extension.lower() == "embp":
+            with open(path, "rb") as f:
                 try:
                     tab = self.load_file(pickle.load(f), meta)
                 except UnpicklingError:
-                    raise FileOpenException('corrupt file')
+                    raise FileOpenException("corrupt file")
 
         else:
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 try:
                     serializer: TabModelSerializer[t.Union[Deck, Pool]] = TabModelSerializer.extension_to_serializer[
                         (extension, target)
@@ -477,7 +467,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         if editable is not None:
             self._sort_opened_view(editable)
 
-        if not Context.main_window.isActiveWindow() and Context.settings.value('focus_on_open_file', True, bool):
+        if not Context.main_window.isActiveWindow() and Context.settings.value("focus_on_open_file", True, bool):
             Context.main_window.raise_()
             Context.main_window.show()
             Context.main_window.activateWindow()
@@ -486,15 +476,13 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         extension = os.path.splitext(path)[-1][1:]
 
         if tab.tab_type == TabType.POOL:
-            if extension == 'embp':
-                with open(path, 'wb') as f:
+            if extension == "embp":
+                with open(path, "wb") as f:
                     pickle.dump(tab.persist(), f)
                 return
 
             try:
-                serializer: TabModelSerializer[Pool] = TabModelSerializer.extension_to_serializer[
-                    (extension, Pool)
-                ]
+                serializer: TabModelSerializer[Pool] = TabModelSerializer.extension_to_serializer[(extension, Pool)]
             except KeyError:
                 try:
                     serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
@@ -504,29 +492,27 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
                     raise FileSaveException('invalid file type "{}"'.format(extension))
 
                 serialized = serializer.serialize(tab.editable.pool_model.as_deck())
-                with open(path, 'w' if isinstance(serialized, str) else 'wb') as f:
+                with open(path, "w" if isinstance(serialized, str) else "wb") as f:
                     f.write(serialized)
 
                 return
 
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 f.write(serializer.serialize(tab.editable.pool_model.as_pool()))
 
         else:
-            if extension == 'embd':
-                with open(path, 'wb') as f:
+            if extension == "embd":
+                with open(path, "wb") as f:
                     pickle.dump(tab.persist(), f)
                 return
 
             try:
-                serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
-                    (extension, Deck)
-                ]
+                serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[(extension, Deck)]
             except KeyError:
                 raise FileSaveException('invalid file type "{}"'.format(extension))
 
             serialized = serializer.serialize(tab.editable.deck_model.as_deck())
-            with open(path, 'w' if isinstance(serialized, str) else 'wb') as f:
+            with open(path, "w" if isinstance(serialized, str) else "wb") as f:
                 f.write(serialized)
 
         if clear_undo:
@@ -552,7 +538,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
 
         self.save_tab_at_path(current_tab, meta.path)
 
-    def _save_dialog(self, default_suffix: str = 'json') -> t.Tuple[QtWidgets.QFileDialog, int]:
+    def _save_dialog(self, default_suffix: str = "json") -> t.Tuple[QtWidgets.QFileDialog, int]:
         dialog = QtWidgets.QFileDialog(self)
         dialog.setFileMode(QtWidgets.QFileDialog.AnyFile)
         dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
@@ -576,7 +562,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
         if not file_names:
             return
 
-        self.save_tab_at_path(current_tab, file_names[0], clear_undo = clear_undo)
+        self.save_tab_at_path(current_tab, file_names[0], clear_undo=clear_undo)
 
     def export_deck(self) -> None:
         current_tab = self.currentWidget()
@@ -585,7 +571,7 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             return
 
         if current_tab.tab_type == TabType.DECK:
-            self.save_tab_as(current_tab, clear_undo = False)
+            self.save_tab_as(current_tab, clear_undo=False)
 
         elif current_tab.tab_type == TabType.POOL:
             dialog, result = self._save_dialog()
@@ -601,13 +587,11 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
             extension = os.path.splitext(file_names[0])[-1][1:]
 
             try:
-                serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[
-                    (extension, Deck)
-                ]
+                serializer: TabModelSerializer[Deck] = TabModelSerializer.extension_to_serializer[(extension, Deck)]
             except KeyError:
                 raise FileSaveException('invalid file type "{}"'.format(extension))
 
-            with open(file_names[0], 'w') as f:
+            with open(file_names[0], "w") as f:
                 f.write(serializer.serialize(current_tab.editable.pool_model.as_deck()))
 
     def close_tab(self, tab: Tab) -> None:
@@ -624,20 +608,13 @@ class EditablesTabs(QtWidgets.QTabWidget, Editor, WithActions):
     def _tab_close_requested(self, index: int) -> None:
         closed_tab: Tab = self.widget(index)
 
-        if (
-            settings.CONFIRM_CLOSING_MODIFIED_FILE.get_value()
-            and (
+        if settings.CONFIRM_CLOSING_MODIFIED_FILE.get_value() and (
             not self._metas[closed_tab].path
-            and (
-                not closed_tab.loaded
-                or not closed_tab.is_empty()
-                or not closed_tab.undo_stack.isClean()
-            )
-        )
+            and (not closed_tab.loaded or not closed_tab.editable.is_empty() or not closed_tab.undo_stack.isClean())
         ):
             confirm_dialog = QMessageBox()
-            confirm_dialog.setText('File has been modified')
-            confirm_dialog.setInformativeText('Wanna save that shit?')
+            confirm_dialog.setText("File has been modified")
+            confirm_dialog.setInformativeText("Wanna save that shit?")
             confirm_dialog.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
             confirm_dialog.setDefaultButton(QMessageBox.Cancel)
             return_code = confirm_dialog.exec_()

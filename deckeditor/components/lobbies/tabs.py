@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from bidict import bidict
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
-
-from bidict import bidict
 
 from deckeditor.components.lobbies.interfaces import LobbiesViewInterface
 from deckeditor.components.lobbies.lobby import LobbyView
@@ -11,7 +10,6 @@ from deckeditor.context.context import Context
 
 
 class LobbyTabs(QtWidgets.QTabWidget):
-
     def __init__(self, parent: LobbiesViewInterface):
         super().__init__(parent)
         self._lobby_view: LobbiesViewInterface = parent
@@ -27,21 +25,16 @@ class LobbyTabs(QtWidgets.QTabWidget):
     def _update_content(self) -> None:
         lobbies = {
             name: lobby
-            for name, lobby in
-            self._lobby_view.lobby_model.get_lobbies().items()
+            for name, lobby in self._lobby_view.lobby_model.get_lobbies().items()
             if Context.cube_api_client.user.username in lobby.users
         }
 
         removed = self._tabs_map.keys() - lobbies.keys()
         if removed:
             for removed_name, removed_index in sorted(
-                (
-                    (name, self._tabs_map[name])
-                    for name in
-                    removed
-                ),
-                key = lambda kv: kv[1],
-                reverse = True,
+                ((name, self._tabs_map[name]) for name in removed),
+                key=lambda kv: kv[1],
+                reverse=True,
             ):
                 del self._tabs_map[removed_name]
 
@@ -66,11 +59,11 @@ class LobbyTabs(QtWidgets.QTabWidget):
     def _tab_close_requested(self, index: int) -> None:
         closed_tab: LobbyView = self.widget(index)
 
-        if closed_tab.lobby.state == 'game':
+        if closed_tab.lobby.state == "game":
             confirm_dialog = QMessageBox()
-            confirm_dialog.setText('Confirm close')
+            confirm_dialog.setText("Confirm close")
             confirm_dialog.setInformativeText(
-                'You sure you want to disconnect from this ongoing game?\nYou cannot reconnect after leaving.'
+                "You sure you want to disconnect from this ongoing game?\nYou cannot reconnect after leaving."
             )
             confirm_dialog.setStandardButtons(QMessageBox.Close | QMessageBox.Cancel)
             confirm_dialog.setDefaultButton(QMessageBox.Cancel)
@@ -79,9 +72,4 @@ class LobbyTabs(QtWidgets.QTabWidget):
             if return_code == QMessageBox.Cancel:
                 return
 
-        self._lobby_view.lobby_model.leave_lobby(
-            self._tabs_map.inverse[index]
-        )
-
-
-
+        self._lobby_view.lobby_model.leave_lobby(self._tabs_map.inverse[index])

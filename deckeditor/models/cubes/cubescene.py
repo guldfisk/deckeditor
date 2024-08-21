@@ -6,42 +6,45 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from frozendict import frozendict
-
-from PyQt5 import QtGui, QtCore
-from PyQt5.QtCore import QPoint, pyqtSignal
-from PyQt5.QtWidgets import QUndoCommand
-
-from yeetlong.counters import Counter
-
-from mtgorp.models.interfaces import Printing
-
-from magiccube.collections.cubeable import Cubeable
 from magiccube.collections.cube import Cube
+from magiccube.collections.cubeable import Cubeable
 from magiccube.collections.delta import CubeDeltaOperation
 from magiccube.collections.infinites import Infinites
+from mtgorp.models.interfaces import Printing
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtCore import QPoint, pyqtSignal
+from PyQt5.QtWidgets import QUndoCommand
+from yeetlong.counters import Counter
 
 from deckeditor.components.settings import settings
 from deckeditor.components.views.cubeedit.cubeedit import CubeEditMode
-from deckeditor.models.cubes.alignment.aligner import AlignmentPickUp, AlignmentDrop, Aligner, AlignmentMultiDrop
+from deckeditor.models.cubes.alignment.aligner import (
+    Aligner,
+    AlignmentDrop,
+    AlignmentMultiDrop,
+    AlignmentPickUp,
+)
 from deckeditor.models.cubes.alignment.aligners import get_default_aligner_type
 from deckeditor.models.cubes.scenecard import SceneCard
 from deckeditor.models.cubes.scenetypes import SceneType
 from deckeditor.models.cubes.selection import SelectionScene
-from deckeditor.sorting.sorting import SortProperty, SortMacro, SortSpecification, CMCExtractor
+from deckeditor.sorting.sorting import (
+    CMCExtractor,
+    SortMacro,
+    SortProperty,
+    SortSpecification,
+)
 from deckeditor.store import EDB, models
 
 
 class IntraCubeSceneMove(QUndoCommand):
-
     def __init__(self, pick_up: AlignmentPickUp, drop: AlignmentDrop):
         self._pick_up = pick_up
         self._drop = drop
-        super().__init__(
-            str(self)
-        )
+        super().__init__(str(self))
 
     def __str__(self) -> str:
-        return 'intra scene move'
+        return "intra scene move"
 
     def redo(self) -> None:
         self._pick_up.redo()
@@ -53,7 +56,6 @@ class IntraCubeSceneMove(QUndoCommand):
 
 
 class InterCubeSceneMove(QUndoCommand):
-
     def __init__(
         self,
         cards: t.Iterable[SceneCard],
@@ -68,7 +70,7 @@ class InterCubeSceneMove(QUndoCommand):
         self._to_scene = to_scene
         self._drop = drop
 
-        super().__init__('Inter scene move')
+        super().__init__("Inter scene move")
 
     def redo(self) -> None:
         self._pick_up.redo()
@@ -84,7 +86,6 @@ class InterCubeSceneMove(QUndoCommand):
 
 
 class CubeSceneModification(QUndoCommand):
-
     def __init__(
         self,
         scene: CubeScene,
@@ -92,7 +93,7 @@ class CubeSceneModification(QUndoCommand):
         remove_cards: t.Sequence[SceneCard],
         point: QPoint,
     ):
-        super().__init__('Cube modification')
+        super().__init__("Cube modification")
         self._scene = scene
 
         if not (add_cards or remove_cards):
@@ -118,21 +119,20 @@ class CubeSceneModification(QUndoCommand):
 
 
 class ChangeAligner(QUndoCommand):
-
     def __init__(
         self,
         scene: CubeScene,
         pick_up: AlignmentPickUp,
         from_aligner: Aligner,
         to_aligner: Aligner,
-        multi_drops: AlignmentMultiDrop
+        multi_drops: AlignmentMultiDrop,
     ):
         self._scene = scene
         self._pick_up = pick_up
         self._from_aligner = from_aligner
         self._to_aligner = to_aligner
         self._multi_drops = multi_drops
-        super().__init__('Change aligner')
+        super().__init__("Change aligner")
 
     def redo(self) -> None:
         self._pick_up.redo()
@@ -153,11 +153,7 @@ class PhysicalCardChange(object):
     @property
     def cube_delta_operation(self):
         return CubeDeltaOperation(
-            Counter(
-                card.cubeable for card in self.added
-            ) - Counter(
-                card.cubeable for card in self.removed
-            )
+            Counter(card.cubeable for card in self.added) - Counter(card.cubeable for card in self.removed)
         )
 
 
@@ -204,7 +200,7 @@ class CubeScene(SelectionScene):
         else:
             options = dict(
                 aligner_type.schema.deserialize_raw(
-                    settings.SCENE_DEFAULTS.get_value()[self._scene_type.value]['aligner_options']
+                    settings.SCENE_DEFAULTS.get_value()[self._scene_type.value]["aligner_options"]
                 )
             )
             options.update(aligner_options)
@@ -232,12 +228,7 @@ class CubeScene(SelectionScene):
 
     @property
     def cube(self) -> Cube:
-        return Cube(
-            item.cubeable
-            for item in
-            self.items()
-            if isinstance(item, SceneCard)
-        )
+        return Cube(item.cubeable for item in self.items() if isinstance(item, SceneCard))
 
     @property
     def aligner(self) -> Aligner:
@@ -262,18 +253,10 @@ class CubeScene(SelectionScene):
         new_aligner = aligner_type(self, **aligner_type.schema.deserialize_raw(self._aligner.options))
         return ChangeAligner(
             self,
-            self._aligner.pick_up(
-                self.items()
-            ),
+            self._aligner.pick_up(self.items()),
             self._aligner,
             new_aligner,
-            new_aligner.multi_drop(
-                [
-                    ((card,), card.pos())
-                    for card in
-                    self.items()
-                ]
-            ),
+            new_aligner.multi_drop([((card,), card.pos()) for card in self.items()]),
         )
 
     @classmethod
@@ -284,9 +267,9 @@ class CubeScene(SelectionScene):
         name: SceneType,
     ) -> CubeScene:
         cube_scene = CubeScene(
-            aligner_type = None,
-            mode = mode,
-            scene_type = name,
+            aligner_type=None,
+            mode=mode,
+            scene_type=name,
         )
         aligner._scene = cube_scene
         cube_scene._aligner = aligner
@@ -302,7 +285,7 @@ class CubeScene(SelectionScene):
                 self._mode,
                 self._scene_type,
             ),
-            {'_related_scenes': self._related_scenes},
+            {"_related_scenes": self._related_scenes},
         )
 
     def get_intra_move(self, items: t.Sequence[SceneCard], position: QPoint) -> IntraCubeSceneMove:
@@ -337,15 +320,12 @@ class CubeScene(SelectionScene):
             new_physical_cards = list(
                 itertools.chain.from_iterable(
                     (SceneCard.from_cubeable(cubeable) for _ in range(multiplicity))
-                    for cubeable, multiplicity in
-                    modification.new_cubeables
+                    for cubeable, multiplicity in modification.new_cubeables
                 )
             )
 
             removed_physical_cards = self.get_cards_from_cubeables(
-                (cubeable, -multiplicity)
-                for cubeable, multiplicity in
-                modification.removed_cubeables
+                (cubeable, -multiplicity) for cubeable, multiplicity in modification.removed_cubeables
             )
 
         else:
@@ -356,16 +336,14 @@ class CubeScene(SelectionScene):
             new_physical_cards, removed_physical_cards = (
                 [
                     card
-                    for card in
-                    cards
+                    for card in cards
                     if (
-                    isinstance(card, SceneCard)
-                    and isinstance(card.cubeable, Printing)
-                    and card.cubeable.cardboard in self.infinites
-                )
+                        isinstance(card, SceneCard)
+                        and isinstance(card.cubeable, Printing)
+                        and card.cubeable.cardboard in self.infinites
+                    )
                 ]
-                for cards in
-                (new_physical_cards, removed_physical_cards)
+                for cards in (new_physical_cards, removed_physical_cards)
             )
 
         return CubeSceneModification(
@@ -378,9 +356,7 @@ class CubeScene(SelectionScene):
     def get_cards_from_cubeables(self, cubeables: t.Iterable[t.Tuple[Cubeable, int]]) -> t.Collection[SceneCard]:
         return list(
             itertools.chain.from_iterable(
-                self._item_map[cubeable][:multiplicity]
-                for cubeable, multiplicity in
-                cubeables
+                self._item_map[cubeable][:multiplicity] for cubeable, multiplicity in cubeables
             )
         )
 
@@ -389,14 +365,14 @@ class CubeScene(SelectionScene):
             self._item_map[card.cubeable].append(card)
             self.addItem(card)
 
-        self.content_changed.emit(PhysicalCardChange(added = physical_cards))
+        self.content_changed.emit(PhysicalCardChange(added=physical_cards))
 
     def remove_physical_cards(self, *physical_cards: SceneCard) -> None:
         for card in physical_cards:
             self._item_map[card.cubeable].remove(card)
             self.removeItem(card)
 
-        self.content_changed.emit(PhysicalCardChange(removed = physical_cards))
+        self.content_changed.emit(PhysicalCardChange(removed=physical_cards))
 
     def drawBackground(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
         if self._aligner:
@@ -404,19 +380,20 @@ class CubeScene(SelectionScene):
 
     def get_default_sort(self) -> QUndoCommand:
         return self.aligner.sort(
-            sort_macro = EDB.Session.query(models.SortMacro).get(
-                settings.SCENE_DEFAULTS.get_value()[self._scene_type.value]['sort_macro']
-            ) or SortMacro(
-                specifications = [
+            sort_macro=EDB.Session.query(models.SortMacro).get(
+                settings.SCENE_DEFAULTS.get_value()[self._scene_type.value]["sort_macro"]
+            )
+            or SortMacro(
+                specifications=[
                     SortSpecification(
-                        sort_property = CMCExtractor,
+                        sort_property=CMCExtractor,
                     )
                 ]
             ),
-            cards = self.items(),
+            cards=self.items(),
         )
 
     def __repr__(self):
-        return '{}()'.format(
+        return "{}()".format(
             self.__class__.__name__,
         )

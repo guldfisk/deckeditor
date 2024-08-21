@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import types
 import typing as t
-
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 
 from mtgorp.models.serilization.strategies.jsonid import JsonId
 from mtgorp.tools import deckio
 
 from deckeditor.context.context import Context
-from deckeditor.models.deck import Deck, TabModel, Pool
+from deckeditor.models.deck import Deck, Pool, TabModel
 
 
-T = t.TypeVar('T', bound = TabModel)
+T = t.TypeVar("T", bound=TabModel)
 
 
 class _TabModelSerializerMeta(ABCMeta):
@@ -21,14 +20,14 @@ class _TabModelSerializerMeta(ABCMeta):
     def __new__(mcs, classname, base_classes, attributes):
         klass = type.__new__(mcs, classname, base_classes, attributes)
 
-        if 'extensions' in attributes:
-            for extension in attributes['extensions']:
-                mcs.extension_to_serializer[(extension, attributes['tab_model_type'])] = klass
+        if "extensions" in attributes:
+            for extension in attributes["extensions"]:
+                mcs.extension_to_serializer[(extension, attributes["tab_model_type"])] = klass
 
         return klass
 
 
-class TabModelSerializer(t.Generic[T], metaclass = _TabModelSerializerMeta):
+class TabModelSerializer(t.Generic[T], metaclass=_TabModelSerializerMeta):
     extensions: t.Sequence[str]
     tab_model_type: t.Type[T]
 
@@ -46,18 +45,18 @@ class TabModelSerializer(t.Generic[T], metaclass = _TabModelSerializerMeta):
 def init_deck_serializers():
     for serializer_type in deckio.DecSerializer.extension_to_serializer.values():
         types.new_class(
-            '_' + serializer_type.__name__,
+            "_" + serializer_type.__name__,
             (TabModelSerializer[Deck],),
-            {'metaclass': _TabModelSerializerMeta},
+            {"metaclass": _TabModelSerializerMeta},
             lambda d: d.update(
                 {
-                    'extensions': serializer_type.extensions,
-                    'tab_model_type': Deck,
-                    '_serializer': serializer_type(Context.db),
-                    'serialize': classmethod(
+                    "extensions": serializer_type.extensions,
+                    "tab_model_type": Deck,
+                    "_serializer": serializer_type(Context.db),
+                    "serialize": classmethod(
                         lambda cls, tab_model: cls._serializer.serialize(tab_model.as_primitive_deck())
                     ),
-                    'deserialize': classmethod(
+                    "deserialize": classmethod(
                         lambda cls, s: Deck.from_primitive_deck(cls._serializer.deserialize(s))
                     ),
                 }
@@ -66,7 +65,7 @@ def init_deck_serializers():
 
 
 class PoolJsonSerializer(TabModelSerializer[Pool]):
-    extensions = ['json', 'JSON']
+    extensions = ["json", "JSON"]
     tab_model_type = Pool
 
     @classmethod
