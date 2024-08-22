@@ -48,7 +48,6 @@ lobbyclient = { git = "https://github.com/guldfisk/lobbyclient.git" }
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.6.1"
-PyQt5-stubs = "~5.15"
 
 [build-system]
 requires = ["poetry-core"]

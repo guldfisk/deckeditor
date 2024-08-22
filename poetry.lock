@@ -808,7 +808,7 @@ websocket-client = "~1.2"
 type = "git"
 url = "https://github.com/guldfisk/lobbyclient.git"
 reference = "HEAD"
-resolved_reference = "ae6008fec058843191e3c2b92f79198517f36114"
+resolved_reference = "770e0b025bbe63293cdc1a6b7d2de660f66e020d"
 
 [[package]]
 name = "loguru"
@@ -1051,7 +1051,7 @@ websocket-client = "~1.2"
 type = "git"
 url = "https://github.com/guldfisk/mtgdraft.git"
 reference = "HEAD"
-resolved_reference = "e3c390a4a64b47b04ea38e9a95bd5d5e65ccded0"
+resolved_reference = "3b3c79b9bf672ba1227e250591c34c32900b3e0c"
 
 [[package]]
 name = "mtgimg"
