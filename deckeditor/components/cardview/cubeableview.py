@@ -172,6 +172,9 @@ class CardTextView(QtWidgets.QWidget):
         elif card.loyalty is not None:
             self._power_toughness_loyalty_label.setText(str(card.loyalty))
             self._power_toughness_loyalty_label.show()
+        elif card.defense is not None:
+            self._power_toughness_loyalty_label.setText(str(card.defense))
+            self._power_toughness_loyalty_label.show()
         else:
             self._power_toughness_loyalty_label.hide()
 
